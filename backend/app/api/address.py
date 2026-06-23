@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, HTTPException, Path, Query, status
 
 from ..services.address_service import (
     AddressUpstreamError,
@@ -22,28 +22,20 @@ async def address_lookup(address: str = Path(..., min_length=1, max_length=128))
     try:
         return await get_address_summary(address)
     except InvalidPepewAddressError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_error_detail(exc.code),
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_error_detail(exc.code)) from exc
     except AddressUpstreamError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=_error_detail(exc.code, exc.detail),
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_error_detail(exc.code, exc.detail)) from exc
 
 
 @router.get("/address/{address}/history")
-async def address_history(address: str = Path(..., min_length=1, max_length=128)) -> dict:
+async def address_history(
+    address: str = Path(..., min_length=1, max_length=128),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
     try:
-        return await get_address_history(address)
+        return await get_address_history(address, limit=limit, offset=offset)
     except InvalidPepewAddressError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_error_detail(exc.code),
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_error_detail(exc.code)) from exc
     except AddressUpstreamError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=_error_detail(exc.code, exc.detail),
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_error_detail(exc.code, exc.detail)) from exc
