@@ -1,4 +1,46 @@
 <!doctype html>
-<title>Status · PEPEW Light</title>
-<h1>Status</h1>
-<p>This page is planned for a later phase.</p>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Status · {{ app_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 920px; line-height: 1.5; }
+    code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+    .ok { color: #176b35; }
+    .bad { color: #9f1d20; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #eee; padding: 0.45rem; text-align: left; vertical-align: top; }
+    th { width: 14rem; }
+  </style>
+</head>
+<body>
+  <h1>PEPEW Light Status</h1>
+  <p>Read-only ElectrumX gateway status. Version: <code>{{ version }}</code></p>
+
+  <div class="card">
+    {% if status.ok %}
+      <h2 class="ok">ElectrumX connected</h2>
+    {% else %}
+      <h2 class="bad">ElectrumX disconnected</h2>
+      <p>Gateway is responding, but ElectrumX is not currently available.</p>
+      {% if status.error %}<p>Error: <code>{{ status.error }}</code></p>{% endif %}
+    {% endif %}
+
+    <table>
+      <tr><th>Host</th><td><code>{{ status.electrumx.host }}</code>:<code>{{ status.electrumx.port }}</code></td></tr>
+      <tr><th>SSL</th><td>{{ status.electrumx.ssl }}</td></tr>
+      <tr><th>Server version</th><td>{{ status.electrumx.server_version or "n/a" }}</td></tr>
+      <tr><th>Protocol</th><td>{{ status.electrumx.protocol or "n/a" }}</td></tr>
+      <tr><th>Height</th><td>{{ status.electrumx.height or "n/a" }}</td></tr>
+      <tr><th>Tip hash</th><td><code>{{ status.electrumx.tip_hash or "n/a" }}</code></td></tr>
+      <tr><th>Response time</th><td>{{ status.electrumx.response_time_ms or "n/a" }} ms</td></tr>
+      <tr><th>Cache</th><td>TTL {{ status.cache.ttl_seconds }}s · hit: {{ status.cache.hit }}</td></tr>
+      <tr><th>Last checked</th><td>{{ status.checked_at }}</td></tr>
+    </table>
+  </div>
+
+  <p><a href="/">Home</a> · <a href="/api/status">JSON status</a></p>
+</body>
+</html>
