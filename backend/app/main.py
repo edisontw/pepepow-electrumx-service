@@ -9,6 +9,7 @@ from .api.tx import router as tx_router
 from .api.payment import router as payment_router
 from .config import get_settings
 from .logging_config import configure_logging
+from .services.status_service import get_status
 
 settings = get_settings()
 configure_logging(settings)
@@ -36,5 +37,19 @@ async def index(request: Request) -> HTMLResponse:
         {
             "app_name": settings.app_name,
             "version": settings.version,
+        },
+    )
+
+
+@app.get("/status", response_class=HTMLResponse)
+async def status_page(request: Request) -> HTMLResponse:
+    status = await get_status()
+    return templates.TemplateResponse(
+        request,
+        "status.html",
+        {
+            "app_name": settings.app_name,
+            "version": settings.version,
+            "status": status,
         },
     )
