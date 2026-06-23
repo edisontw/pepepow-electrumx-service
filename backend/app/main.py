@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from .api.health import router as health_router
@@ -53,3 +53,8 @@ async def status_page(request: Request) -> HTMLResponse:
             "status": status,
         },
     )
+
+
+@app.head("/status")
+async def status_head() -> Response:
+    return Response(status_code=200)
