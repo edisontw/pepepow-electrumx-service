@@ -81,7 +81,8 @@ class ElectrumXClient:
         if not isinstance(data, dict):
             raise ElectrumXProtocolError("electrumx_invalid_response")
 
-        if data.get("id") != payload["id"]:
+        response_id = data.get("id")
+        if response_id is not None and str(response_id) != str(payload["id"]):
             raise ElectrumXProtocolError("electrumx_response_id_mismatch")
 
         if data.get("error") is not None:
