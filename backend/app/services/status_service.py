@@ -58,9 +58,13 @@ async def get_status() -> dict[str, Any]:
         version_result = await server_version(client)
         checks["server.version"] = "ok"
 
-        checks["server.features"] = "running"
-        features_result = await server_features(client)
-        checks["server.features"] = "ok"
+        features_result = None
+        try:
+            checks["server.features"] = "running"
+            features_result = await server_features(client)
+            checks["server.features"] = "ok"
+        except ElectrumXError as exc:
+            checks["server.features"] = f"optional_failed:{str(exc) or exc.__class__.__name__}"
 
         checks["blockchain.headers.subscribe"] = "running"
         header_result = await headers_subscribe(client)
