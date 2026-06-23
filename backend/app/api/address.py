@@ -10,6 +10,13 @@ from ..services.address_service import (
 router = APIRouter(tags=["address"])
 
 
+def _error_detail(error: str, extra: dict | None = None) -> dict:
+    detail = {"ok": False, "error": error}
+    if extra:
+        detail.update(extra)
+    return detail
+
+
 @router.get("/address/{address}")
 async def address_lookup(address: str = Path(..., min_length=1, max_length=128)) -> dict:
     try:
@@ -17,12 +24,12 @@ async def address_lookup(address: str = Path(..., min_length=1, max_length=128))
     except InvalidPepewAddressError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"ok": False, "error": exc.code},
+            detail=_error_detail(exc.code),
         ) from exc
     except AddressUpstreamError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"ok": False, "error": exc.code},
+            detail=_error_detail(exc.code, exc.detail),
         ) from exc
 
 
@@ -33,10 +40,10 @@ async def address_history(address: str = Path(..., min_length=1, max_length=128)
     except InvalidPepewAddressError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"ok": False, "error": exc.code},
+            detail=_error_detail(exc.code),
         ) from exc
     except AddressUpstreamError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"ok": False, "error": exc.code},
+            detail=_error_detail(exc.code, exc.detail),
         ) from exc
