@@ -32,7 +32,11 @@ def test_address_lookup_endpoint_success(monkeypatch):
 
 
 def test_address_history_endpoint_success(monkeypatch):
-    async def fake_get_address_history(address):
+    seen = {}
+
+    async def fake_get_address_history(address, limit=50, offset=0):
+        seen["limit"] = limit
+        seen["offset"] = offset
         return {
             "ok": True,
             "address": address,
@@ -41,17 +45,30 @@ def test_address_history_endpoint_success(monkeypatch):
             "mempool": [],
             "history_count": 1,
             "mempool_count": 0,
+            "limit": limit,
+            "offset": offset,
+            "has_more": False,
         }
 
     monkeypatch.setattr(address_api, "get_address_history", fake_get_address_history)
     client = TestClient(app)
-    response = client.get(f"/api/address/{KNOWN_ADDRESS}/history")
+    response = client.get(f"/api/address/{KNOWN_ADDRESS}/history?limit=25&offset=10")
 
     assert response.status_code == 200
     data = response.json()
     assert data["ok"] is True
     assert data["history"][0]["tx_hash"] == "a" * 64
     assert data["history_count"] == 1
+    assert data["limit"] == 25
+    assert data["offset"] == 10
+    assert seen == {"limit": 25, "offset": 10}
+
+
+def test_address_history_invalid_limit_returns_422():
+    client = TestClient(app)
+    response = client.get(f"/api/address/{KNOWN_ADDRESS}/history?limit=501")
+
+    assert response.status_code == 422
 
 
 def test_address_lookup_invalid_address_returns_400():
