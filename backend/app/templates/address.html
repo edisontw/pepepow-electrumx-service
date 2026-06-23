@@ -1,4 +1,208 @@
 <!doctype html>
-<title>Address Lookup · PEPEW Light</title>
-<h1>Address Lookup</h1>
-<p>This page is planned for a later phase.</p>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Address Lookup · {{ app_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 980px; line-height: 1.5; }
+    code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 4px; word-break: break-all; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+    label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+    input { box-sizing: border-box; width: min(100%, 44rem); padding: 0.65rem; font: inherit; }
+    button { padding: 0.65rem 0.9rem; font: inherit; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.55; }
+    table { border-collapse: collapse; width: 100%; margin-top: 0.75rem; }
+    th, td { border-bottom: 1px solid #eee; padding: 0.45rem; text-align: left; vertical-align: top; }
+    th { width: 13rem; }
+    .muted { color: #666; }
+    .ok { color: #176b35; }
+    .bad { color: #9f1d20; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .tx { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>PEPEW Address Lookup</h1>
+  <p class="muted">Read-only lookup via PEPEW Light. No mnemonic, private key, or signing data is handled by this page.</p>
+
+  <div class="card">
+    <form id="lookup-form">
+      <label for="address-input">PEPEW address</label>
+      <div class="actions">
+        <input id="address-input" name="q" type="text" value="{{ query_address }}" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128">
+        <button type="submit">Lookup</button>
+      </div>
+    </form>
+    <p id="message" class="muted">Enter a PEPEW address to query balance and history.</p>
+  </div>
+
+  <div id="summary-card" class="card" hidden>
+    <h2>Summary</h2>
+    <table>
+      <tbody id="summary-body"></tbody>
+    </table>
+  </div>
+
+  <div id="history-card" class="card" hidden>
+    <h2>Recent History</h2>
+    <p id="history-page" class="muted"></p>
+    <table>
+      <thead>
+        <tr><th>tx_hash</th><th>height</th></tr>
+      </thead>
+      <tbody id="history-body"></tbody>
+    </table>
+    <p class="actions">
+      <button id="prev-page" type="button">Prev</button>
+      <button id="next-page" type="button">Next</button>
+    </p>
+  </div>
+
+  <p><a href="/">Home</a> · <a href="/status">Status</a> · <a href="/api/status">JSON status</a></p>
+
+  <script>
+    (() => {
+      const PAGE_LIMIT = 20;
+      const initialAddress = {{ query_address | tojson }};
+      let currentAddress = initialAddress || "";
+      let currentOffset = 0;
+
+      const form = document.getElementById("lookup-form");
+      const input = document.getElementById("address-input");
+      const message = document.getElementById("message");
+      const summaryCard = document.getElementById("summary-card");
+      const summaryBody = document.getElementById("summary-body");
+      const historyCard = document.getElementById("history-card");
+      const historyBody = document.getElementById("history-body");
+      const historyPage = document.getElementById("history-page");
+      const prevButton = document.getElementById("prev-page");
+      const nextButton = document.getElementById("next-page");
+
+      function setMessage(text, className = "muted") {
+        message.textContent = text;
+        message.className = className;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function formatAtoms(value) {
+        const atoms = Number(value || 0);
+        if (!Number.isSafeInteger(atoms)) {
+          return String(value || 0);
+        }
+        const sign = atoms < 0 ? "-" : "";
+        const absolute = Math.abs(atoms);
+        const whole = Math.floor(absolute / 100000000);
+        const fraction = String(absolute % 100000000).padStart(8, "0").replace(/0+$/, "");
+        return `${sign}${whole}${fraction ? "." + fraction : ""}`;
+      }
+
+      async function getJson(url) {
+        const response = await fetch(url, { headers: { "Accept": "application/json" } });
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (_error) {
+          data = {};
+        }
+        if (!response.ok || data.ok === false) {
+          const detail = data.detail || data;
+          throw new Error(detail.error || response.statusText || "request_failed");
+        }
+        return data;
+      }
+
+      function renderSummary(data) {
+        const balance = data.balance || {};
+        const confirmed = balance.confirmed || 0;
+        const unconfirmed = balance.unconfirmed || 0;
+        const cache = data.cache || {};
+        summaryBody.innerHTML = `
+          <tr><th>Address</th><td><code>${escapeHtml(data.address)}</code></td></tr>
+          <tr><th>Confirmed balance</th><td>${escapeHtml(formatAtoms(confirmed))} PEPEW <span class="muted">(${escapeHtml(confirmed)} atoms)</span></td></tr>
+          <tr><th>Unconfirmed balance</th><td>${escapeHtml(formatAtoms(unconfirmed))} PEPEW <span class="muted">(${escapeHtml(unconfirmed)} atoms)</span></td></tr>
+          <tr><th>History count</th><td>${escapeHtml(data.history_count || 0)}</td></tr>
+          <tr><th>Mempool count</th><td>${escapeHtml(data.mempool_count || 0)}</td></tr>
+          <tr><th>Scripthash</th><td><code>${escapeHtml(data.scripthash)}</code></td></tr>
+          <tr><th>Cache</th><td>hit: ${escapeHtml(Boolean(cache.hit))} · ttl: ${escapeHtml(cache.ttl_seconds ?? "n/a")}s</td></tr>
+        `;
+        summaryCard.hidden = false;
+      }
+
+      function renderHistory(data) {
+        const rows = data.history || [];
+        historyBody.innerHTML = "";
+        if (rows.length === 0) {
+          historyBody.innerHTML = '<tr><td colspan="2" class="muted">No confirmed history.</td></tr>';
+        } else {
+          for (const row of rows) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td class="tx">${escapeHtml(row.tx_hash)}</td><td>${escapeHtml(row.height)}</td>`;
+            historyBody.appendChild(tr);
+          }
+        }
+
+        const start = rows.length > 0 ? data.offset + 1 : 0;
+        const end = data.offset + rows.length;
+        historyPage.textContent = `Showing ${start}-${end} of ${data.history_count || 0} · limit ${data.limit} · offset ${data.offset}`;
+        prevButton.disabled = data.offset <= 0;
+        nextButton.disabled = !data.has_more;
+        historyCard.hidden = false;
+      }
+
+      async function lookup(address, offset = 0) {
+        const trimmed = address.trim();
+        if (!trimmed) {
+          setMessage("Enter a PEPEW address.", "bad");
+          return;
+        }
+
+        currentAddress = trimmed;
+        currentOffset = Math.max(0, offset);
+        input.value = trimmed;
+        window.history.replaceState(null, "", `/address?q=${encodeURIComponent(trimmed)}`);
+
+        try {
+          setMessage("Loading address summary...", "muted");
+          const summary = await getJson(`/api/address/${encodeURIComponent(trimmed)}`);
+          renderSummary(summary);
+
+          setMessage("Loading transaction history...", "muted");
+          const historyData = await getJson(`/api/address/${encodeURIComponent(trimmed)}/history?limit=${PAGE_LIMIT}&offset=${currentOffset}`);
+          renderHistory(historyData);
+          setMessage(`Loaded ${summary.address}.`, "ok");
+        } catch (error) {
+          summaryCard.hidden = true;
+          historyCard.hidden = true;
+          setMessage(`Lookup failed: ${error.message}`, "bad");
+        }
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        lookup(input.value, 0);
+      });
+
+      prevButton.addEventListener("click", () => {
+        lookup(currentAddress, Math.max(0, currentOffset - PAGE_LIMIT));
+      });
+
+      nextButton.addEventListener("click", () => {
+        lookup(currentAddress, currentOffset + PAGE_LIMIT);
+      });
+
+      if (initialAddress) {
+        lookup(initialAddress, 0);
+      }
+    })();
+  </script>
+</body>
+</html>
