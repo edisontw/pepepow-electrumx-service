@@ -21,3 +21,19 @@ async def server_features(client: ElectrumXClient) -> Any:
 
 async def headers_subscribe(client: ElectrumXClient) -> Any:
     return await client.request(HEADERS_SUBSCRIBE)
+
+
+async def scripthash_get_balance(client: ElectrumXClient, scripthash: str) -> Any:
+    return await client.request(SCRIPTHASH_GET_BALANCE, [scripthash])
+
+
+async def scripthash_get_history(client: ElectrumXClient, scripthash: str) -> Any:
+    return await client.request(SCRIPTHASH_GET_HISTORY, [scripthash])
+
+
+async def scripthash_get_mempool(client: ElectrumXClient, scripthash: str) -> Any:
+    return await client.request(SCRIPTHASH_GET_MEMPOOL, [scripthash])
+
+
+async def transaction_get(client: ElectrumXClient, txid: str, verbose: bool = False) -> Any:
+    return await client.request(TRANSACTION_GET, [txid, verbose])
