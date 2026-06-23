@@ -88,7 +88,14 @@ class ElectrumXClient:
         if data.get("error") is not None:
             raise ElectrumXMethodError("electrumx_method_error", data=data.get("error"))
 
-        if "result" not in data:
-            raise ElectrumXProtocolError("electrumx_missing_result")
+        if "result" in data:
+            return data["result"]
 
-        return data["result"]
+        notification_method = data.get("method")
+        notification_params = data.get("params")
+        if response_id is None and notification_method == payload["method"] and isinstance(notification_params, list):
+            if len(notification_params) == 1:
+                return notification_params[0]
+            return notification_params
+
+        raise ElectrumXProtocolError("electrumx_missing_result")
