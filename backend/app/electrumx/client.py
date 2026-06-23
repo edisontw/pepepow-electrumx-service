@@ -11,6 +11,8 @@ from .errors import (
     ElectrumXTimeoutError,
 )
 
+DEFAULT_STREAM_LIMIT_BYTES = 16 * 1024 * 1024
+
 
 class ElectrumXClient:
     """Small newline-delimited ElectrumX JSON-RPC TCP client."""
@@ -36,7 +38,12 @@ class ElectrumXClient:
                 timeout=self.settings.electrumx_timeout,
             )
         except asyncio.TimeoutError as exc:
+            await self.close()
             raise ElectrumXTimeoutError("electrumx_timeout") from exc
+        except ValueError as exc:
+            # StreamReader.readline can raise ValueError when one JSON line exceeds the configured limit.
+            await self.close()
+            raise ElectrumXProtocolError("electrumx_response_too_large") from exc
 
     async def call(self, method: str, params: list[Any] | None = None) -> Any:
         """Backward-compatible alias for request()."""
@@ -66,6 +73,7 @@ class ElectrumXClient:
                     self.settings.electrumx_host,
                     self.settings.electrumx_port,
                     ssl=ssl_context,
+                    limit=DEFAULT_STREAM_LIMIT_BYTES,
                 ),
                 timeout=timeout,
             )
@@ -84,7 +92,12 @@ class ElectrumXClient:
         await asyncio.wait_for(writer.drain(), timeout=timeout)
 
         while True:
-            line = await asyncio.wait_for(reader.readline(), timeout=timeout)
+            try:
+                line = await asyncio.wait_for(reader.readline(), timeout=timeout)
+            except ValueError as exc:
+                await self.close()
+                raise ElectrumXProtocolError("electrumx_response_too_large") from exc
+
             if not line:
                 await self.close()
                 raise ElectrumXProtocolError("electrumx_empty_response")
@@ -92,6 +105,7 @@ class ElectrumXClient:
             try:
                 data = json.loads(line.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                await self.close()
                 raise ElectrumXProtocolError("electrumx_invalid_json") from exc
 
             if not isinstance(data, dict):
