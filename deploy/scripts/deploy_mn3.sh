@@ -8,7 +8,7 @@ cd "$APP_DIR"
 git pull --ff-only
 
 cd "$BACKEND_DIR"
-python3.11 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp -n .env.example .env

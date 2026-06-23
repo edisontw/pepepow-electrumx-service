@@ -16,12 +16,14 @@ store, log, derive, or handle wallet secrets.
 
 ```bash
 cd backend
-python3.11 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp -n .env.example .env
 uvicorn app.main:app --host 127.0.0.1 --port 8088 --reload
 ```
+
+Python 3.11+ is preferred. Python 3.10 is acceptable for the initial MN3 Phase 0 deployment.
 
 ## Tests
 
@@ -31,6 +33,13 @@ source .venv/bin/activate
 pytest
 curl http://127.0.0.1:8088/api/health
 curl http://127.0.0.1:8088/
+```
+
+If the virtual environment is not ready yet, run tests with the system/user Python after installing requirements:
+
+```bash
+cd backend
+python3 -m pytest
 ```
 
 ## MN3 deployment
@@ -47,11 +56,19 @@ On MN3:
 cd /home/ubuntu
 git clone https://github.com/edisontw/pepepow-electrumx-service.git
 cd pepepow-electrumx-service/backend
-python3.11 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp -n .env.example .env
 nano .env
+```
+
+If `python3 -m venv .venv` fails, install the venv package first:
+
+```bash
+sudo apt update
+sudo apt install -y python3-venv
+python3 -m venv .venv
 ```
 
 Run manually:
