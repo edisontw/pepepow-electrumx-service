@@ -31,9 +31,9 @@ app.include_router(payment_router, prefix="/api")
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "app_name": settings.app_name,
             "version": settings.version,
         },
