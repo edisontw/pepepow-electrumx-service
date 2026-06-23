@@ -81,6 +81,12 @@ def _normalize_mempool(mempool: Any) -> list[dict[str, Any]]:
     return normalized
 
 
+def _paginate(items: list[dict[str, Any]], limit: int, offset: int) -> tuple[list[dict[str, Any]], bool]:
+    start = max(offset, 0)
+    end = start + max(limit, 0)
+    return items[start:end], end < len(items)
+
+
 def _safe_address_parts(address: str) -> tuple[str, str, str]:
     try:
         value = address.strip()
@@ -165,14 +171,22 @@ async def get_address_summary(address: str) -> dict[str, Any]:
     return result
 
 
-async def get_address_history(address: str) -> dict[str, Any]:
+async def get_address_history(address: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     settings = get_settings()
     normalized_address, hash160, scripthash = _safe_address_parts(address)
-    cache_key = f"history:{scripthash}"
+    cache_key = f"history:raw:{scripthash}"
+    limit = max(1, min(limit, 500))
+    offset = max(offset, 0)
 
     cached = _history_cache.get(cache_key)
     if cached is not None:
         result = dict(cached)
+        full_history = list(result.get("history", []))
+        history_page, has_more = _paginate(full_history, limit, offset)
+        result["history"] = history_page
+        result["limit"] = limit
+        result["offset"] = offset
+        result["has_more"] = has_more
         result["cache"] = dict(result.get("cache", {}))
         result["cache"]["hit"] = True
         return result
@@ -190,15 +204,19 @@ async def get_address_history(address: str) -> dict[str, Any]:
 
     history = _normalize_history(history_result)
     mempool = _normalize_mempool(mempool_result)
+    history_page, has_more = _paginate(history, limit, offset)
     result = {
         "ok": True,
         "address": normalized_address,
         "hash160": hash160,
         "scripthash": scripthash,
-        "history": history,
+        "history": history_page,
         "mempool": mempool,
         "history_count": len(history),
         "mempool_count": len(mempool),
+        "limit": limit,
+        "offset": offset,
+        "has_more": has_more,
         "response_time_ms": round((time.perf_counter() - started) * 1000, 2),
         "checked_at": int(time.time()),
         "cache": {
@@ -209,7 +227,9 @@ async def get_address_history(address: str) -> dict[str, Any]:
     }
 
     if settings.cache_history_seconds > 0:
-        _history_cache.set(cache_key, result, settings.cache_history_seconds)
+        cached_result = dict(result)
+        cached_result["history"] = history
+        _history_cache.set(cache_key, cached_result, settings.cache_history_seconds)
     return result
 
 
