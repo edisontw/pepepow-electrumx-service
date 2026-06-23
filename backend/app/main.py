@@ -41,6 +41,24 @@ async def index(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/address", response_class=HTMLResponse)
+async def address_page(request: Request, q: str | None = None) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "address.html",
+        {
+            "app_name": settings.app_name,
+            "version": settings.version,
+            "query_address": (q or "").strip(),
+        },
+    )
+
+
+@app.head("/address")
+async def address_head() -> Response:
+    return Response(status_code=200)
+
+
 @app.get("/status", response_class=HTMLResponse)
 async def status_page(request: Request) -> HTMLResponse:
     status = await get_status()
