@@ -1,3 +1,7 @@
+from typing import Any
+
+from .client import ElectrumXClient
+
 SERVER_VERSION = "server.version"
 SERVER_FEATURES = "server.features"
 HEADERS_SUBSCRIBE = "blockchain.headers.subscribe"
@@ -5,3 +9,15 @@ SCRIPTHASH_GET_BALANCE = "blockchain.scripthash.get_balance"
 SCRIPTHASH_GET_HISTORY = "blockchain.scripthash.get_history"
 SCRIPTHASH_GET_MEMPOOL = "blockchain.scripthash.get_mempool"
 TRANSACTION_GET = "blockchain.transaction.get"
+
+
+async def server_version(client: ElectrumXClient) -> Any:
+    return await client.request(SERVER_VERSION, ["pepew-light", "1.4"])
+
+
+async def server_features(client: ElectrumXClient) -> Any:
+    return await client.request(SERVER_FEATURES)
+
+
+async def headers_subscribe(client: ElectrumXClient) -> Any:
+    return await client.request(HEADERS_SUBSCRIBE)
