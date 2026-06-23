@@ -36,6 +36,7 @@ async def get_status() -> dict[str, Any]:
 
     started = time.perf_counter()
     client = ElectrumXClient(settings)
+    checks: dict[str, str] = {}
     base: dict[str, Any] = {
         "app": settings.app_name,
         "electrumx": {
@@ -44,6 +45,7 @@ async def get_status() -> dict[str, Any]:
             "port": settings.electrumx_port,
             "ssl": settings.electrumx_use_ssl,
         },
+        "checks": checks,
         "cache": {
             "enabled": settings.cache_status_seconds > 0,
             "ttl_seconds": settings.cache_status_seconds,
@@ -52,9 +54,18 @@ async def get_status() -> dict[str, Any]:
     }
 
     try:
+        checks["server.version"] = "running"
         version_result = await server_version(client)
+        checks["server.version"] = "ok"
+
+        checks["server.features"] = "running"
         features_result = await server_features(client)
+        checks["server.features"] = "ok"
+
+        checks["blockchain.headers.subscribe"] = "running"
         header_result = await headers_subscribe(client)
+        checks["blockchain.headers.subscribe"] = "ok"
+
         response_time_ms = round((time.perf_counter() - started) * 1000, 2)
 
         server_name = None
@@ -89,16 +100,16 @@ async def get_status() -> dict[str, Any]:
             },
             "checked_at": int(time.time()),
         }
-    except ElectrumXTimeoutError:
-        status = _error_status(base, "electrumx_timeout", started)
-    except ElectrumXConnectionError:
-        status = _error_status(base, "electrumx_unavailable", started)
-    except ElectrumXMethodError:
-        status = _error_status(base, "electrumx_method_error", started)
-    except ElectrumXProtocolError:
-        status = _error_status(base, "electrumx_protocol_error", started)
-    except ElectrumXError:
-        status = _error_status(base, "electrumx_error", started)
+    except ElectrumXTimeoutError as exc:
+        status = _error_status(base, str(exc) or "electrumx_timeout", started)
+    except ElectrumXConnectionError as exc:
+        status = _error_status(base, str(exc) or "electrumx_unavailable", started)
+    except ElectrumXMethodError as exc:
+        status = _error_status(base, str(exc) or "electrumx_method_error", started)
+    except ElectrumXProtocolError as exc:
+        status = _error_status(base, str(exc) or "electrumx_protocol_error", started)
+    except ElectrumXError as exc:
+        status = _error_status(base, str(exc) or "electrumx_error", started)
 
     if settings.cache_status_seconds > 0:
         _status_cache["value"] = status
