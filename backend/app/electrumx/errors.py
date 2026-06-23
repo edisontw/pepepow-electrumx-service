@@ -27,6 +27,10 @@ class ElectrumXProtocolError(ElectrumXError):
 
     code = "electrumx_protocol_error"
 
+    def __init__(self, message: str = "electrumx_protocol_error", *, data: object | None = None) -> None:
+        super().__init__(message)
+        self.data = data
+
 
 class ElectrumXMethodError(ElectrumXError):
     """ElectrumX returned a JSON-RPC method error."""
