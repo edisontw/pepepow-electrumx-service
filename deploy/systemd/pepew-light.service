@@ -1,0 +1,18 @@
+[Unit]
+Description=PEPEW Light ElectrumX API Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/pepepow-electrumx-service/backend
+EnvironmentFile=/home/ubuntu/pepepow-electrumx-service/backend/.env
+ExecStart=/home/ubuntu/pepepow-electrumx-service/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8088
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+SERVER_VERSION = "server.version"
+SERVER_FEATURES = "server.features"
+HEADERS_SUBSCRIBE = "blockchain.headers.subscribe"
+SCRIPTHASH_GET_BALANCE = "blockchain.scripthash.get_balance"
+SCRIPTHASH_GET_HISTORY = "blockchain.scripthash.get_history"
+SCRIPTHASH_GET_MEMPOOL = "blockchain.scripthash.get_mempool"
+TRANSACTION_GET = "blockchain.transaction.get"
