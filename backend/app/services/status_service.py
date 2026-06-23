@@ -114,6 +114,8 @@ async def get_status() -> dict[str, Any]:
         status = _error_status(base, str(exc) or "electrumx_protocol_error", started)
     except ElectrumXError as exc:
         status = _error_status(base, str(exc) or "electrumx_error", started)
+    finally:
+        await client.close()
 
     if settings.cache_status_seconds > 0:
         _status_cache["value"] = status
