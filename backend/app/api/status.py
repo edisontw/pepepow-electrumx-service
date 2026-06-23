@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException, status
+from typing import Any
+
+from fastapi import APIRouter
+
+from ..services.status_service import get_status
 
 router = APIRouter(tags=["status"])
 
 
 @router.get("/status")
-async def status_placeholder() -> dict:
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="ElectrumX status is planned for Phase 1.",
-    )
+async def status() -> dict[str, Any]:
+    return await get_status()
