@@ -8,17 +8,37 @@
     body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 860px; line-height: 1.5; }
     code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 4px; }
     .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+    label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+    input { box-sizing: border-box; width: min(100%, 42rem); padding: 0.65rem; font: inherit; }
+    button { padding: 0.65rem 0.9rem; font: inherit; cursor: pointer; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
   </style>
 </head>
 <body>
   <h1>PEPEW Light</h1>
   <p>Read-only PEPEPOW ElectrumX API Gateway and lightweight status/address lookup website.</p>
+
   <div class="card">
-    <strong>Phase 1</strong>
-    <p>Health endpoint and ElectrumX status dashboard are available. Address lookup and payment monitor are planned next.</p>
+    <strong>Phase 2</strong>
+    <p>Address balance, transaction count, mempool count, and paginated history lookup are available.</p>
   </div>
+
+  <div class="card">
+    <h2>Address Lookup</h2>
+    <form action="/address" method="get">
+      <label for="address-input">PEPEW address</label>
+      <div class="actions">
+        <input id="address-input" name="q" type="text" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128">
+        <button type="submit">Lookup</button>
+      </div>
+    </form>
+  </div>
+
   <p>API health: <code>/api/health</code></p>
   <p>API status: <code>/api/status</code></p>
+  <p>API address summary: <code>/api/address/{address}</code></p>
+  <p>API address history: <code>/api/address/{address}/history?limit=20&amp;offset=0</code></p>
+  <p>Address page: <a href="/address">/address</a></p>
   <p>Status page: <a href="/status">/status</a></p>
   <p>Version: <code>{{ version }}</code></p>
 </body>
