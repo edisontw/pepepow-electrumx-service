@@ -8,6 +8,7 @@ from ..electrumx.methods import (
     scripthash_get_balance,
     scripthash_get_history,
     scripthash_get_mempool,
+    server_version,
 )
 from ..pepepow.address import PepepowAddressError, decode_pepew_p2pkh_address
 from ..pepepow.scripthash import address_to_electrumx_scripthash
@@ -110,6 +111,11 @@ def _safe_electrumx_error_detail(exc: ElectrumXError) -> dict[str, Any]:
     return detail
 
 
+async def _identify_client(client: ElectrumXClient) -> None:
+    # Some ElectrumX servers require server.version before any blockchain.* method on each TCP session.
+    await server_version(client)
+
+
 async def get_address_summary(address: str) -> dict[str, Any]:
     settings = get_settings()
     normalized_address, hash160, scripthash = _safe_address_parts(address)
@@ -125,6 +131,7 @@ async def get_address_summary(address: str) -> dict[str, Any]:
     client = ElectrumXClient(settings)
     started = time.perf_counter()
     try:
+        await _identify_client(client)
         balance_result = await scripthash_get_balance(client, scripthash)
         history_result = await scripthash_get_history(client, scripthash)
         mempool_result = await scripthash_get_mempool(client, scripthash)
@@ -173,6 +180,7 @@ async def get_address_history(address: str) -> dict[str, Any]:
     client = ElectrumXClient(settings)
     started = time.perf_counter()
     try:
+        await _identify_client(client)
         history_result = await scripthash_get_history(client, scripthash)
         mempool_result = await scripthash_get_mempool(client, scripthash)
     except ElectrumXError as exc:
