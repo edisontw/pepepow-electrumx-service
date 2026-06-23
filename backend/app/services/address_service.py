@@ -28,9 +28,10 @@ class InvalidPepewAddressError(AddressLookupError):
 class AddressUpstreamError(AddressLookupError):
     code = "electrumx_error"
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, detail: dict[str, Any] | None = None) -> None:
         super().__init__(code)
         self.code = code
+        self.detail = detail or {}
 
 
 def _normalize_balance(balance: Any) -> dict[str, int]:
@@ -93,6 +94,22 @@ def _electrumx_error_code(exc: ElectrumXError) -> str:
     return getattr(exc, "code", None) or str(exc) or "electrumx_error"
 
 
+def _safe_electrumx_error_detail(exc: ElectrumXError) -> dict[str, Any]:
+    data = getattr(exc, "data", None)
+    if not isinstance(data, dict):
+        return {}
+
+    detail: dict[str, Any] = {}
+    code = data.get("code")
+    message = data.get("message")
+    if isinstance(code, int):
+        detail["upstream_code"] = code
+    if isinstance(message, str):
+        # Keep only the upstream method message. Do not include paths, config, or request payloads.
+        detail["upstream_message"] = message[:200]
+    return detail
+
+
 async def get_address_summary(address: str) -> dict[str, Any]:
     settings = get_settings()
     normalized_address, hash160, scripthash = _safe_address_parts(address)
@@ -112,7 +129,7 @@ async def get_address_summary(address: str) -> dict[str, Any]:
         history_result = await scripthash_get_history(client, scripthash)
         mempool_result = await scripthash_get_mempool(client, scripthash)
     except ElectrumXError as exc:
-        raise AddressUpstreamError(_electrumx_error_code(exc)) from exc
+        raise AddressUpstreamError(_electrumx_error_code(exc), _safe_electrumx_error_detail(exc)) from exc
     finally:
         await client.close()
 
@@ -159,7 +176,7 @@ async def get_address_history(address: str) -> dict[str, Any]:
         history_result = await scripthash_get_history(client, scripthash)
         mempool_result = await scripthash_get_mempool(client, scripthash)
     except ElectrumXError as exc:
-        raise AddressUpstreamError(_electrumx_error_code(exc)) from exc
+        raise AddressUpstreamError(_electrumx_error_code(exc), _safe_electrumx_error_detail(exc)) from exc
     finally:
         await client.close()
 
