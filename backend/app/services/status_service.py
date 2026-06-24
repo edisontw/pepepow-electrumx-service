@@ -23,6 +23,16 @@ def clear_status_cache() -> None:
     _status_cache["value"] = None
 
 
+def _with_cache_metadata(status: dict[str, Any], settings: Any) -> dict[str, Any]:
+    checked_at = int(status.get("checked_at") or time.time())
+    return {
+        **status,
+        "checked_at": checked_at,
+        "cache_ttl_seconds": settings.cache_status_seconds,
+        "cache_age_seconds": max(0, int(time.time()) - checked_at),
+    }
+
+
 async def get_status() -> dict[str, Any]:
     settings = get_settings()
     now = time.monotonic()
@@ -32,7 +42,7 @@ async def get_status() -> dict[str, Any]:
         result = dict(cached)
         result["cache"] = dict(result.get("cache", {}))
         result["cache"]["hit"] = True
-        return result
+        return _with_cache_metadata(result, settings)
 
     started = time.perf_counter()
     client = ElectrumXClient(settings)
@@ -121,7 +131,7 @@ async def get_status() -> dict[str, Any]:
         _status_cache["value"] = status
         _status_cache["expires_at"] = time.monotonic() + settings.cache_status_seconds
 
-    return status
+    return _with_cache_metadata(status, settings)
 
 
 def _error_status(base: dict[str, Any], error: str, started: float) -> dict[str, Any]:

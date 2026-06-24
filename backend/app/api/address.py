@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Path, Query, status
+from fastapi import APIRouter, Path, Query, status
 
+from .errors import api_error_response
 from ..services.address_service import (
     AddressUpstreamError,
     InvalidPepewAddressError,
@@ -10,32 +11,25 @@ from ..services.address_service import (
 router = APIRouter(tags=["address"])
 
 
-def _error_detail(error: str, extra: dict | None = None) -> dict:
-    detail = {"ok": False, "error": error}
-    if extra:
-        detail.update(extra)
-    return detail
-
-
 @router.get("/address/{address}")
-async def address_lookup(address: str = Path(..., min_length=1, max_length=128)) -> dict:
+async def address_lookup(address: str = Path(...)):
     try:
         return await get_address_summary(address)
     except InvalidPepewAddressError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_error_detail(exc.code)) from exc
+        return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
     except AddressUpstreamError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_error_detail(exc.code, exc.detail)) from exc
+        return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "electrumx_error")
 
 
 @router.get("/address/{address}/history")
 async def address_history(
-    address: str = Path(..., min_length=1, max_length=128),
+    address: str = Path(...),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
-) -> dict:
+):
     try:
         return await get_address_history(address, limit=limit, offset=offset)
     except InvalidPepewAddressError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_error_detail(exc.code)) from exc
+        return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
     except AddressUpstreamError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_error_detail(exc.code, exc.detail)) from exc
+        return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "electrumx_error")

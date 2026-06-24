@@ -115,7 +115,9 @@
         }
         if (!response.ok || data.ok === false) {
           const detail = data.detail || data;
-          throw new Error(detail.error || response.statusText || "request_failed");
+          const error = detail.error || {};
+          const message = typeof error === "object" ? error.message : error;
+          throw new Error(message || response.statusText || "Request failed.");
         }
         return data;
       }
@@ -175,7 +177,7 @@
       async function lookup(address, offset = 0) {
         const trimmed = address.trim();
         if (!trimmed) {
-          setMessage("Enter a PEPEW address.", "bad");
+          setMessage("Please enter a PEPEPOW address.", "bad");
           return;
         }
 
@@ -196,7 +198,7 @@
         } catch (error) {
           summaryCard.hidden = true;
           historyCard.hidden = true;
-          setMessage(`Lookup failed: ${error.message}`, "bad");
+          setMessage(error.message, "bad");
         }
       }
 

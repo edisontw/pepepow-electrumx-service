@@ -10,7 +10,13 @@ from ..electrumx.methods import (
     scripthash_get_mempool,
     server_version,
 )
-from ..pepepow.address import PepepowAddressError, decode_pepew_p2pkh_address
+from ..pepepow.address import (
+    InvalidAddressError,
+    InvalidAddressVersionError,
+    InvalidChecksumError,
+    PepepowAddressError,
+    decode_pepew_p2pkh_address,
+)
 from ..pepepow.scripthash import address_to_electrumx_scripthash
 from .cache_service import TTLCache
 
@@ -24,6 +30,11 @@ class AddressLookupError(Exception):
 
 class InvalidPepewAddressError(AddressLookupError):
     code = "invalid_address"
+
+    def __init__(self, code: str = "invalid_address", message: str = "Invalid PEPEPOW address.") -> None:
+        super().__init__(code)
+        self.code = code
+        self.message = message
 
 
 class AddressUpstreamError(AddressLookupError):
@@ -96,10 +107,29 @@ def _paginate(items: list[dict[str, Any]], limit: int, offset: int) -> tuple[lis
 def _safe_address_parts(address: str) -> tuple[str, str, str]:
     try:
         value = address.strip()
+        if not value:
+            raise InvalidPepewAddressError("empty_address", "Please enter a PEPEPOW address.")
+        if len(value) > 128:
+            raise InvalidPepewAddressError("invalid_address", "Invalid PEPEPOW address.")
         _version, hash160 = decode_pepew_p2pkh_address(value)
         scripthash = address_to_electrumx_scripthash(value)
-    except (AttributeError, PepepowAddressError) as exc:
-        raise InvalidPepewAddressError("invalid_address") from exc
+    except InvalidPepewAddressError:
+        raise
+    except AttributeError as exc:
+        raise InvalidPepewAddressError("empty_address", "Please enter a PEPEPOW address.") from exc
+    except InvalidChecksumError as exc:
+        raise InvalidPepewAddressError("invalid_address_checksum", "Address checksum is invalid.") from exc
+    except InvalidAddressVersionError as exc:
+        raise InvalidPepewAddressError("unsupported_address_prefix", "Address prefix is not supported.") from exc
+    except InvalidAddressError as exc:
+        message = str(exc).lower()
+        if "prefix" in message:
+            raise InvalidPepewAddressError("unsupported_address_prefix", "Address prefix is not supported.") from exc
+        if "empty" in message:
+            raise InvalidPepewAddressError("empty_address", "Please enter a PEPEPOW address.") from exc
+        raise InvalidPepewAddressError("invalid_address", "Invalid PEPEPOW address.") from exc
+    except PepepowAddressError as exc:
+        raise InvalidPepewAddressError("invalid_address", "Invalid PEPEPOW address.") from exc
     return value, hash160.hex(), scripthash
 
 

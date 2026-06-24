@@ -30,6 +30,17 @@ def test_address_page_renders_lookup_shell():
     assert "Next" in response.text
 
 
+def test_address_page_contains_clean_invalid_address_messages():
+    client = TestClient(app)
+    response = client.get("/address?q=invalid")
+
+    assert response.status_code == 200
+    assert "Please enter a PEPEPOW address." in response.text
+    assert "error.message" in response.text
+    assert "Traceback" not in response.text
+    assert "InvalidPepewAddressError" not in response.text
+
+
 def test_status_page_renders_public_summary(monkeypatch):
     async def fake_get_status():
         return {
@@ -47,6 +58,8 @@ def test_status_page_renders_public_summary(monkeypatch):
             },
             "cache": {"ttl_seconds": 10, "hit": False},
             "checked_at": 1,
+            "cache_ttl_seconds": 10,
+            "cache_age_seconds": 0,
         }
 
     monkeypatch.setattr("app.main.get_status", fake_get_status)
@@ -62,6 +75,7 @@ def test_status_page_renders_public_summary(monkeypatch):
     assert "connected" in response.text
     assert "123" in response.text
     assert "12.34 ms" in response.text
+    assert "0s / 10s" in response.text
 
 
 def test_address_head_returns_ok():

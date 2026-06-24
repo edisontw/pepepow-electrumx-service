@@ -99,6 +99,60 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+## Phase 2 public deployment checklist
+
+Confirmed public deployment state for `https://light.pepepow.net`:
+
+- Nginx terminates HTTPS and reverse proxies to FastAPI.
+- HTTP requests redirect to HTTPS.
+- Public ingress is limited to ports `80/tcp` and `443/tcp`.
+- Uvicorn listens on `127.0.0.1:8088` only.
+- ElectrumX listens on `127.0.0.1:50001` only.
+- ElectrumX RPC listens on `127.0.0.1:8000` only.
+- The service remains read-only; it must not handle mnemonic, private key, seed phrase, signing, or wallet secret data.
+
+Service restart:
+
+```bash
+cd ~/pepepow-electrumx-service/backend
+source .venv/bin/activate
+pytest
+sudo systemctl restart pepew-light
+sudo systemctl status pepew-light --no-pager
+```
+
+Nginx and certificate checks:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+sudo systemctl list-timers | grep certbot || true
+sudo certbot renew --dry-run
+```
+
+Public verification:
+
+```bash
+curl -I http://light.pepepow.net/
+curl -I https://light.pepepow.net/
+curl -s https://light.pepepow.net/api/health
+curl -s https://light.pepepow.net/api/status
+curl -I https://light.pepepow.net/address
+curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
+curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb/history?limit=5&offset=0"
+curl -s https://light.pepepow.net/api/address/invalid
+ss -lntp | grep -E ':80|:443|:8088|:50001'
+```
+
+Expected port shape:
+
+```text
+0.0.0.0:80       nginx
+0.0.0.0:443      nginx
+127.0.0.1:8088   uvicorn
+127.0.0.1:50001  electrumx_server
+```
+
 ## Phase 1 endpoints
 
 - `GET /`

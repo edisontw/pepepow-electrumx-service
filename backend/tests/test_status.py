@@ -22,6 +22,8 @@ def _ok_status(hit=False):
         },
         "cache": {"enabled": True, "ttl_seconds": 10, "hit": hit},
         "checked_at": 1,
+        "cache_ttl_seconds": 10,
+        "cache_age_seconds": 0,
     }
 
 
@@ -39,6 +41,8 @@ def _error_status():
         "cache": {"enabled": True, "ttl_seconds": 10, "hit": False},
         "error": "electrumx_unavailable",
         "checked_at": 1,
+        "cache_ttl_seconds": 10,
+        "cache_age_seconds": 0,
     }
 
 
@@ -54,6 +58,8 @@ def test_status_endpoint_success(monkeypatch):
     assert data["ok"] is True
     assert data["electrumx"]["connected"] is True
     assert data["electrumx"]["height"] == 123
+    assert data["cache_ttl_seconds"] == 10
+    assert data["cache_age_seconds"] == 0
 
 
 def test_status_endpoint_failure_returns_200(monkeypatch):
@@ -104,7 +110,11 @@ def test_status_service_cache(monkeypatch):
 
     assert first["ok"] is True
     assert first["cache"]["hit"] is False
+    assert first["cache_ttl_seconds"] == 10
+    assert first["cache_age_seconds"] == 0
     assert second["cache"]["hit"] is True
+    assert second["cache_ttl_seconds"] == 10
+    assert second["cache_age_seconds"] >= 0
     assert calls["count"] == 1
 
     status_service.clear_status_cache()

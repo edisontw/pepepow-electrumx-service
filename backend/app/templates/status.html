@@ -32,6 +32,8 @@
       </tr>
       <tr><th>Height</th><td>{{ status.electrumx.height or "n/a" }}</td></tr>
       <tr><th>Response time</th><td>{{ status.electrumx.response_time_ms or "n/a" }} ms</td></tr>
+      <tr><th>Checked at</th><td>{{ status.checked_at }}</td></tr>
+      <tr><th>Cache age</th><td>{{ status.cache_age_seconds or 0 }}s / {{ status.cache_ttl_seconds or status.cache.ttl_seconds }}s</td></tr>
     </table>
   </div>
 

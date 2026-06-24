@@ -5,6 +5,8 @@ from app.main import app
 
 KNOWN_ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 KNOWN_SCRIPTHASH = "3c5cab2c9f663ed292a0fdff3e681569c3f5d6741ca4b2ca4ea6281b9d4d4298"
+BAD_CHECKSUM_ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunc"
+WRONG_PREFIX_ADDRESS = "1J5R5ftKGQ7o7f9Dn1BnEjt3KhzATHxgmJ"
 
 
 def test_address_lookup_endpoint_success(monkeypatch):
@@ -76,4 +78,48 @@ def test_address_lookup_invalid_address_returns_400():
     response = client.get("/api/address/P123")
 
     assert response.status_code == 400
-    assert response.json()["detail"] == {"ok": False, "error": "invalid_address"}
+    assert response.json() == {
+        "ok": False,
+        "error": {
+            "code": "invalid_address",
+            "message": "Invalid PEPEPOW address.",
+        },
+    }
+
+
+def test_address_lookup_wrong_prefix_returns_clean_error():
+    client = TestClient(app)
+    response = client.get(f"/api/address/{WRONG_PREFIX_ADDRESS}")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "ok": False,
+        "error": {
+            "code": "unsupported_address_prefix",
+            "message": "Address prefix is not supported.",
+        },
+    }
+
+
+def test_address_lookup_bad_checksum_returns_clean_error():
+    client = TestClient(app)
+    response = client.get(f"/api/address/{BAD_CHECKSUM_ADDRESS}")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "ok": False,
+        "error": {
+            "code": "invalid_address_checksum",
+            "message": "Address checksum is invalid.",
+        },
+    }
+
+
+def test_address_history_invalid_address_returns_standard_error():
+    client = TestClient(app)
+    response = client.get("/api/address/P123/history?limit=20&offset=0")
+
+    assert response.status_code == 400
+    assert response.json()["ok"] is False
+    assert response.json()["error"]["code"] == "invalid_address"
+    assert "Traceback" not in response.text
