@@ -146,19 +146,9 @@
         return `status-${String(status || "error").replaceAll("_", "-")}`;
       }
 
-      function statusExplanation(status, expired) {
-        if (expired) return "This monitor link expires for display purposes only.";
-        if (status === "partial") return "Some funds are visible, but the address has not received the required amount yet.";
-        if (status === "paid_unconfirmed") return "The required amount is visible in mempool or unconfirmed balance and is waiting for confirmation.";
-        if (status === "paid_confirmed") return "The confirmed address balance is at least the required amount.";
-        if (status === "overpaid") return "The address has received more than the required amount.";
-        if (status === "seen_in_mempool") return "Mempool activity is visible for this address, but the received amount is not enough yet.";
-        return "Waiting for this address to receive the required amount.";
-      }
-
       function formatExpiry(data) {
         if (!data.expires_at) return "No display expiry set.";
-        const remaining = Number(data.expires_at) - Math.floor(Date.now() / 1000);
+        const remaining = data.expires_in ?? (Number(data.expires_at) - Math.floor(Date.now() / 1000));
         if (remaining <= 0 || data.expired) return "Expired for display purposes only.";
         const minutes = Math.floor(remaining / 60);
         const seconds = remaining % 60;
@@ -200,7 +190,14 @@
         const explorerLink = data.explorer_address_url
           ? `<a href="${escapeHtml(data.explorer_address_url)}" target="_blank" rel="noopener noreferrer">Open address explorer</a>`
           : '<span class="muted">Not configured</span>';
-        const requestedAmount = data.amount_pepew || data.amount;
+        const requestedAmount = data.requested_amount || data.amount_pepew || data.amount;
+        const requestedSats = data.requested_sats ?? data.amount_sats;
+        const confirmedReceived = data.confirmed_received || formatSats(data.confirmed_received_sats ?? data.received_confirmed_sats, data.pepew_decimals || PEPEW_DECIMALS);
+        const confirmedReceivedSats = data.confirmed_received_sats ?? data.received_confirmed_sats;
+        const mempoolReceived = data.mempool_received || formatSats(data.mempool_received_sats ?? data.received_unconfirmed_sats, data.pepew_decimals || PEPEW_DECIMALS);
+        const mempoolReceivedSats = data.mempool_received_sats ?? data.received_unconfirmed_sats;
+        const totalReceived = data.total_received || formatSats(data.total_received_sats, data.pepew_decimals || PEPEW_DECIMALS);
+        const totalReceivedSats = data.total_received_sats ?? Number(confirmedReceivedSats || 0) + Number(mempoolReceivedSats || 0);
         copyAddressValue.textContent = data.address;
         copyAmountValue.textContent = `${requestedAmount} PEPEW`;
         copyAddressButton.dataset.copyValue = data.address;
@@ -208,10 +205,12 @@
         addressQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.address)}`;
         resultBody.innerHTML = `
           <tr><th>Address</th><td><code>${escapeHtml(data.address)}</code></td></tr>
-          <tr><th>Required amount</th><td>${escapeHtml(requestedAmount)} PEPEW <span class="muted">(${escapeHtml(data.amount_sats)} sats / smallest units)</span></td></tr>
-          <tr><th>Confirmed received</th><td>${escapeHtml(formatSats(data.received_confirmed_sats, data.pepew_decimals || PEPEW_DECIMALS))} PEPEW <span class="muted">(${escapeHtml(data.received_confirmed_sats)} sats / smallest units)</span></td></tr>
-          <tr><th>Mempool/unconfirmed received</th><td>${escapeHtml(formatSats(data.received_unconfirmed_sats, data.pepew_decimals || PEPEW_DECIMALS))} PEPEW <span class="muted">(${escapeHtml(data.received_unconfirmed_sats)} sats / smallest units)</span></td></tr>
-          <tr><th>Explanation</th><td>${escapeHtml(statusExplanation(data.status, data.expired))}</td></tr>
+          <tr><th>Required amount</th><td>${escapeHtml(requestedAmount)} PEPEW <span class="muted">(${escapeHtml(requestedSats)} sats / smallest units)</span></td></tr>
+          <tr><th>Confirmed received</th><td>${escapeHtml(confirmedReceived)} PEPEW <span class="muted">(${escapeHtml(confirmedReceivedSats)} sats / smallest units)</span></td></tr>
+          <tr><th>Mempool / unconfirmed received</th><td>${escapeHtml(mempoolReceived)} PEPEW <span class="muted">(${escapeHtml(mempoolReceivedSats)} sats / smallest units)</span></td></tr>
+          <tr><th>Total seen</th><td>${escapeHtml(totalReceived)} PEPEW <span class="muted">(${escapeHtml(totalReceivedSats)} sats / smallest units)</span></td></tr>
+          <tr><th>Status</th><td>${escapeHtml(data.expired ? "expired" : data.status)}</td></tr>
+          <tr><th>Explanation</th><td>${escapeHtml(data.status_explanation || data.message || "Payment status could not be checked.")}</td></tr>
           <tr><th>Confirmations required</th><td>${escapeHtml(data.confirmations_required)}</td></tr>
           <tr><th>Display expiry</th><td>${escapeHtml(formatExpiry(data))}</td></tr>
           <tr><th>Mempool count</th><td>${escapeHtml(data.mempool_count || 0)}</td></tr>

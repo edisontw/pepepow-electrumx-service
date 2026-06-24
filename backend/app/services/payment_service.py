@@ -51,6 +51,18 @@ class PaymentUpstreamError(PaymentCheckError):
         self.detail = detail or {}
 
 
+STATUS_EXPLANATIONS = {
+    "waiting": "No matching payment has been seen yet.",
+    "seen_in_mempool": "Payment has been seen in mempool but is not confirmed yet.",
+    "partial": "Received amount is lower than the requested amount.",
+    "paid_unconfirmed": "Full amount has been seen but is not confirmed enough yet.",
+    "paid_confirmed": "Required amount has enough confirmations.",
+    "overpaid": "Received amount is greater than requested amount.",
+    "expired": "This display monitor has expired.",
+    "error": "Payment status could not be checked.",
+}
+
+
 def parse_pepew_amount(amount: str, decimals: int = 8) -> int:
     value = str(amount or "").strip()
     if not value:
@@ -86,6 +98,12 @@ def _explorer_address_url(base_url: str, address: str) -> str | None:
     if not normalized_base:
         return None
     return f"{normalized_base}/address/{quote(address, safe='')}"
+
+
+def payment_status_explanation(status: str, expired: bool = False) -> str:
+    if expired:
+        return STATUS_EXPLANATIONS["expired"]
+    return STATUS_EXPLANATIONS.get(status, STATUS_EXPLANATIONS["error"])
 
 
 def _parse_expires_at(expires_at: str | None, expires_in: int | None) -> int | None:
@@ -167,6 +185,10 @@ async def check_payment(
     confirmed_sats = max(0, int(balance.get("confirmed") or 0))
     unconfirmed_sats = max(0, int(balance.get("unconfirmed") or 0))
     total_sats = confirmed_sats + unconfirmed_sats
+    amount_pepew = format_pepew_amount_from_sats(amount_sats, settings.pepew_decimals)
+    confirmed_received = format_pepew_amount_from_sats(confirmed_sats, settings.pepew_decimals)
+    mempool_received = format_pepew_amount_from_sats(unconfirmed_sats, settings.pepew_decimals)
+    total_received = format_pepew_amount_from_sats(total_sats, settings.pepew_decimals)
     status = _payment_status(
         requested_sats=amount_sats,
         confirmed_sats=confirmed_sats,
@@ -174,28 +196,40 @@ async def check_payment(
         mempool_count=len(mempool),
         confirmations_required=confirmations_required,
     )
-    expired = expiry_timestamp is not None and int(time.time()) > expiry_timestamp
+    now = int(time.time())
+    expired = expiry_timestamp is not None and now > expiry_timestamp
 
     result: dict[str, Any] = {
         "ok": True,
         "address": normalized_address,
+        "requested_amount": amount_pepew,
+        "requested_sats": amount_sats,
         "amount": str(amount).strip(),
         "amount_sats": amount_sats,
-        "amount_pepew": format_pepew_amount_from_sats(amount_sats, settings.pepew_decimals),
+        "amount_pepew": amount_pepew,
         "pepew_decimals": settings.pepew_decimals,
         "explorer_address_url": _explorer_address_url(settings.pepew_explorer_base_url, normalized_address),
+        "confirmed_received": confirmed_received,
+        "confirmed_received_sats": confirmed_sats,
+        "mempool_received": mempool_received,
+        "mempool_received_sats": unconfirmed_sats,
+        "total_received": total_received,
+        "total_received_sats": total_sats,
         "received_confirmed_sats": confirmed_sats,
         "received_unconfirmed_sats": unconfirmed_sats,
         "confirmations_required": confirmations_required,
         "status": status,
         "expired": expired,
+        "status_explanation": payment_status_explanation(status, expired),
+        "message": payment_status_explanation(status, expired),
         "history_count": len(history),
         "mempool_count": len(mempool),
-        "checked_at": int(time.time()),
+        "checked_at": now,
         "response_time_ms": round((time.perf_counter() - started) * 1000, 2),
     }
     if expiry_timestamp is not None:
         result["expires_at"] = expiry_timestamp
+        result["expires_in"] = max(0, expiry_timestamp - now)
     if status == "overpaid":
         result["overpaid_by_sats"] = total_sats - amount_sats
         result["payment_state"] = "confirmed" if confirmed_sats >= amount_sats else "unconfirmed"

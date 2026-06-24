@@ -183,15 +183,42 @@ Example response:
 {
   "ok": true,
   "address": "Pxxx",
-  "amount": "1000",
-  "amount_sats": 100000000000,
-  "received_confirmed_sats": 0,
-  "received_unconfirmed_sats": 0,
-  "confirmations_required": 3,
+  "requested_amount": "1000",
+  "requested_sats": 100000000000,
+  "amount_pepew": "1000",
+  "pepew_decimals": 8,
+  "confirmed_received": "0",
+  "confirmed_received_sats": 0,
+  "mempool_received": "0",
+  "mempool_received_sats": 0,
+  "total_received": "0",
+  "total_received_sats": 0,
   "status": "waiting",
-  "expired": false
+  "confirmations_required": 3,
+  "explorer_address_url": "https://explorer.pepepow.net/address/Pxxx",
+  "expired": false,
+  "status_explanation": "No matching payment has been seen yet."
 }
 ```
+
+Response fields:
+
+- `address`: validated PEPEW address being checked.
+- `requested_amount` and `amount_pepew`: normalized requested PEPEW amount.
+- `requested_sats`: requested amount in sats / smallest units.
+- `pepew_decimals`: decimal precision used for PEPEW amount conversion.
+- `confirmed_received` and `confirmed_received_sats`: address-level confirmed total.
+- `mempool_received` and `mempool_received_sats`: address-level unconfirmed mempool total.
+- `total_received` and `total_received_sats`: confirmed plus mempool/unconfirmed total seen for the address.
+- `status`: one of `waiting`, `seen_in_mempool`, `partial`, `paid_unconfirmed`, `paid_confirmed`, or `overpaid`.
+- `confirmations_required`: threshold from `PEPEW_MIN_CONFIRMATIONS` unless overridden by query parameter.
+- `explorer_address_url`: public explorer URL for the checked address.
+- `expires_in` and `expired`: display monitor expiry metadata when an expiry is supplied.
+- `status_explanation` and `message`: short user-facing status text.
+
+Amounts are address-level totals. Mempool values are unconfirmed. Confirmed payment status uses the configured `PEPEW_MIN_CONFIRMATIONS` threshold for deciding whether the monitor should report `paid_confirmed`.
+
+This endpoint is not a merchant invoice ledger.
 
 Payment checking is address-level. Use a unique receiving address per payment request for accurate invoice detection.
 

@@ -12,13 +12,25 @@ def test_payment_check_endpoint_success(monkeypatch):
         return {
             "ok": True,
             "address": kwargs["address"],
+            "requested_amount": kwargs["amount"],
+            "requested_sats": 100000000,
             "amount": kwargs["amount"],
             "amount_sats": 100000000,
+            "amount_pepew": kwargs["amount"],
+            "pepew_decimals": 8,
+            "confirmed_received": "0",
+            "confirmed_received_sats": 0,
+            "mempool_received": "0",
+            "mempool_received_sats": 0,
+            "total_received": "0",
+            "total_received_sats": 0,
             "received_confirmed_sats": 0,
             "received_unconfirmed_sats": 0,
             "confirmations_required": 3,
             "status": "waiting",
             "expired": False,
+            "status_explanation": "No matching payment has been seen yet.",
+            "message": "No matching payment has been seen yet.",
             "explorer_address_url": f"https://explorer.pepepow.net/address/{kwargs['address']}",
         }
 
@@ -28,8 +40,13 @@ def test_payment_check_endpoint_success(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["status"] == "waiting"
-    assert response.json()["amount_sats"] == 100000000
-    assert response.json()["explorer_address_url"] == f"https://explorer.pepepow.net/address/{KNOWN_ADDRESS}"
+    data = response.json()
+    assert data["amount_sats"] == 100000000
+    assert data["requested_sats"] == 100000000
+    assert data["confirmed_received_sats"] == 0
+    assert data["mempool_received_sats"] == 0
+    assert data["total_received_sats"] == 0
+    assert data["explorer_address_url"] == f"https://explorer.pepepow.net/address/{KNOWN_ADDRESS}"
 
 
 def test_payment_check_invalid_address_returns_standard_error(monkeypatch):

@@ -6,8 +6,10 @@ import pytest
 from app.services import payment_service
 from app.services.payment_service import (
     InvalidPaymentAmountError,
+    STATUS_EXPLANATIONS,
     check_payment,
     format_pepew_amount_from_sats,
+    payment_status_explanation,
     parse_pepew_amount,
 )
 
@@ -67,11 +69,36 @@ def test_check_payment_waiting(monkeypatch):
     result = asyncio.run(check_payment(KNOWN_ADDRESS, "1"))
 
     assert result["status"] == "waiting"
+    assert result["requested_amount"] == "1"
+    assert result["requested_sats"] == 100000000
+    assert result["confirmed_received"] == "0"
+    assert result["confirmed_received_sats"] == 0
+    assert result["mempool_received"] == "0"
+    assert result["mempool_received_sats"] == 0
+    assert result["total_received"] == "0"
+    assert result["total_received_sats"] == 0
     assert result["received_confirmed_sats"] == 0
     assert result["received_unconfirmed_sats"] == 0
     assert result["amount_pepew"] == "1"
     assert result["pepew_decimals"] == 8
     assert result["explorer_address_url"] == f"https://explorer.pepepow.net/address/{KNOWN_ADDRESS}"
+    assert result["status_explanation"] == "No matching payment has been seen yet."
+    assert result["message"] == result["status_explanation"]
+
+
+def test_check_payment_normalized_sats_fields_are_integers(monkeypatch):
+    install_payment_fakes(monkeypatch, {"confirmed": 25, "unconfirmed": 75})
+
+    result = asyncio.run(check_payment(KNOWN_ADDRESS, "0.000001"))
+
+    for field in [
+        "requested_sats",
+        "confirmed_received_sats",
+        "mempool_received_sats",
+        "total_received_sats",
+    ]:
+        assert isinstance(result[field], int)
+    assert result["total_received_sats"] == 100
 
 
 def test_check_payment_seen_in_mempool(monkeypatch):
@@ -132,3 +159,23 @@ def test_check_payment_expired(monkeypatch):
 
     assert result["status"] == "waiting"
     assert result["expired"] is True
+    assert result["expires_in"] == 0
+    assert result["status_explanation"] == "This display monitor has expired."
+
+
+def test_status_explanations_exist_for_all_known_statuses():
+    for status in [
+        "waiting",
+        "seen_in_mempool",
+        "partial",
+        "paid_unconfirmed",
+        "paid_confirmed",
+        "overpaid",
+        "expired",
+        "error",
+    ]:
+        assert STATUS_EXPLANATIONS[status]
+        if status not in {"expired", "error"}:
+            assert payment_status_explanation(status) == STATUS_EXPLANATIONS[status]
+
+    assert payment_status_explanation("waiting", expired=True) == STATUS_EXPLANATIONS["expired"]

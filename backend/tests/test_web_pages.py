@@ -120,12 +120,19 @@ def test_pay_page_renders_address_copy_and_qr_ui():
     assert "api.qrserver.com/v1/create-qr-code" in response.text
 
 
-def test_pay_page_contains_expiry_and_status_explanations():
+def test_pay_page_labels_match_payment_api_terminology():
     client = TestClient(app)
     response = client.get("/pay")
 
     assert response.status_code == 200
+    assert "Required amount" in response.text
+    assert "Confirmed received" in response.text
+    assert "Mempool / unconfirmed received" in response.text
+    assert "Total seen" in response.text
+    assert "Status" in response.text
+    assert "status_explanation" in response.text
+    assert "requested_sats" in response.text
+    assert "confirmed_received_sats" in response.text
+    assert "mempool_received_sats" in response.text
+    assert "total_received_sats" in response.text
     assert "This monitor link expires for display purposes only." in response.text
-    assert "Some funds are visible, but the address has not received the required amount yet." in response.text
-    assert "The required amount is visible in mempool or unconfirmed balance" in response.text
-    assert "The confirmed address balance is at least the required amount." in response.text
