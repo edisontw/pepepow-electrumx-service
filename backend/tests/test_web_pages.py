@@ -94,6 +94,7 @@ def test_pay_page_loads():
     assert "/api/payment/check" in response.text
     assert "Use a unique receiving address for each payment." in response.text
     assert "not an invoice database" in response.text
+    assert "does not create, reserve, store, or track invoices" in response.text
     assert "PEPEW_DECIMALS" in response.text
     assert "status-waiting" in response.text
     assert "status-seen-in-mempool" in response.text
@@ -103,3 +104,28 @@ def test_pay_page_loads():
     assert "status-overpaid" in response.text
     assert "status-expired" in response.text
     assert "status-error" in response.text
+
+
+def test_pay_page_renders_address_copy_and_qr_ui():
+    client = TestClient(app)
+    response = client.get("/pay")
+
+    assert response.status_code == 200
+    assert 'id="copy-address-button"' in response.text
+    assert "Copy address" in response.text
+    assert 'id="copy-amount-button"' in response.text
+    assert "Copy amount" in response.text
+    assert 'id="qr-section"' in response.text
+    assert "QR encodes the address only." in response.text
+    assert "api.qrserver.com/v1/create-qr-code" in response.text
+
+
+def test_pay_page_contains_expiry_and_status_explanations():
+    client = TestClient(app)
+    response = client.get("/pay")
+
+    assert response.status_code == 200
+    assert "This monitor link expires for display purposes only." in response.text
+    assert "Some funds are visible, but the address has not received the required amount yet." in response.text
+    assert "The required amount is visible in mempool or unconfirmed balance" in response.text
+    assert "The confirmed address balance is at least the required amount." in response.text

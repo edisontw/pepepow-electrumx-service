@@ -24,6 +24,10 @@
     .field { min-width: min(100%, 12rem); }
     .field.address { flex: 1 1 28rem; }
     .field.small { flex: 0 1 10rem; }
+    .copy-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0.5rem 0; }
+    .copy-row code { flex: 1 1 18rem; }
+    .qr-box { margin-top: 1rem; }
+    .qr-box img { width: 180px; height: 180px; border: 1px solid #ddd; padding: 0.5rem; background: #fff; }
     .badge { display: inline-block; border: 1px solid #ccc; border-radius: 999px; padding: 0.2rem 0.55rem; font-weight: 700; }
     .status-waiting { border-color: #999; background: #f5f5f5; color: #444; }
     .status-seen-in-mempool, .status-paid-unconfirmed, .status-partial { border-color: #c58b1b; background: #fff6df; color: #745000; }
@@ -61,6 +65,23 @@
 
   <div id="result-card" class="card" hidden>
     <h2>Status <span id="status-badge" class="badge">waiting</span></h2>
+    <div aria-label="Payment copy details">
+      <div class="copy-row">
+        <strong>Address</strong>
+        <code id="copy-address-value"></code>
+        <button id="copy-address-button" type="button">Copy address</button>
+      </div>
+      <div class="copy-row">
+        <strong>Amount</strong>
+        <code id="copy-amount-value"></code>
+        <button id="copy-amount-button" type="button">Copy amount</button>
+      </div>
+    </div>
+    <div id="qr-section" class="qr-box" aria-label="Address QR code">
+      <h3>Address QR</h3>
+      <img id="address-qr" alt="QR code for payment address">
+      <p class="muted">QR encodes the address only.</p>
+    </div>
     <table>
       <tbody id="result-body"></tbody>
     </table>
@@ -84,6 +105,11 @@
       const resultCard = document.getElementById("result-card");
       const resultBody = document.getElementById("result-body");
       const statusBadge = document.getElementById("status-badge");
+      const copyAddressValue = document.getElementById("copy-address-value");
+      const copyAmountValue = document.getElementById("copy-amount-value");
+      const copyAddressButton = document.getElementById("copy-address-button");
+      const copyAmountButton = document.getElementById("copy-amount-button");
+      const addressQr = document.getElementById("address-qr");
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -120,6 +146,36 @@
         return `status-${String(status || "error").replaceAll("_", "-")}`;
       }
 
+      function statusExplanation(status, expired) {
+        if (expired) return "This monitor link expires for display purposes only.";
+        if (status === "partial") return "Some funds are visible, but the address has not received the required amount yet.";
+        if (status === "paid_unconfirmed") return "The required amount is visible in mempool or unconfirmed balance and is waiting for confirmation.";
+        if (status === "paid_confirmed") return "The confirmed address balance is at least the required amount.";
+        if (status === "overpaid") return "The address has received more than the required amount.";
+        if (status === "seen_in_mempool") return "Mempool activity is visible for this address, but the received amount is not enough yet.";
+        return "Waiting for this address to receive the required amount.";
+      }
+
+      function formatExpiry(data) {
+        if (!data.expires_at) return "No display expiry set.";
+        const remaining = Number(data.expires_at) - Math.floor(Date.now() / 1000);
+        if (remaining <= 0 || data.expired) return "Expired for display purposes only.";
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        return `${minutes}m ${String(seconds).padStart(2, "0")}s remaining. This monitor link expires for display purposes only.`;
+      }
+
+      async function copyText(text, button) {
+        try {
+          await navigator.clipboard.writeText(text);
+          const original = button.textContent;
+          button.textContent = "Copied";
+          window.setTimeout(() => { button.textContent = original; }, 1200);
+        } catch (_error) {
+          setMessage("Copy failed. Select the value and copy it manually.", "bad");
+        }
+      }
+
       async function getJson(url) {
         const response = await fetch(url, { headers: { "Accept": "application/json" } });
         let data = {};
@@ -144,13 +200,20 @@
         const explorerLink = data.explorer_address_url
           ? `<a href="${escapeHtml(data.explorer_address_url)}" target="_blank" rel="noopener noreferrer">Open address explorer</a>`
           : '<span class="muted">Not configured</span>';
+        const requestedAmount = data.amount_pepew || data.amount;
+        copyAddressValue.textContent = data.address;
+        copyAmountValue.textContent = `${requestedAmount} PEPEW`;
+        copyAddressButton.dataset.copyValue = data.address;
+        copyAmountButton.dataset.copyValue = requestedAmount;
+        addressQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.address)}`;
         resultBody.innerHTML = `
           <tr><th>Address</th><td><code>${escapeHtml(data.address)}</code></td></tr>
-          <tr><th>Requested amount</th><td>${escapeHtml(data.amount_pepew || data.amount)} PEPEW <span class="muted">(${escapeHtml(data.amount_sats)} sats / smallest units)</span></td></tr>
+          <tr><th>Required amount</th><td>${escapeHtml(requestedAmount)} PEPEW <span class="muted">(${escapeHtml(data.amount_sats)} sats / smallest units)</span></td></tr>
           <tr><th>Confirmed received</th><td>${escapeHtml(formatSats(data.received_confirmed_sats, data.pepew_decimals || PEPEW_DECIMALS))} PEPEW <span class="muted">(${escapeHtml(data.received_confirmed_sats)} sats / smallest units)</span></td></tr>
-          <tr><th>Unconfirmed received</th><td>${escapeHtml(formatSats(data.received_unconfirmed_sats, data.pepew_decimals || PEPEW_DECIMALS))} PEPEW <span class="muted">(${escapeHtml(data.received_unconfirmed_sats)} sats / smallest units)</span></td></tr>
+          <tr><th>Mempool/unconfirmed received</th><td>${escapeHtml(formatSats(data.received_unconfirmed_sats, data.pepew_decimals || PEPEW_DECIMALS))} PEPEW <span class="muted">(${escapeHtml(data.received_unconfirmed_sats)} sats / smallest units)</span></td></tr>
+          <tr><th>Explanation</th><td>${escapeHtml(statusExplanation(data.status, data.expired))}</td></tr>
           <tr><th>Confirmations required</th><td>${escapeHtml(data.confirmations_required)}</td></tr>
-          <tr><th>Expired</th><td>${escapeHtml(Boolean(data.expired))}</td></tr>
+          <tr><th>Display expiry</th><td>${escapeHtml(formatExpiry(data))}</td></tr>
           <tr><th>Mempool count</th><td>${escapeHtml(data.mempool_count || 0)}</td></tr>
           <tr><th>Explorer</th><td>${explorerLink}</td></tr>
           <tr><th>Checked</th><td>${escapeHtml(new Date((data.checked_at || 0) * 1000).toISOString())}</td></tr>
@@ -180,6 +243,11 @@
         } catch (error) {
           statusBadge.textContent = "error";
           statusBadge.className = "badge status-error";
+          copyAddressValue.textContent = "";
+          copyAmountValue.textContent = "";
+          copyAddressButton.dataset.copyValue = "";
+          copyAmountButton.dataset.copyValue = "";
+          addressQr.removeAttribute("src");
           resultBody.innerHTML = `<tr><th>Error</th><td>${escapeHtml(error.message)}</td></tr>`;
           resultCard.hidden = false;
           setMessage(error.message, "bad");
@@ -201,6 +269,14 @@
         expiresAt = minutes > 0 ? new Date(Date.now() + minutes * 60 * 1000).toISOString() : null;
         checkOnce();
         startPolling();
+      });
+
+      copyAddressButton.addEventListener("click", () => {
+        copyText(copyAddressButton.dataset.copyValue || "", copyAddressButton);
+      });
+
+      copyAmountButton.addEventListener("click", () => {
+        copyText(copyAmountButton.dataset.copyValue || "", copyAmountButton);
       });
     })();
   </script>
