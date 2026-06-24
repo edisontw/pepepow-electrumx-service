@@ -145,7 +145,21 @@
         } else {
           for (const row of rows) {
             const tr = document.createElement("tr");
-            tr.innerHTML = `<td class="tx">${escapeHtml(row.tx_hash)}</td><td>${escapeHtml(row.height)}</td>`;
+            const txCell = document.createElement("td");
+            const heightCell = document.createElement("td");
+            const link = document.createElement("a");
+            const txHash = String(row.tx_hash || "");
+
+            txCell.className = "tx";
+            link.href = `https://explorer.pepepow.net/tx/${encodeURIComponent(txHash)}`;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = txHash;
+            heightCell.textContent = String(row.height ?? "");
+
+            txCell.appendChild(link);
+            tr.appendChild(txCell);
+            tr.appendChild(heightCell);
             historyBody.appendChild(tr);
           }
         }

@@ -61,6 +61,12 @@ def _normalize_history(history: Any) -> list[dict[str, Any]]:
     return normalized
 
 
+def _history_sort_key(item: dict[str, Any]) -> tuple[int, int]:
+    height = int(item.get("height") or 0)
+    is_unconfirmed = 1 if height <= 0 else 0
+    return (is_unconfirmed, height)
+
+
 def _normalize_mempool(mempool: Any) -> list[dict[str, Any]]:
     if not isinstance(mempool, list):
         return []
@@ -202,7 +208,7 @@ async def get_address_history(address: str, limit: int = 50, offset: int = 0) ->
     finally:
         await client.close()
 
-    history = _normalize_history(history_result)
+    history = sorted(_normalize_history(history_result), key=_history_sort_key, reverse=True)
     mempool = _normalize_mempool(mempool_result)
     history_page, has_more = _paginate(history, limit, offset)
     result = {

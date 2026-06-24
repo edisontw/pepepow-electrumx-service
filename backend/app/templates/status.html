@@ -20,6 +20,22 @@
   <p>Read-only ElectrumX gateway status. Version: <code>{{ version }}</code></p>
 
   <div class="card">
+    <h2>Public Service</h2>
+    <table>
+      <tr><th>Public URL</th><td><a href="https://light.pepepow.net">https://light.pepepow.net</a></td></tr>
+      <tr><th>Gateway</th><td class="ok">online</td></tr>
+      <tr>
+        <th>ElectrumX</th>
+        <td class="{{ 'ok' if status.ok else 'bad' }}">
+          {{ "connected" if status.ok else "error" }}
+        </td>
+      </tr>
+      <tr><th>Height</th><td>{{ status.electrumx.height or "n/a" }}</td></tr>
+      <tr><th>Response time</th><td>{{ status.electrumx.response_time_ms or "n/a" }} ms</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
     {% if status.ok %}
       <h2 class="ok">ElectrumX connected</h2>
     {% else %}

@@ -23,9 +23,45 @@ def test_address_page_renders_lookup_shell():
     assert "PEPEW Address Lookup" in response.text
     assert KNOWN_ADDRESS in response.text
     assert "/api/address/" in response.text
+    assert "https://explorer.pepepow.net/tx/" in response.text
+    assert 'link.rel = "noopener noreferrer"' in response.text
     assert "PAGE_LIMIT = 20" in response.text
     assert "Prev" in response.text
     assert "Next" in response.text
+
+
+def test_status_page_renders_public_summary(monkeypatch):
+    async def fake_get_status():
+        return {
+            "ok": True,
+            "electrumx": {
+                "connected": True,
+                "host": "127.0.0.1",
+                "port": 50001,
+                "ssl": False,
+                "server_version": "ElectrumX 1.19.0",
+                "protocol": "1.4",
+                "height": 123,
+                "tip_hash": None,
+                "response_time_ms": 12.34,
+            },
+            "cache": {"ttl_seconds": 10, "hit": False},
+            "checked_at": 1,
+        }
+
+    monkeypatch.setattr("app.main.get_status", fake_get_status)
+
+    client = TestClient(app)
+    response = client.get("/status")
+
+    assert response.status_code == 200
+    assert "Public Service" in response.text
+    assert "https://light.pepepow.net" in response.text
+    assert "Gateway" in response.text
+    assert "online" in response.text
+    assert "connected" in response.text
+    assert "123" in response.text
+    assert "12.34 ms" in response.text
 
 
 def test_address_head_returns_ok():

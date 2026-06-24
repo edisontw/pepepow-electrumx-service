@@ -26,6 +26,7 @@ async def fake_history(client, scripthash):
         {"tx_hash": "a" * 64, "height": 100},
         {"tx_hash": "b" * 64, "height": 200},
         {"tx_hash": "c" * 64, "height": 300},
+        {"tx_hash": "e" * 64, "height": 0},
     ]
 
 
@@ -47,7 +48,7 @@ def test_get_address_summary(monkeypatch):
     assert result["address"] == KNOWN_ADDRESS
     assert result["scripthash"] == KNOWN_SCRIPTHASH
     assert result["balance"] == {"confirmed": 1000, "unconfirmed": -50}
-    assert result["history_count"] == 3
+    assert result["history_count"] == 4
     assert result["mempool_count"] == 1
     assert result["cache"]["hit"] is False
 
@@ -62,15 +63,15 @@ def test_get_address_history_paginates(monkeypatch):
 
     assert result["ok"] is True
     assert result["history"] == [
-        {"tx_hash": "b" * 64, "height": 200},
         {"tx_hash": "c" * 64, "height": 300},
+        {"tx_hash": "b" * 64, "height": 200},
     ]
     assert result["mempool"] == [{"tx_hash": "d" * 64, "height": 0, "fee": 10}]
-    assert result["history_count"] == 3
+    assert result["history_count"] == 4
     assert result["mempool_count"] == 1
     assert result["limit"] == 2
     assert result["offset"] == 1
-    assert result["has_more"] is False
+    assert result["has_more"] is True
 
 
 def test_get_address_history_cache_keeps_full_history(monkeypatch):
@@ -88,8 +89,8 @@ def test_get_address_history_cache_keeps_full_history(monkeypatch):
     first = asyncio.run(address_service.get_address_history(KNOWN_ADDRESS, limit=1, offset=0))
     second = asyncio.run(address_service.get_address_history(KNOWN_ADDRESS, limit=1, offset=2))
 
-    assert first["history"] == [{"tx_hash": "a" * 64, "height": 100}]
-    assert second["history"] == [{"tx_hash": "c" * 64, "height": 300}]
+    assert first["history"] == [{"tx_hash": "e" * 64, "height": 0}]
+    assert second["history"] == [{"tx_hash": "b" * 64, "height": 200}]
     assert first["cache"]["hit"] is False
     assert second["cache"]["hit"] is True
     assert calls["history"] == 1
