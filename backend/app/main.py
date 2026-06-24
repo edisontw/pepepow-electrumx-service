@@ -59,6 +59,24 @@ async def address_head() -> Response:
     return Response(status_code=200)
 
 
+@app.get("/pay", response_class=HTMLResponse)
+async def pay_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "payment.html",
+        {
+            "app_name": settings.app_name,
+            "version": settings.version,
+            "min_confirmations": settings.pepew_min_confirmations,
+        },
+    )
+
+
+@app.head("/pay")
+async def pay_head() -> Response:
+    return Response(status_code=200)
+
+
 @app.get("/status", response_class=HTMLResponse)
 async def status_page(request: Request) -> HTMLResponse:
     status = await get_status()

@@ -1,6 +1,6 @@
 # PEPEW Light
 
-Read-only PEPEPOW ElectrumX API Gateway and simple status/address lookup website.
+Read-only PEPEPOW ElectrumX API Gateway and simple status/address/payment monitor website.
 
 ## Security boundary
 
@@ -11,6 +11,7 @@ store, log, derive, or handle wallet secrets.
 - Phase 0 and Phase 1 are read-only.
 - Future broadcast support may only accept signed raw transactions.
 - ElectrumX should remain private on localhost; public traffic should go through Nginx and FastAPI.
+- Payment checking is address-level. Use a unique receiving address per payment request for accurate invoice detection.
 
 ## Local development
 
@@ -141,6 +142,9 @@ curl -I https://light.pepepow.net/address
 curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb/history?limit=5&offset=0"
 curl -s https://light.pepepow.net/api/address/invalid
+curl -s "https://light.pepepow.net/api/payment/check?address=PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb&amount=1"
+curl -s "https://light.pepepow.net/api/payment/check?address=invalid&amount=1"
+curl -s https://light.pepepow.net/pay
 ss -lntp | grep -E ':80|:443|:8088|:50001'
 ```
 
@@ -153,14 +157,45 @@ Expected port shape:
 127.0.0.1:50001  electrumx_server
 ```
 
-## Phase 1 endpoints
+## Public endpoints
 
 - `GET /`
 - `GET /status`
 - `GET /api/health`
 - `GET /api/status`
+- `GET /api/payment/check?address={address}&amount={amount}`
 
 `/api/status` returns HTTP 200 even when ElectrumX is unavailable. Check `ok`, `electrumx.connected`, and `error` in the JSON body.
+
+## Phase 3 payment monitor
+
+`GET /api/payment/check?address=Pxxx&amount=1` checks the current ElectrumX address balance, history, and mempool for a read-only payment status.
+
+Optional query parameters:
+
+- `confirmations`: defaults to `PEPEW_MIN_CONFIRMATIONS`.
+- `expires_at`: ISO8601 timestamp.
+- `expires_in`: expiry seconds from the current request time.
+
+Example response:
+
+```json
+{
+  "ok": true,
+  "address": "Pxxx",
+  "amount": "1000",
+  "amount_sats": 100000000000,
+  "received_confirmed_sats": 0,
+  "received_unconfirmed_sats": 0,
+  "confirmations_required": 3,
+  "status": "waiting",
+  "expired": false
+}
+```
+
+Payment checking is address-level. Use a unique receiving address per payment request for accurate invoice detection.
+
+The payment monitor remains read-only. It does not add mnemonic, private key, signing, server-side wallet, custody, or broadcast logic.
 
 ## Phase 1 verification on MN3
 

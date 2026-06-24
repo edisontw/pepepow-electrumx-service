@@ -7,6 +7,10 @@ ERROR_MESSAGES = {
     "invalid_address_checksum": "Address checksum is invalid.",
     "unsupported_address_prefix": "Address prefix is not supported.",
     "electrumx_error": "ElectrumX is temporarily unavailable.",
+    "invalid_amount": "Please enter a positive PEPEW amount.",
+    "invalid_confirmations": "Confirmations must be zero or greater.",
+    "invalid_expiry": "Expiry must be a valid ISO8601 timestamp or positive seconds value.",
+    "internal_error": "Request failed.",
     "transaction_lookup_unavailable": "Transaction lookup is not available yet.",
     "payment_check_unavailable": "Payment checking is not available yet.",
 }

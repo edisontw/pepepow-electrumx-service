@@ -16,11 +16,11 @@
 </head>
 <body>
   <h1>PEPEW Light</h1>
-  <p>Read-only PEPEPOW ElectrumX API Gateway and lightweight status/address lookup website.</p>
+  <p>Read-only PEPEPOW ElectrumX API Gateway and lightweight status, address, and payment monitor website.</p>
 
   <div class="card">
-    <strong>Phase 2</strong>
-    <p>Address balance, transaction count, mempool count, and paginated history lookup are available.</p>
+    <strong>Phase 3</strong>
+    <p>Address balance, transaction count, mempool count, paginated history lookup, and read-only payment checking are available.</p>
   </div>
 
   <div class="card">
@@ -38,7 +38,9 @@
   <p>API status: <code>/api/status</code></p>
   <p>API address summary: <code>/api/address/{address}</code></p>
   <p>API address history: <code>/api/address/{address}/history?limit=20&amp;offset=0</code></p>
+  <p>API payment check: <code>/api/payment/check?address={address}&amp;amount=1</code></p>
   <p>Address page: <a href="/address">/address</a></p>
+  <p>Payment page: <a href="/pay">/pay</a></p>
   <p>Status page: <a href="/status">/status</a></p>
   <p>Version: <code>{{ version }}</code></p>
 </body>

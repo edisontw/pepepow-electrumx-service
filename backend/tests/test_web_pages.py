@@ -83,3 +83,13 @@ def test_address_head_returns_ok():
     response = client.head("/address")
 
     assert response.status_code == 200
+
+
+def test_pay_page_loads():
+    client = TestClient(app)
+    response = client.get("/pay")
+
+    assert response.status_code == 200
+    assert "PEPEW Payment Monitor" in response.text
+    assert "/api/payment/check" in response.text
+    assert "Use a unique receiving address per payment request" in response.text

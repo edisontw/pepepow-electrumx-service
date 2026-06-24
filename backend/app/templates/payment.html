@@ -1,4 +1,189 @@
 <!doctype html>
-<title>Payment Check · PEPEW Light</title>
-<h1>Payment Check</h1>
-<p>This page is planned for a later phase.</p>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Payment Monitor · {{ app_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; line-height: 1.5; }
+    code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 4px; word-break: break-all; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+    label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+    input { box-sizing: border-box; width: min(100%, 44rem); padding: 0.65rem; font: inherit; }
+    button { padding: 0.65rem 0.9rem; font: inherit; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.55; }
+    table { border-collapse: collapse; width: 100%; margin-top: 0.75rem; }
+    th, td { border-bottom: 1px solid #eee; padding: 0.45rem; text-align: left; vertical-align: top; }
+    th { width: 14rem; }
+    .muted { color: #666; }
+    .ok { color: #176b35; }
+    .warn { color: #8a5a00; }
+    .bad { color: #9f1d20; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: end; }
+    .field { min-width: min(100%, 12rem); }
+    .field.address { flex: 1 1 28rem; }
+    .field.small { flex: 0 1 10rem; }
+    .badge { display: inline-block; border: 1px solid #ccc; border-radius: 999px; padding: 0.2rem 0.55rem; font-weight: 700; }
+    .badge.ok { border-color: #176b35; background: #eaf7ef; }
+    .badge.warn { border-color: #c58b1b; background: #fff6df; }
+    .badge.bad { border-color: #9f1d20; background: #fdecec; }
+  </style>
+</head>
+<body>
+  <h1>PEPEW Payment Monitor</h1>
+  <p class="muted">Read-only address-level payment checking. Use a unique receiving address per payment request for accurate invoice detection.</p>
+
+  <div class="card">
+    <form id="payment-form">
+      <div class="actions">
+        <div class="field address">
+          <label for="address-input">PEPEW address</label>
+          <input id="address-input" name="address" type="text" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128">
+        </div>
+        <div class="field small">
+          <label for="amount-input">Amount</label>
+          <input id="amount-input" name="amount" type="text" placeholder="1.0" inputmode="decimal" autocomplete="off" maxlength="64">
+        </div>
+        <div class="field small">
+          <label for="expiry-input">Expiry minutes</label>
+          <input id="expiry-input" name="expiry" type="number" min="1" step="1" placeholder="optional">
+        </div>
+        <button id="check-button" type="submit">Check</button>
+      </div>
+    </form>
+    <p id="message" class="muted">Enter an address and amount to start checking.</p>
+  </div>
+
+  <div id="result-card" class="card" hidden>
+    <h2>Status <span id="status-badge" class="badge">waiting</span></h2>
+    <table>
+      <tbody id="result-body"></tbody>
+    </table>
+  </div>
+
+  <p><a href="/">Home</a> · <a href="/address">Address Lookup</a> · <a href="/status">Status</a></p>
+
+  <script>
+    (() => {
+      const POLL_MS = 12000;
+      let timer = null;
+      let expiresAt = null;
+
+      const form = document.getElementById("payment-form");
+      const addressInput = document.getElementById("address-input");
+      const amountInput = document.getElementById("amount-input");
+      const expiryInput = document.getElementById("expiry-input");
+      const checkButton = document.getElementById("check-button");
+      const message = document.getElementById("message");
+      const resultCard = document.getElementById("result-card");
+      const resultBody = document.getElementById("result-body");
+      const statusBadge = document.getElementById("status-badge");
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function setMessage(text, className = "muted") {
+        message.textContent = text;
+        message.className = className;
+      }
+
+      function formatAtoms(value) {
+        const atoms = Number(value || 0);
+        if (!Number.isSafeInteger(atoms)) {
+          return String(value || 0);
+        }
+        const whole = Math.floor(atoms / 100000000);
+        const fraction = String(atoms % 100000000).padStart(8, "0").replace(/0+$/, "");
+        return `${whole}${fraction ? "." + fraction : ""}`;
+      }
+
+      function statusClass(status, expired) {
+        if (status === "paid_confirmed" || status === "overpaid") return "ok";
+        if (expired || status === "partial" || status === "paid_unconfirmed" || status === "seen_in_mempool") return "warn";
+        return "muted";
+      }
+
+      async function getJson(url) {
+        const response = await fetch(url, { headers: { "Accept": "application/json" } });
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (_error) {
+          data = {};
+        }
+        if (!response.ok || data.ok === false) {
+          const detail = data.detail || data;
+          const error = detail.error || {};
+          const text = typeof error === "object" ? error.message : error;
+          throw new Error(text || response.statusText || "Request failed.");
+        }
+        return data;
+      }
+
+      function render(data) {
+        const badgeClass = statusClass(data.status, data.expired);
+        statusBadge.textContent = data.status;
+        statusBadge.className = `badge ${badgeClass}`;
+        resultBody.innerHTML = `
+          <tr><th>Address</th><td><code>${escapeHtml(data.address)}</code></td></tr>
+          <tr><th>Amount</th><td>${escapeHtml(data.amount)} PEPEW <span class="muted">(${escapeHtml(data.amount_sats)} atoms)</span></td></tr>
+          <tr><th>Confirmed received</th><td>${escapeHtml(formatAtoms(data.received_confirmed_sats))} PEPEW <span class="muted">(${escapeHtml(data.received_confirmed_sats)} atoms)</span></td></tr>
+          <tr><th>Unconfirmed received</th><td>${escapeHtml(formatAtoms(data.received_unconfirmed_sats))} PEPEW <span class="muted">(${escapeHtml(data.received_unconfirmed_sats)} atoms)</span></td></tr>
+          <tr><th>Confirmations required</th><td>${escapeHtml(data.confirmations_required)}</td></tr>
+          <tr><th>Expired</th><td>${escapeHtml(Boolean(data.expired))}</td></tr>
+          <tr><th>Mempool count</th><td>${escapeHtml(data.mempool_count || 0)}</td></tr>
+          <tr><th>Checked</th><td>${escapeHtml(new Date((data.checked_at || 0) * 1000).toISOString())}</td></tr>
+        `;
+        resultCard.hidden = false;
+        setMessage(`Last checked payment status: ${data.status}.`, badgeClass === "ok" ? "ok" : "muted");
+      }
+
+      function buildUrl() {
+        const address = addressInput.value.trim();
+        const amount = amountInput.value.trim();
+        if (!address) throw new Error("Please enter a PEPEPOW address.");
+        if (!amount) throw new Error("Please enter a positive PEPEW amount.");
+
+        const params = new URLSearchParams({ address, amount });
+        if (expiresAt !== null) {
+          params.set("expires_at", expiresAt);
+        }
+        return `/api/payment/check?${params.toString()}`;
+      }
+
+      async function checkOnce() {
+        checkButton.disabled = true;
+        try {
+          const data = await getJson(buildUrl());
+          render(data);
+        } catch (error) {
+          setMessage(error.message, "bad");
+        } finally {
+          checkButton.disabled = false;
+        }
+      }
+
+      function startPolling() {
+        if (timer !== null) {
+          window.clearInterval(timer);
+        }
+        timer = window.setInterval(checkOnce, POLL_MS);
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const minutes = Number(expiryInput.value || 0);
+        expiresAt = minutes > 0 ? new Date(Date.now() + minutes * 60 * 1000).toISOString() : null;
+        checkOnce();
+        startPolling();
+      });
+    })();
+  </script>
+</body>
+</html>
