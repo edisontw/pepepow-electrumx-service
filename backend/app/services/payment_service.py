@@ -2,6 +2,7 @@ import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from urllib.parse import quote
 
 from ..config import get_settings
 from ..electrumx.client import ElectrumXClient
@@ -69,6 +70,22 @@ def parse_pepew_amount(amount: str, decimals: int = 8) -> int:
         raise InvalidPaymentAmountError(f"Amount supports up to {decimals} decimal places.")
 
     return int(atoms)
+
+
+def format_pepew_amount_from_sats(amount_sats: int, decimals: int = 8) -> str:
+    sign = "-" if amount_sats < 0 else ""
+    absolute = abs(int(amount_sats))
+    scale = 10**decimals
+    whole = absolute // scale
+    fraction = str(absolute % scale).zfill(decimals).rstrip("0")
+    return f"{sign}{whole}{'.' + fraction if fraction else ''}"
+
+
+def _explorer_address_url(base_url: str, address: str) -> str | None:
+    normalized_base = (base_url or "").strip().rstrip("/")
+    if not normalized_base:
+        return None
+    return f"{normalized_base}/address/{quote(address, safe='')}"
 
 
 def _parse_expires_at(expires_at: str | None, expires_in: int | None) -> int | None:
@@ -164,6 +181,9 @@ async def check_payment(
         "address": normalized_address,
         "amount": str(amount).strip(),
         "amount_sats": amount_sats,
+        "amount_pepew": format_pepew_amount_from_sats(amount_sats, settings.pepew_decimals),
+        "pepew_decimals": settings.pepew_decimals,
+        "explorer_address_url": _explorer_address_url(settings.pepew_explorer_base_url, normalized_address),
         "received_confirmed_sats": confirmed_sats,
         "received_unconfirmed_sats": unconfirmed_sats,
         "confirmations_required": confirmations_required,

@@ -4,7 +4,12 @@ import time
 import pytest
 
 from app.services import payment_service
-from app.services.payment_service import InvalidPaymentAmountError, check_payment, parse_pepew_amount
+from app.services.payment_service import (
+    InvalidPaymentAmountError,
+    check_payment,
+    format_pepew_amount_from_sats,
+    parse_pepew_amount,
+)
 
 KNOWN_ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 
@@ -43,6 +48,13 @@ def test_parse_pepew_amount_uses_eight_decimals():
     assert parse_pepew_amount("0.00000001", decimals=8) == 1
 
 
+def test_format_pepew_amount_from_sats_uses_integer_math():
+    assert format_pepew_amount_from_sats(100000000, decimals=8) == "1"
+    assert format_pepew_amount_from_sats(100000001, decimals=8) == "1.00000001"
+    assert format_pepew_amount_from_sats(1, decimals=8) == "0.00000001"
+    assert format_pepew_amount_from_sats(100000000000, decimals=8) == "1000"
+
+
 @pytest.mark.parametrize("amount", ["0", "-1", "abc", "1.000000001"])
 def test_parse_pepew_amount_rejects_invalid_values(amount):
     with pytest.raises(InvalidPaymentAmountError):
@@ -57,6 +69,9 @@ def test_check_payment_waiting(monkeypatch):
     assert result["status"] == "waiting"
     assert result["received_confirmed_sats"] == 0
     assert result["received_unconfirmed_sats"] == 0
+    assert result["amount_pepew"] == "1"
+    assert result["pepew_decimals"] == 8
+    assert result["explorer_address_url"] == f"https://explorer.pepepow.net/address/{KNOWN_ADDRESS}"
 
 
 def test_check_payment_seen_in_mempool(monkeypatch):

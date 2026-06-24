@@ -19,6 +19,7 @@ def test_payment_check_endpoint_success(monkeypatch):
             "confirmations_required": 3,
             "status": "waiting",
             "expired": False,
+            "explorer_address_url": f"https://explorer.pepepow.net/address/{kwargs['address']}",
         }
 
     monkeypatch.setattr(payment_api, "check_payment", fake_check_payment)
@@ -28,6 +29,7 @@ def test_payment_check_endpoint_success(monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "waiting"
     assert response.json()["amount_sats"] == 100000000
+    assert response.json()["explorer_address_url"] == f"https://explorer.pepepow.net/address/{KNOWN_ADDRESS}"
 
 
 def test_payment_check_invalid_address_returns_standard_error(monkeypatch):

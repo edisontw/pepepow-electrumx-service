@@ -92,4 +92,14 @@ def test_pay_page_loads():
     assert response.status_code == 200
     assert "PEPEW Payment Monitor" in response.text
     assert "/api/payment/check" in response.text
-    assert "Use a unique receiving address per payment request" in response.text
+    assert "Use a unique receiving address for each payment." in response.text
+    assert "not an invoice database" in response.text
+    assert "PEPEW_DECIMALS" in response.text
+    assert "status-waiting" in response.text
+    assert "status-seen-in-mempool" in response.text
+    assert "status-partial" in response.text
+    assert "status-paid-unconfirmed" in response.text
+    assert "status-paid-confirmed" in response.text
+    assert "status-overpaid" in response.text
+    assert "status-expired" in response.text
+    assert "status-error" in response.text

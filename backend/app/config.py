@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     pepew_decimals: int = Field(default=8, alias="PEPEW_DECIMALS")
     pepew_address_prefix: str = Field(default="P", alias="PEPEW_ADDRESS_PREFIX")
     pepew_min_confirmations: int = Field(default=3, alias="PEPEW_MIN_CONFIRMATIONS")
+    pepew_explorer_base_url: str = Field(default="https://explorer.pepepow.net", alias="PEPEW_EXPLORER_BASE_URL")
 
     cache_status_seconds: int = Field(default=10, alias="CACHE_STATUS_SECONDS")
     cache_balance_seconds: int = Field(default=15, alias="CACHE_BALANCE_SECONDS")

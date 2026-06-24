@@ -19,19 +19,24 @@
     .ok { color: #176b35; }
     .warn { color: #8a5a00; }
     .bad { color: #9f1d20; }
+    .notice { border-left: 4px solid #8a5a00; background: #fff8e8; }
     .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: end; }
     .field { min-width: min(100%, 12rem); }
     .field.address { flex: 1 1 28rem; }
     .field.small { flex: 0 1 10rem; }
     .badge { display: inline-block; border: 1px solid #ccc; border-radius: 999px; padding: 0.2rem 0.55rem; font-weight: 700; }
-    .badge.ok { border-color: #176b35; background: #eaf7ef; }
-    .badge.warn { border-color: #c58b1b; background: #fff6df; }
-    .badge.bad { border-color: #9f1d20; background: #fdecec; }
+    .status-waiting { border-color: #999; background: #f5f5f5; color: #444; }
+    .status-seen-in-mempool, .status-paid-unconfirmed, .status-partial { border-color: #c58b1b; background: #fff6df; color: #745000; }
+    .status-paid-confirmed, .status-overpaid { border-color: #176b35; background: #eaf7ef; color: #176b35; }
+    .status-expired, .status-error { border-color: #9f1d20; background: #fdecec; color: #9f1d20; }
   </style>
 </head>
 <body>
   <h1>PEPEW Payment Monitor</h1>
-  <p class="muted">Read-only address-level payment checking. Use a unique receiving address per payment request for accurate invoice detection.</p>
+  <div class="card notice">
+    <strong>Use a unique receiving address for each payment.</strong>
+    <p>This page only checks blockchain activity for one address and amount. It is not an invoice database and does not create, reserve, store, or track invoices.</p>
+  </div>
 
   <div class="card">
     <form id="payment-form">
@@ -66,6 +71,7 @@
   <script>
     (() => {
       const POLL_MS = 12000;
+      const PEPEW_DECIMALS = {{ pepew_decimals }};
       let timer = null;
       let expiresAt = null;
 
@@ -93,20 +99,25 @@
         message.className = className;
       }
 
-      function formatAtoms(value) {
-        const atoms = Number(value || 0);
-        if (!Number.isSafeInteger(atoms)) {
+      function formatSats(value, decimals = PEPEW_DECIMALS) {
+        let atoms;
+        try {
+          atoms = BigInt(String(value || 0));
+        } catch (_error) {
           return String(value || 0);
         }
-        const whole = Math.floor(atoms / 100000000);
-        const fraction = String(atoms % 100000000).padStart(8, "0").replace(/0+$/, "");
-        return `${whole}${fraction ? "." + fraction : ""}`;
+        const sign = atoms < 0n ? "-" : "";
+        const absolute = atoms < 0n ? -atoms : atoms;
+        const scale = 10n ** BigInt(decimals);
+        const whole = absolute / scale;
+        const fraction = String(absolute % scale).padStart(decimals, "0").replace(/0+$/, "");
+        return `${sign}${whole}${fraction ? "." + fraction : ""}`;
       }
 
       function statusClass(status, expired) {
-        if (status === "paid_confirmed" || status === "overpaid") return "ok";
-        if (expired || status === "partial" || status === "paid_unconfirmed" || status === "seen_in_mempool") return "warn";
-        return "muted";
+        if (expired) return "status-expired";
+        if (status === "seen_in_mempool") return "status-seen-in-mempool";
+        return `status-${String(status || "error").replaceAll("_", "-")}`;
       }
 
       async function getJson(url) {
@@ -128,20 +139,24 @@
 
       function render(data) {
         const badgeClass = statusClass(data.status, data.expired);
-        statusBadge.textContent = data.status;
+        statusBadge.textContent = data.expired ? "expired" : data.status;
         statusBadge.className = `badge ${badgeClass}`;
+        const explorerLink = data.explorer_address_url
+          ? `<a href="${escapeHtml(data.explorer_address_url)}" target="_blank" rel="noopener noreferrer">Open address explorer</a>`
+          : '<span class="muted">Not configured</span>';
         resultBody.innerHTML = `
           <tr><th>Address</th><td><code>${escapeHtml(data.address)}</code></td></tr>
-          <tr><th>Amount</th><td>${escapeHtml(data.amount)} PEPEW <span class="muted">(${escapeHtml(data.amount_sats)} atoms)</span></td></tr>
-          <tr><th>Confirmed received</th><td>${escapeHtml(formatAtoms(data.received_confirmed_sats))} PEPEW <span class="muted">(${escapeHtml(data.received_confirmed_sats)} atoms)</span></td></tr>
-          <tr><th>Unconfirmed received</th><td>${escapeHtml(formatAtoms(data.received_unconfirmed_sats))} PEPEW <span class="muted">(${escapeHtml(data.received_unconfirmed_sats)} atoms)</span></td></tr>
+          <tr><th>Requested amount</th><td>${escapeHtml(data.amount_pepew || data.amount)} PEPEW <span class="muted">(${escapeHtml(data.amount_sats)} sats / smallest units)</span></td></tr>
+          <tr><th>Confirmed received</th><td>${escapeHtml(formatSats(data.received_confirmed_sats, data.pepew_decimals || PEPEW_DECIMALS))} PEPEW <span class="muted">(${escapeHtml(data.received_confirmed_sats)} sats / smallest units)</span></td></tr>
+          <tr><th>Unconfirmed received</th><td>${escapeHtml(formatSats(data.received_unconfirmed_sats, data.pepew_decimals || PEPEW_DECIMALS))} PEPEW <span class="muted">(${escapeHtml(data.received_unconfirmed_sats)} sats / smallest units)</span></td></tr>
           <tr><th>Confirmations required</th><td>${escapeHtml(data.confirmations_required)}</td></tr>
           <tr><th>Expired</th><td>${escapeHtml(Boolean(data.expired))}</td></tr>
           <tr><th>Mempool count</th><td>${escapeHtml(data.mempool_count || 0)}</td></tr>
+          <tr><th>Explorer</th><td>${explorerLink}</td></tr>
           <tr><th>Checked</th><td>${escapeHtml(new Date((data.checked_at || 0) * 1000).toISOString())}</td></tr>
         `;
         resultCard.hidden = false;
-        setMessage(`Last checked payment status: ${data.status}.`, badgeClass === "ok" ? "ok" : "muted");
+        setMessage(`Last checked payment status: ${data.expired ? "expired" : data.status}.`, badgeClass === "status-paid-confirmed" || badgeClass === "status-overpaid" ? "ok" : "muted");
       }
 
       function buildUrl() {
@@ -163,6 +178,10 @@
           const data = await getJson(buildUrl());
           render(data);
         } catch (error) {
+          statusBadge.textContent = "error";
+          statusBadge.className = "badge status-error";
+          resultBody.innerHTML = `<tr><th>Error</th><td>${escapeHtml(error.message)}</td></tr>`;
+          resultCard.hidden = false;
           setMessage(error.message, "bad");
         } finally {
           checkButton.disabled = false;

@@ -68,6 +68,7 @@ async def pay_page(request: Request) -> HTMLResponse:
             "app_name": settings.app_name,
             "version": settings.version,
             "min_confirmations": settings.pepew_min_confirmations,
+            "pepew_decimals": settings.pepew_decimals,
         },
     )
 

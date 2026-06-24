@@ -197,6 +197,16 @@ Payment checking is address-level. Use a unique receiving address per payment re
 
 The payment monitor remains read-only. It does not add mnemonic, private key, signing, server-side wallet, custody, or broadcast logic.
 
+### Not an invoice database
+
+Payment Monitor is not an invoice database.
+
+- It does not create, reserve, store, or expire invoices server-side.
+- It only checks whether a given address has received at least the requested amount.
+- Each payment should use a unique receiving address.
+- Reusing addresses can cause ambiguous payment detection.
+- For production merchant use, a real invoice/payment database should be added later.
+
 ## Phase 1 verification on MN3
 
 ```bash
