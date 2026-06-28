@@ -345,3 +345,14 @@ curl -s "https://light.pepepow.net/api/payment/check?address=PRfbEeHAKKbz6Voz85W
 2. Payment monitor
 3. Web wallet read-only integration
 4. Signed raw transaction broadcast only after the read-only service is stable
+
+## Phase 4 Read-Only Wallet Integration APIs
+
+The gateway provides a dedicated, wallet-oriented read-only namespace under `/api/wallet/*` for frontend integration.
+
+- `GET /api/wallet/address/{address}`: Returns balance summary, confirmed/unconfirmed PEPEW amounts, and historical transaction ID lists.
+- `GET /api/wallet/history/{address}`: Returns lists of transaction IDs in confirmed history and unconfirmed mempool.
+- `GET /api/wallet/tx/{txid}`: Retrieves verbose transaction details from ElectrumX.
+
+All inputs are validated. No private keys, mnemonics, or seeds are ever handled or transmitted to the server.
+

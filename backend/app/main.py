@@ -9,6 +9,7 @@ from .api.status import router as status_router
 from .api.address import router as address_router
 from .api.tx import router as tx_router
 from .api.payment import router as payment_router
+from .api.wallet import router as wallet_router
 from .config import get_settings
 from .logging_config import configure_logging
 from .services.status_service import get_status
@@ -31,6 +32,8 @@ app.include_router(status_router, prefix="/api")
 app.include_router(address_router, prefix="/api")
 app.include_router(tx_router, prefix="/api")
 app.include_router(payment_router, prefix="/api")
+app.include_router(wallet_router, prefix="/api")
+
 
 
 @app.get("/", response_class=HTMLResponse)
