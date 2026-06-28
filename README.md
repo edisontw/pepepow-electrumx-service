@@ -203,6 +203,12 @@ Example response:
   "requested_sats": 100000000000,
   "amount_pepew": "1000",
   "pepew_decimals": 8,
+  "confirmed_balance": "0",
+  "confirmed_balance_sats": 0,
+  "mempool_balance": "0",
+  "mempool_balance_sats": 0,
+  "total_visible_balance": "0",
+  "total_visible_balance_sats": 0,
   "confirmed_received": "0",
   "confirmed_received_sats": 0,
   "mempool_received": "0",
@@ -213,7 +219,7 @@ Example response:
   "confirmations_required": 3,
   "explorer_address_url": "https://explorer.pepepow.net/address/Pxxx",
   "expired": false,
-  "status_explanation": "No matching payment has been seen yet."
+  "status_explanation": "Current address balance is below the requested amount."
 }
 ```
 
@@ -223,9 +229,12 @@ Response fields:
 - `requested_amount` and `amount_pepew`: normalized requested PEPEW amount.
 - `requested_sats`: requested amount in sats / smallest units.
 - `pepew_decimals`: decimal precision used for PEPEW amount conversion.
-- `confirmed_received` and `confirmed_received_sats`: address-level confirmed total.
-- `mempool_received` and `mempool_received_sats`: address-level unconfirmed mempool total.
-- `total_received` and `total_received_sats`: confirmed plus mempool/unconfirmed total seen for the address.
+- `confirmed_balance` and `confirmed_balance_sats`: current confirmed address balance.
+- `mempool_balance` and `mempool_balance_sats`: current unconfirmed mempool balance.
+- `total_visible_balance` and `total_visible_balance_sats`: total visible balance (confirmed + mempool).
+- `confirmed_received` and `confirmed_received_sats`: compatibility aliases for confirmed balance.
+- `mempool_received` and `mempool_received_sats`: compatibility aliases for mempool balance.
+- `total_received` and `total_received_sats`: compatibility aliases for total visible balance.
 - `status`: one of `waiting`, `seen_in_mempool`, `partial`, `paid_unconfirmed`, `paid_confirmed`, or `overpaid`.
 - `confirmations_required`: threshold from `PEPEW_MIN_CONFIRMATIONS` unless overridden by query parameter.
 - `explorer_address_url`: public explorer URL for the checked address.

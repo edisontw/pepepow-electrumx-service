@@ -4,61 +4,88 @@
   <meta charset="utf-8">
   <title>Status · {{ app_name }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 920px; line-height: 1.5; }
-    code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 4px; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
-    .ok { color: #176b35; }
-    .bad { color: #9f1d20; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border-bottom: 1px solid #eee; padding: 0.45rem; text-align: left; vertical-align: top; }
-    th { width: 14rem; }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <h1>PEPEW Light Status</h1>
-  <p>Read-only ElectrumX gateway status. Version: <code>{{ version }}</code></p>
+  <div class="container">
+    <header>
+      <div class="badge">Gateway Status</div>
+      <h1>PEPEW Light Status</h1>
+      <p class="subtitle">Inspect real-time connections, syncing block heights, and request cache statistics of the PEPEW Light Gateway.</p>
+    </header>
 
-  <div class="card">
-    <h2>Public Service</h2>
-    <table>
-      <tr><th>Public URL</th><td><a href="https://light.pepepow.net">https://light.pepepow.net</a></td></tr>
-      <tr><th>Gateway</th><td class="ok">online</td></tr>
-      <tr>
-        <th>ElectrumX</th>
-        <td class="{{ 'ok' if status.ok else 'bad' }}">
-          {{ "connected" if status.ok else "error" }}
-        </td>
-      </tr>
-      <tr><th>Height</th><td>{{ status.electrumx.height or "n/a" }}</td></tr>
-      <tr><th>Response time</th><td>{{ status.electrumx.response_time_ms or "n/a" }} ms</td></tr>
-      <tr><th>Checked at</th><td>{{ status.checked_at }}</td></tr>
-      <tr><th>Cache age</th><td>{{ status.cache_age_seconds or 0 }}s / {{ status.cache_ttl_seconds or status.cache.ttl_seconds }}s</td></tr>
-    </table>
+    <div class="nav-row">
+      <a href="/">Home</a>
+      <a href="/address">Address Lookup</a>
+      <a href="/pay">Payment Monitor</a>
+      <a href="/status" class="active">Status</a>
+    </div>
+
+    <div class="grid">
+      <!-- Public Service Summary -->
+      <div class="card">
+        <div>
+          <h2>Service Summary</h2>
+          <p>Gateway details and network performance check.</p>
+          <table>
+            <tbody>
+              <tr><th>Public URL</th><td><a href="https://light.pepepow.net" class="tx-link">light.pepepow.net</a></td></tr>
+              <tr><th>Gateway</th><td><span class="ok">online</span></td></tr>
+              <tr>
+                <th>ElectrumX</th>
+                <td>
+                  <span class="{{ 'ok' if status.ok else 'bad' }}">
+                    {{ "connected" if status.ok else "disconnected" }}
+                  </span>
+                </td>
+              </tr>
+              <tr><th>Tip Height</th><td><code>{{ status.electrumx.height or "n/a" }}</code></td></tr>
+              <tr><th>Node Latency</th><td><code>{{ status.electrumx.response_time_ms or "n/a" }} ms</code></td></tr>
+              <tr><th>Last Checked</th><td><span class="muted">{{ status.checked_at }}</span></td></tr>
+              <tr><th>Cache State</th><td><span class="muted">{{ status.cache_age_seconds or 0 }}s / {{ status.cache_ttl_seconds or status.cache.ttl_seconds }}s</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Upstream ElectrumX Node Details -->
+      <div class="card">
+        <div>
+          <h2>Node Connection</h2>
+          {% if status.ok %}
+            <p class="ok">Successfully connected to upstream server.</p>
+          {% else %}
+            <p class="bad">Upstream server connection offline.</p>
+            {% if status.error %}<div class="safety-alert">Error: {{ status.error }}</div>{% endif %}
+          {% endif %}
+          <table>
+            <tbody>
+              <tr><th>Target Host</th><td><code>{{ status.electrumx.host }}:{{ status.electrumx.port }}</code></td></tr>
+              <tr><th>SSL Secure</th><td><code>{{ status.electrumx.ssl }}</code></td></tr>
+              <tr><th>Node Software</th><td><code>{{ status.electrumx.server_version or "n/a" }}</code></td></tr>
+              <tr><th>Protocol Ver</th><td><code>{{ status.electrumx.protocol or "n/a" }}</code></td></tr>
+              <tr><th>Latest Tip</th><td><code>{{ status.electrumx.tip_hash or "n/a" }}</code></td></tr>
+              <tr><th>Cache TTL</th><td><code>{{ status.cache.ttl_seconds }}s (hit: {{ status.cache.hit }})</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="card">
-    {% if status.ok %}
-      <h2 class="ok">ElectrumX connected</h2>
-    {% else %}
-      <h2 class="bad">ElectrumX disconnected</h2>
-      <p>Gateway is responding, but ElectrumX is not currently available.</p>
-      {% if status.error %}<p>Error: <code>{{ status.error }}</code></p>{% endif %}
-    {% endif %}
-
-    <table>
-      <tr><th>Host</th><td><code>{{ status.electrumx.host }}</code>:<code>{{ status.electrumx.port }}</code></td></tr>
-      <tr><th>SSL</th><td>{{ status.electrumx.ssl }}</td></tr>
-      <tr><th>Server version</th><td>{{ status.electrumx.server_version or "n/a" }}</td></tr>
-      <tr><th>Protocol</th><td>{{ status.electrumx.protocol or "n/a" }}</td></tr>
-      <tr><th>Height</th><td>{{ status.electrumx.height or "n/a" }}</td></tr>
-      <tr><th>Tip hash</th><td><code>{{ status.electrumx.tip_hash or "n/a" }}</code></td></tr>
-      <tr><th>Response time</th><td>{{ status.electrumx.response_time_ms or "n/a" }} ms</td></tr>
-      <tr><th>Cache</th><td>TTL {{ status.cache.ttl_seconds }}s · hit: {{ status.cache.hit }}</td></tr>
-      <tr><th>Last checked</th><td>{{ status.checked_at }}</td></tr>
-    </table>
-  </div>
-
-  <p><a href="/">Home</a> · <a href="/api/status">JSON status</a></p>
+  <footer>
+    <div class="container">
+      <div class="links-row">
+        <a href="https://pepepow.org" target="_blank" rel="noopener noreferrer">PEPEPOW Ecosystem</a>
+        <a href="https://explorer.pepepow.net" target="_blank" rel="noopener noreferrer">Block Explorer</a>
+        <a href="https://pool.pepepow.net" target="_blank" rel="noopener noreferrer">Mining Pool</a>
+        <a href="https://github.com/edisontw/pepepow-electrumx-service" target="_blank" rel="noopener noreferrer">GitHub Codebase</a>
+      </div>
+      <p>&copy; 2026 PEPEPOW Development Community. Core Version {{ version }}. Distributed under MIT.</p>
+    </div>
+  </footer>
 </body>
 </html>

@@ -18,6 +18,12 @@ def test_payment_check_endpoint_success(monkeypatch):
             "amount_sats": 100000000,
             "amount_pepew": kwargs["amount"],
             "pepew_decimals": 8,
+            "confirmed_balance": "0",
+            "confirmed_balance_sats": 0,
+            "mempool_balance": "0",
+            "mempool_balance_sats": 0,
+            "total_visible_balance": "0",
+            "total_visible_balance_sats": 0,
             "confirmed_received": "0",
             "confirmed_received_sats": 0,
             "mempool_received": "0",
@@ -29,8 +35,8 @@ def test_payment_check_endpoint_success(monkeypatch):
             "confirmations_required": 3,
             "status": "waiting",
             "expired": False,
-            "status_explanation": "No matching payment has been seen yet.",
-            "message": "No matching payment has been seen yet.",
+            "status_explanation": "Current address balance is below the requested amount.",
+            "message": "Current address balance is below the requested amount.",
             "explorer_address_url": f"https://explorer.pepepow.net/address/{kwargs['address']}",
         }
 
@@ -43,8 +49,11 @@ def test_payment_check_endpoint_success(monkeypatch):
     data = response.json()
     assert data["amount_sats"] == 100000000
     assert data["requested_sats"] == 100000000
+    assert data["confirmed_balance_sats"] == 0
     assert data["confirmed_received_sats"] == 0
+    assert data["mempool_balance_sats"] == 0
     assert data["mempool_received_sats"] == 0
+    assert data["total_visible_balance_sats"] == 0
     assert data["total_received_sats"] == 0
     assert data["explorer_address_url"] == f"https://explorer.pepepow.net/address/{KNOWN_ADDRESS}"
 

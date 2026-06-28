@@ -52,12 +52,12 @@ class PaymentUpstreamError(PaymentCheckError):
 
 
 STATUS_EXPLANATIONS = {
-    "waiting": "No matching payment has been seen yet.",
-    "seen_in_mempool": "Payment has been seen in mempool but is not confirmed yet.",
-    "partial": "Received amount is lower than the requested amount.",
-    "paid_unconfirmed": "Full amount has been seen but is not confirmed enough yet.",
-    "paid_confirmed": "Required amount has enough confirmations.",
-    "overpaid": "Received amount is greater than requested amount.",
+    "waiting": "Current address balance is below the requested amount.",
+    "seen_in_mempool": "Mempool balance is visible but not confirmed.",
+    "partial": "Current visible balance is below the requested amount.",
+    "paid_unconfirmed": "Current visible balance meets the requested amount, but confirmations are insufficient.",
+    "paid_confirmed": "Confirmed address balance meets the requested amount.",
+    "overpaid": "Current visible balance is greater than the requested amount.",
     "expired": "This display monitor has expired.",
     "error": "Payment status could not be checked.",
 }
@@ -209,6 +209,12 @@ async def check_payment(
         "amount_pepew": amount_pepew,
         "pepew_decimals": settings.pepew_decimals,
         "explorer_address_url": _explorer_address_url(settings.pepew_explorer_base_url, normalized_address),
+        "confirmed_balance": confirmed_received,
+        "confirmed_balance_sats": confirmed_sats,
+        "mempool_balance": mempool_received,
+        "mempool_balance_sats": unconfirmed_sats,
+        "total_visible_balance": total_received,
+        "total_visible_balance_sats": total_sats,
         "confirmed_received": confirmed_received,
         "confirmed_received_sats": confirmed_sats,
         "mempool_received": mempool_received,

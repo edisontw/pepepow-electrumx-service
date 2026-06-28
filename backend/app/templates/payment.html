@@ -4,90 +4,92 @@
   <meta charset="utf-8">
   <title>Payment Monitor · {{ app_name }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; line-height: 1.5; }
-    code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 4px; word-break: break-all; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
-    label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
-    input { box-sizing: border-box; width: min(100%, 44rem); padding: 0.65rem; font: inherit; }
-    button { padding: 0.65rem 0.9rem; font: inherit; cursor: pointer; }
-    button:disabled { cursor: not-allowed; opacity: 0.55; }
-    table { border-collapse: collapse; width: 100%; margin-top: 0.75rem; }
-    th, td { border-bottom: 1px solid #eee; padding: 0.45rem; text-align: left; vertical-align: top; }
-    th { width: 14rem; }
-    .muted { color: #666; }
-    .ok { color: #176b35; }
-    .warn { color: #8a5a00; }
-    .bad { color: #9f1d20; }
-    .notice { border-left: 4px solid #8a5a00; background: #fff8e8; }
-    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: end; }
-    .field { min-width: min(100%, 12rem); }
-    .field.address { flex: 1 1 28rem; }
-    .field.small { flex: 0 1 10rem; }
-    .copy-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0.5rem 0; }
-    .copy-row code { flex: 1 1 18rem; }
-    .qr-box { margin-top: 1rem; }
-    .qr-box img { width: 180px; height: 180px; border: 1px solid #ddd; padding: 0.5rem; background: #fff; }
-    .badge { display: inline-block; border: 1px solid #ccc; border-radius: 999px; padding: 0.2rem 0.55rem; font-weight: 700; }
-    .status-waiting { border-color: #999; background: #f5f5f5; color: #444; }
-    .status-seen-in-mempool, .status-paid-unconfirmed, .status-partial { border-color: #c58b1b; background: #fff6df; color: #745000; }
-    .status-paid-confirmed, .status-overpaid { border-color: #176b35; background: #eaf7ef; color: #176b35; }
-    .status-expired, .status-error { border-color: #9f1d20; background: #fdecec; color: #9f1d20; }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <h1>PEPEW Payment Monitor</h1>
-  <div class="card notice">
-    <strong>Use a unique receiving address for each payment.</strong>
-    <p>This page only checks blockchain activity for one address and amount. It is not an invoice database and does not create, reserve, store, or track invoices.</p>
-  </div>
+  <div class="container">
+    <header>
+      <div class="badge">Read-Only Monitor</div>
+      <h1>PEPEW Payment Monitor</h1>
+      <p class="subtitle">Check whether the current visible balance of a single PEPEW address meets a requested amount.</p>
+    </header>
 
-  <div class="card">
-    <form id="payment-form">
-      <div class="actions">
-        <div class="field address">
-          <label for="address-input">PEPEW address</label>
-          <input id="address-input" name="address" type="text" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128">
-        </div>
-        <div class="field small">
-          <label for="amount-input">Amount</label>
-          <input id="amount-input" name="amount" type="text" placeholder="1.0" inputmode="decimal" autocomplete="off" maxlength="64">
-        </div>
-        <div class="field small">
-          <label for="expiry-input">Expiry minutes</label>
-          <input id="expiry-input" name="expiry" type="number" min="1" step="1" placeholder="optional">
-        </div>
-        <button id="check-button" type="submit">Check</button>
-      </div>
-    </form>
-    <p id="message" class="muted">Enter an address and amount to start checking.</p>
-  </div>
-
-  <div id="result-card" class="card" hidden>
-    <h2>Status <span id="status-badge" class="badge">waiting</span></h2>
-    <div aria-label="Payment copy details">
-      <div class="copy-row">
-        <strong>Address</strong>
-        <code id="copy-address-value"></code>
-        <button id="copy-address-button" type="button">Copy address</button>
-      </div>
-      <div class="copy-row">
-        <strong>Amount</strong>
-        <code id="copy-amount-value"></code>
-        <button id="copy-amount-button" type="button">Copy amount</button>
-      </div>
+    <div class="nav-row">
+      <a href="/">Home</a>
+      <a href="/address">Address Lookup</a>
+      <a href="/pay" class="active">Payment Monitor</a>
+      <a href="/status">Status</a>
     </div>
-    <div id="qr-section" class="qr-box" aria-label="Address QR code">
-      <h3>Address QR</h3>
-      <img id="address-qr" alt="QR code for payment address">
-      <p class="muted">QR encodes the address only.</p>
+
+    <div class="notice-box">
+      <strong>Important Safety Caveats:</strong>
+      <p style="margin-top: 0.25rem; font-size: 0.9rem; font-weight: 300; line-height: 1.5;">
+        This is not an invoice database. It does not create, reserve, store, or reconcile merchant invoices. It only checks the current balance of a single address. For reliable use, generate a unique, fresh receiving address for each payment and avoid spending from that address before the payment is confirmed. Reusing addresses or spending from the address can make balance-based payment checks ambiguous.
+      </p>
     </div>
-    <table>
-      <tbody id="result-body"></tbody>
-    </table>
+
+    <div class="card">
+      <form id="payment-form">
+        <div class="actions-row">
+          <div class="field-block wide">
+            <label for="address-input">PEPEW Address</label>
+            <input id="address-input" name="address" type="text" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128" required>
+          </div>
+          <div class="field-block narrow">
+            <label for="amount-input">Amount</label>
+            <input id="amount-input" name="amount" type="text" placeholder="1.0" inputmode="decimal" autocomplete="off" maxlength="64" required>
+          </div>
+          <div class="field-block narrow">
+            <label for="expiry-input">Expiry minutes</label>
+            <input id="expiry-input" name="expiry" type="number" min="1" step="1" placeholder="optional">
+          </div>
+          <button id="check-button" class="btn" type="submit">Check</button>
+        </div>
+      </form>
+      <p id="message" class="muted" style="margin-top: 1rem;">Enter an address and amount to start checking.</p>
+    </div>
+
+    <div id="result-card" class="card" hidden>
+      <h2>Payment Status <span id="status-badge" class="payment-badge status-waiting">waiting</span></h2>
+      <div aria-label="Payment copy details" style="margin-bottom: 1.5rem;">
+        <div class="copy-row">
+          <strong style="width: 6rem; font-size: 0.9rem;">Address</strong>
+          <code id="copy-address-value"></code>
+          <button id="copy-address-button" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" type="button">Copy address</button>
+        </div>
+        <div class="copy-row">
+          <strong style="width: 6rem; font-size: 0.9rem;">Amount</strong>
+          <code id="copy-amount-value"></code>
+          <button id="copy-amount-button" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" type="button">Copy amount</button>
+        </div>
+      </div>
+      
+      <div id="qr-section" class="qr-box" aria-label="Address QR code" style="margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">Address QR Code</h3>
+        <img id="address-qr" alt="QR code for payment address">
+        <p class="muted" style="font-size: 0.85rem; margin-top: 0.25rem;">QR encodes the address only.</p>
+      </div>
+
+      <table>
+        <tbody id="result-body"></tbody>
+      </table>
+    </div>
   </div>
 
-  <p><a href="/">Home</a> · <a href="/address">Address Lookup</a> · <a href="/status">Status</a></p>
+  <footer>
+    <div class="container">
+      <div class="links-row">
+        <a href="https://pepepow.org" target="_blank" rel="noopener noreferrer">PEPEPOW Ecosystem</a>
+        <a href="https://explorer.pepepow.net" target="_blank" rel="noopener noreferrer">Block Explorer</a>
+        <a href="https://pool.pepepow.net" target="_blank" rel="noopener noreferrer">Mining Pool</a>
+        <a href="https://github.com/edisontw/pepepow-electrumx-service" target="_blank" rel="noopener noreferrer">GitHub Codebase</a>
+      </div>
+      <p>&copy; 2026 PEPEPOW Development Community. Core Version {{ version }}. Distributed under MIT.</p>
+    </div>
+  </footer>
 
   <script>
     (() => {
@@ -141,6 +143,7 @@
       }
 
       function statusClass(status, expired) {
+        // status-waiting status-seen-in-mempool status-partial status-paid-unconfirmed status-paid-confirmed status-overpaid status-expired status-error
         if (expired) return "status-expired";
         if (status === "seen_in_mempool") return "status-seen-in-mempool";
         return `status-${String(status || "error").replaceAll("_", "-")}`;
@@ -186,30 +189,37 @@
       function render(data) {
         const badgeClass = statusClass(data.status, data.expired);
         statusBadge.textContent = data.expired ? "expired" : data.status;
-        statusBadge.className = `badge ${badgeClass}`;
+        statusBadge.className = `payment-badge ${badgeClass}`;
         const explorerLink = data.explorer_address_url
-          ? `<a href="${escapeHtml(data.explorer_address_url)}" target="_blank" rel="noopener noreferrer">Open address explorer</a>`
+          ? `<a href="${escapeHtml(data.explorer_address_url)}" class="tx-link" target="_blank" rel="noopener noreferrer">Open address explorer</a>`
           : '<span class="muted">Not configured</span>';
+        
         const requestedAmount = data.requested_amount || data.amount_pepew || data.amount;
         const requestedSats = data.requested_sats ?? data.amount_sats;
-        const confirmedReceived = data.confirmed_received || formatSats(data.confirmed_received_sats ?? data.received_confirmed_sats, data.pepew_decimals || PEPEW_DECIMALS);
-        const confirmedReceivedSats = data.confirmed_received_sats ?? data.received_confirmed_sats;
-        const mempoolReceived = data.mempool_received || formatSats(data.mempool_received_sats ?? data.received_unconfirmed_sats, data.pepew_decimals || PEPEW_DECIMALS);
-        const mempoolReceivedSats = data.mempool_received_sats ?? data.received_unconfirmed_sats;
-        const totalReceived = data.total_received || formatSats(data.total_received_sats, data.pepew_decimals || PEPEW_DECIMALS);
-        const totalReceivedSats = data.total_received_sats ?? Number(confirmedReceivedSats || 0) + Number(mempoolReceivedSats || 0);
+        
+        // Normalized fields preferred, with fallback to aliases
+        const confirmedBalance = data.confirmed_balance || data.confirmed_received || formatSats(data.confirmed_balance_sats ?? data.confirmed_received_sats ?? data.received_confirmed_sats, data.pepew_decimals || PEPEW_DECIMALS);
+        const confirmedBalanceSats = data.confirmed_balance_sats ?? data.confirmed_received_sats ?? data.received_confirmed_sats;
+        
+        const mempoolBalance = data.mempool_balance || data.mempool_received || formatSats(data.mempool_balance_sats ?? data.mempool_received_sats ?? data.received_unconfirmed_sats, data.pepew_decimals || PEPEW_DECIMALS);
+        const mempoolBalanceSats = data.mempool_balance_sats ?? data.mempool_received_sats ?? data.received_unconfirmed_sats;
+        
+        const totalVisibleBalance = data.total_visible_balance || data.total_received || formatSats(data.total_visible_balance_sats ?? data.total_received_sats, data.pepew_decimals || PEPEW_DECIMALS);
+        const totalVisibleBalanceSats = data.total_visible_balance_sats ?? data.total_received_sats ?? Number(confirmedBalanceSats || 0) + Number(mempoolBalanceSats || 0);
+
         copyAddressValue.textContent = data.address;
         copyAmountValue.textContent = `${requestedAmount} PEPEW`;
         copyAddressButton.dataset.copyValue = data.address;
         copyAmountButton.dataset.copyValue = requestedAmount;
         addressQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.address)}`;
+        
         resultBody.innerHTML = `
           <tr><th>Address</th><td><code>${escapeHtml(data.address)}</code></td></tr>
-          <tr><th>Required amount</th><td>${escapeHtml(requestedAmount)} PEPEW <span class="muted">(${escapeHtml(requestedSats)} sats / smallest units)</span></td></tr>
-          <tr><th>Confirmed received</th><td>${escapeHtml(confirmedReceived)} PEPEW <span class="muted">(${escapeHtml(confirmedReceivedSats)} sats / smallest units)</span></td></tr>
-          <tr><th>Mempool / unconfirmed received</th><td>${escapeHtml(mempoolReceived)} PEPEW <span class="muted">(${escapeHtml(mempoolReceivedSats)} sats / smallest units)</span></td></tr>
-          <tr><th>Total seen</th><td>${escapeHtml(totalReceived)} PEPEW <span class="muted">(${escapeHtml(totalReceivedSats)} sats / smallest units)</span></td></tr>
-          <tr><th>Status</th><td>${escapeHtml(data.expired ? "expired" : data.status)}</td></tr>
+          <tr><th>Required amount</th><td>${escapeHtml(requestedAmount)} PEPEW <span class="muted">(${escapeHtml(requestedSats)} sats)</span></td></tr>
+          <tr><th>Confirmed address balance</th><td>${escapeHtml(confirmedBalance)} PEPEW <span class="muted">(${escapeHtml(confirmedBalanceSats)} sats)</span></td></tr>
+          <tr><th>Mempool / unconfirmed balance</th><td>${escapeHtml(mempoolBalance)} PEPEW <span class="muted">(${escapeHtml(mempoolBalanceSats)} sats)</span></td></tr>
+          <tr><th>Total visible address balance</th><td>${escapeHtml(totalVisibleBalance)} PEPEW <span class="muted">(${escapeHtml(totalVisibleBalanceSats)} sats)</span></td></tr>
+          <tr><th>Payment status</th><td><span class="payment-badge ${badgeClass}">${escapeHtml(data.expired ? "expired" : data.status)}</span></td></tr>
           <tr><th>Explanation</th><td>${escapeHtml(data.status_explanation || data.message || "Payment status could not be checked.")}</td></tr>
           <tr><th>Confirmations required</th><td>${escapeHtml(data.confirmations_required)}</td></tr>
           <tr><th>Display expiry</th><td>${escapeHtml(formatExpiry(data))}</td></tr>
@@ -218,7 +228,9 @@
           <tr><th>Checked</th><td>${escapeHtml(new Date((data.checked_at || 0) * 1000).toISOString())}</td></tr>
         `;
         resultCard.hidden = false;
-        setMessage(`Last checked payment status: ${data.expired ? "expired" : data.status}.`, badgeClass === "status-paid-confirmed" || badgeClass === "status-overpaid" ? "ok" : "muted");
+        
+        const isPaid = badgeClass === "status-paid-confirmed" || badgeClass === "status-overpaid";
+        setMessage(`Last checked payment status: ${data.expired ? "expired" : data.status}.`, isPaid ? "ok" : "muted");
       }
 
       function buildUrl() {
@@ -241,7 +253,7 @@
           render(data);
         } catch (error) {
           statusBadge.textContent = "error";
-          statusBadge.className = "badge status-error";
+          statusBadge.className = "payment-badge status-error";
           copyAddressValue.textContent = "";
           copyAmountValue.textContent = "";
           copyAddressButton.dataset.copyValue = "";

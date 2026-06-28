@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .api.health import router as health_router
@@ -20,6 +21,7 @@ app = FastAPI(
     description="Read-only PEPEPOW ElectrumX API Gateway.",
 )
 
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 app.include_router(health_router, prefix="/api")

@@ -82,8 +82,16 @@ def test_check_payment_waiting(monkeypatch):
     assert result["amount_pepew"] == "1"
     assert result["pepew_decimals"] == 8
     assert result["explorer_address_url"] == f"https://explorer.pepepow.net/address/{KNOWN_ADDRESS}"
-    assert result["status_explanation"] == "No matching payment has been seen yet."
+    assert result["status_explanation"] == "Current address balance is below the requested amount."
     assert result["message"] == result["status_explanation"]
+    
+    # Assert new balance fields
+    assert result["confirmed_balance"] == "0"
+    assert result["confirmed_balance_sats"] == 0
+    assert result["mempool_balance"] == "0"
+    assert result["mempool_balance_sats"] == 0
+    assert result["total_visible_balance"] == "0"
+    assert result["total_visible_balance_sats"] == 0
 
 
 def test_check_payment_normalized_sats_fields_are_integers(monkeypatch):
@@ -93,11 +101,15 @@ def test_check_payment_normalized_sats_fields_are_integers(monkeypatch):
 
     for field in [
         "requested_sats",
+        "confirmed_balance_sats",
+        "mempool_balance_sats",
+        "total_visible_balance_sats",
         "confirmed_received_sats",
         "mempool_received_sats",
         "total_received_sats",
     ]:
         assert isinstance(result[field], int)
+    assert result["total_visible_balance_sats"] == 100
     assert result["total_received_sats"] == 100
 
 

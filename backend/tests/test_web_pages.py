@@ -117,9 +117,9 @@ def test_pay_page_loads():
     assert response.status_code == 200
     assert "PEPEW Payment Monitor" in response.text
     assert "/api/payment/check" in response.text
-    assert "Use a unique receiving address for each payment." in response.text
-    assert "not an invoice database" in response.text
-    assert "does not create, reserve, store, or track invoices" in response.text
+    assert "generate a unique, fresh receiving address for each payment" in response.text
+    assert "This is not an invoice database" in response.text
+    assert "does not create, reserve, store, or reconcile merchant invoices" in response.text
     assert "PEPEW_DECIMALS" in response.text
     assert "status-waiting" in response.text
     assert "status-seen-in-mempool" in response.text
@@ -151,13 +151,22 @@ def test_pay_page_labels_match_payment_api_terminology():
 
     assert response.status_code == 200
     assert "Required amount" in response.text
-    assert "Confirmed received" in response.text
-    assert "Mempool / unconfirmed received" in response.text
-    assert "Total seen" in response.text
-    assert "Status" in response.text
+    assert "Confirmed address balance" in response.text
+    assert "Mempool / unconfirmed balance" in response.text
+    assert "Total visible address balance" in response.text
+    assert "Payment status" in response.text
     assert "status_explanation" in response.text
     assert "requested_sats" in response.text
-    assert "confirmed_received_sats" in response.text
-    assert "mempool_received_sats" in response.text
-    assert "total_received_sats" in response.text
+    assert "confirmed_balance_sats" in response.text
+    assert "mempool_balance_sats" in response.text
+    assert "total_visible_balance_sats" in response.text
     assert "This monitor link expires for display purposes only." in response.text
+
+
+def test_homepage_transaction_lookup_marked_coming_soon():
+    client = TestClient(app)
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Transaction Lookup" in response.text
+    assert "Coming soon" in response.text

@@ -4,62 +4,71 @@
   <meta charset="utf-8">
   <title>Address Lookup · {{ app_name }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 980px; line-height: 1.5; }
-    code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 4px; word-break: break-all; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
-    label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
-    input { box-sizing: border-box; width: min(100%, 44rem); padding: 0.65rem; font: inherit; }
-    button { padding: 0.65rem 0.9rem; font: inherit; cursor: pointer; }
-    button:disabled { cursor: not-allowed; opacity: 0.55; }
-    table { border-collapse: collapse; width: 100%; margin-top: 0.75rem; }
-    th, td { border-bottom: 1px solid #eee; padding: 0.45rem; text-align: left; vertical-align: top; }
-    th { width: 13rem; }
-    .muted { color: #666; }
-    .ok { color: #176b35; }
-    .bad { color: #9f1d20; }
-    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-    .tx { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; word-break: break-all; }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <h1>PEPEW Address Lookup</h1>
-  <p class="muted">Read-only lookup via PEPEW Light. No mnemonic, private key, or signing data is handled by this page.</p>
+  <div class="container">
+    <header>
+      <div class="badge">Read-Only Gateway</div>
+      <h1>PEPEW Address Lookup</h1>
+      <p class="subtitle">Query real-time balances, script hashes, and transaction history counts for any PEPEPOW address.</p>
+    </header>
 
-  <div class="card">
-    <form id="lookup-form">
-      <label for="address-input">PEPEW address</label>
-      <div class="actions">
-        <input id="address-input" name="q" type="text" value="{{ query_address }}" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128">
-        <button type="submit">Lookup</button>
+    <div class="nav-row">
+      <a href="/">Home</a>
+      <a href="/address" class="active">Address Lookup</a>
+      <a href="/pay">Payment Monitor</a>
+      <a href="/status">Status</a>
+    </div>
+
+    <div class="card">
+      <form id="lookup-form">
+        <label for="address-input">PEPEW Address</label>
+        <div class="input-wrapper">
+          <input id="address-input" name="q" type="text" value="{{ query_address }}" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128" required>
+          <button class="btn" type="submit">Lookup</button>
+        </div>
+      </form>
+      <p id="message" class="muted" style="margin-top: 1rem;">Enter a PEPEW address to query balance and history.</p>
+    </div>
+
+    <div id="summary-card" class="card" hidden>
+      <h2>Address Summary</h2>
+      <table>
+        <tbody id="summary-body"></tbody>
+      </table>
+    </div>
+
+    <div id="history-card" class="card" hidden>
+      <h2>Recent History</h2>
+      <p id="history-page" class="muted" style="margin-bottom: 1rem; font-size: 0.9rem;"></p>
+      <table>
+        <thead>
+          <tr><th>Transaction Hash</th><th>Height</th></tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+      <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
+        <button id="prev-page" class="btn btn-secondary" type="button">Prev</button>
+        <button id="next-page" class="btn btn-secondary" type="button">Next</button>
       </div>
-    </form>
-    <p id="message" class="muted">Enter a PEPEW address to query balance and history.</p>
+    </div>
   </div>
 
-  <div id="summary-card" class="card" hidden>
-    <h2>Summary</h2>
-    <table>
-      <tbody id="summary-body"></tbody>
-    </table>
-  </div>
-
-  <div id="history-card" class="card" hidden>
-    <h2>Recent History</h2>
-    <p id="history-page" class="muted"></p>
-    <table>
-      <thead>
-        <tr><th>tx_hash</th><th>height</th></tr>
-      </thead>
-      <tbody id="history-body"></tbody>
-    </table>
-    <p class="actions">
-      <button id="prev-page" type="button">Prev</button>
-      <button id="next-page" type="button">Next</button>
-    </p>
-  </div>
-
-  <p><a href="/">Home</a> · <a href="/status">Status</a> · <a href="/api/status">JSON status</a></p>
+  <footer>
+    <div class="container">
+      <div class="links-row">
+        <a href="https://pepepow.org" target="_blank" rel="noopener noreferrer">PEPEPOW Ecosystem</a>
+        <a href="https://explorer.pepepow.net" target="_blank" rel="noopener noreferrer">Block Explorer</a>
+        <a href="https://pool.pepepow.net" target="_blank" rel="noopener noreferrer">Mining Pool</a>
+        <a href="https://github.com/edisontw/pepepow-electrumx-service" target="_blank" rel="noopener noreferrer">GitHub Codebase</a>
+      </div>
+      <p>&copy; 2026 PEPEPOW Development Community. Core Version {{ version }}. Distributed under MIT.</p>
+    </div>
+  </footer>
 
   <script>
     (() => {
@@ -116,8 +125,8 @@
         if (!response.ok || data.ok === false) {
           const detail = data.detail || data;
           const error = detail.error || {};
-          const message = typeof error === "object" ? error.message : error;
-          throw new Error(message || response.statusText || "Request failed.");
+          const msg = typeof error === "object" ? error.message : error;
+          throw new Error(msg || response.statusText || "Request failed.");
         }
         return data;
       }
@@ -153,6 +162,7 @@
             const txHash = String(row.tx_hash || "");
 
             txCell.className = "tx";
+            link.className = "tx-link";
             link.href = `https://explorer.pepepow.net/tx/${encodeURIComponent(txHash)}`;
             link.target = "_blank";
             link.rel = "noopener noreferrer";
