@@ -309,6 +309,27 @@ Expected safe unavailable shape:
 }
 ```
 
+## Production Smoke Test
+
+Run these verification commands to ensure the service behaves correctly in production:
+
+```bash
+# 1. Health check over HTTPS
+curl -s https://light.pepepow.net/api/health
+
+# 2. Detailed backend/upstream connection status
+curl -s https://light.pepepow.net/api/status
+
+# 3. Address balance lookups
+curl -s https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
+
+# 4. Address transaction history
+curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb/history?limit=5&offset=0"
+
+# 5. Read-only payment check monitor
+curl -s "https://light.pepepow.net/api/payment/check?address=PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb&amount=1"
+```
+
 ## Next phases
 
 1. PEPEW address validation, scriptPubKey, scripthash conversion, and address lookup
