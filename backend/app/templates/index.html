@@ -2,46 +2,796 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{{ app_name }} · PEPEW Light</title>
+  <title>{{ app_name }} · PEPEPOW Read-Only API Gateway</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 860px; line-height: 1.5; }
-    code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 4px; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
-    label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
-    input { box-sizing: border-box; width: min(100%, 42rem); padding: 0.65rem; font: inherit; }
-    button { padding: 0.65rem 0.9rem; font: inherit; cursor: pointer; }
-    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    :root {
+      --bg-color: #0b0f19;
+      --card-bg: rgba(20, 28, 47, 0.45);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #10b981;
+      --primary-hover: #34d399;
+      --accent-cyan: #06b6d4;
+      --accent-purple: #8b5cf6;
+      --code-bg: #111827;
+      --code-border: rgba(255, 255, 255, 0.05);
+      --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'Fira Code', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background-color: var(--bg-color);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.06) 0%, transparent 40%);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 4rem;
+      padding: 2rem 0;
+      position: relative;
+    }
+
+    .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--primary-hover);
+      padding: 0.3rem 1rem;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: 3.5rem;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #ffffff 30%, #a7f3d0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto;
+      font-weight: 300;
+    }
+
+    /* Cards Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 4rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(16, 185, 129, 0.25);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .card h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.5rem;
+      font-weight: 300;
+    }
+
+    .card-footer {
+      margin-top: auto;
+    }
+
+    /* Forms & Buttons */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: rgba(17, 24, 39, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: #ffffff;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary);
+      color: #0b0f19;
+      font-weight: 600;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+
+    .btn:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-disabled {
+      background: rgba(255, 255, 255, 0.02);
+      color: rgba(255, 255, 255, 0.2);
+      cursor: not-allowed;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .btn-disabled:hover { background: rgba(255, 255, 255, 0.02); }
+
+    /* Safety & Details sections */
+    section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 2.5rem;
+      margin-bottom: 2.5rem;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    section h2 {
+      font-size: 1.85rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: #ffffff;
+      background: linear-gradient(135deg, #ffffff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Safety List */
+    .safety-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .safety-item {
+      padding-left: 1.5rem;
+      position: relative;
+    }
+
+    .safety-item::before {
+      content: "🛡️";
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-size: 1rem;
+    }
+
+    .safety-item h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: #ffffff;
+    }
+
+    .safety-item p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      font-weight: 300;
+    }
+
+    /* API Docs Accordion */
+    .endpoint {
+      border: 1px solid var(--card-border);
+      background: rgba(17, 24, 39, 0.3);
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+
+    .endpoint-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      user-select: none;
+      background: rgba(255, 255, 255, 0.02);
+      transition: background 0.2s;
+    }
+
+    .endpoint-trigger:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .method {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      margin-right: 0.75rem;
+      background: #3b82f6;
+      color: #ffffff;
+    }
+
+    .method-get { background: rgba(16, 185, 129, 0.15); color: var(--primary-hover); border: 1px solid rgba(16, 185, 129, 0.2); }
+
+    .path {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #ffffff;
+      flex: 1;
+    }
+
+    .desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-left: 1rem;
+    }
+
+    .endpoint-content {
+      padding: 1.5rem;
+      border-top: 1px solid var(--card-border);
+      display: none;
+    }
+
+    .endpoint-content.active {
+      display: block;
+    }
+
+    .doc-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .doc-group h4 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #a7f3d0;
+      margin-bottom: 0.5rem;
+    }
+
+    code {
+      font-family: var(--font-mono);
+    }
+
+    .field-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .field-table th, .field-table td {
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .field-table th {
+      color: #ffffff;
+      font-weight: 500;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .field-name {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+      font-weight: 500;
+    }
+
+    .field-type {
+      font-family: var(--font-mono);
+      color: var(--accent-purple);
+      font-size: 0.8rem;
+    }
+
+    .safety-alert {
+      background: rgba(239, 68, 68, 0.07);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: #fca5a5;
+    }
+
+    /* Footer & External Links */
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-top: 5rem;
+      padding: 2.5rem 0;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .links-row {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .links-row a {
+      color: var(--primary-hover);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .links-row a:hover {
+      color: #ffffff;
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      h1 { font-size: 2.5rem; }
+      body { padding: 1rem 0.5rem; }
+      section { padding: 1.5rem; }
+      .desc { display: none; }
+    }
   </style>
 </head>
 <body>
-  <h1>PEPEW Light</h1>
-  <p>Read-only PEPEPOW ElectrumX API Gateway and lightweight status, address, and payment monitor website.</p>
+  <div class="container">
+    <header>
+      <div class="badge">Phase 3.6 Production Ready</div>
+      <h1>PEPEW Light</h1>
+      <p class="subtitle">Secure, lightweight, and fully read-only API gateway for the PEPEPOW network. Track transactions, monitor addresses, and verify payments without exposing wallet keys.</p>
+    </header>
 
-  <div class="card">
-    <strong>Phase 3</strong>
-    <p>Address balance, transaction count, mempool count, paginated history lookup, and read-only payment checking are available.</p>
-  </div>
-
-  <div class="card">
-    <h2>Address Lookup</h2>
-    <form action="/address" method="get">
-      <label for="address-input">PEPEW address</label>
-      <div class="actions">
-        <input id="address-input" name="q" type="text" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128">
-        <button type="submit">Lookup</button>
+    <!-- Navigation & Cards Grid -->
+    <div class="grid">
+      <!-- Address Lookup -->
+      <div class="card">
+        <div>
+          <h2>Address Lookup</h2>
+          <p>Search any PEPEPOW address to view confirmed and mempool balances, script hashes, and transaction history counts.</p>
+          <form action="/address" method="get">
+            <div class="form-group">
+              <label for="address-input">PEPEW Address</label>
+              <div class="input-wrapper">
+                <input id="address-input" name="q" type="text" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128" required>
+                <button class="btn" type="submit">Lookup</button>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
-    </form>
+
+      <!-- Transaction Lookup -->
+      <div class="card">
+        <div>
+          <h2>Transaction Lookup</h2>
+          <p>Retrieve detailed raw transaction formats, hex codes, and confirmations directly from ElectrumX. Planned for a future release.</p>
+          <div class="form-group">
+            <label>Transaction ID (TXID)</label>
+            <div class="input-wrapper">
+              <input type="text" placeholder="64-char transaction hash..." disabled>
+              <button class="btn btn-disabled" disabled>Search</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Monitor -->
+      <div class="card">
+        <div>
+          <h2>Payment Monitor</h2>
+          <p>Run a read-only payment checking monitor to track address-level receipts, expiration states, and confirmation metrics.</p>
+        </div>
+        <div class="card-footer">
+          <a href="/pay" class="btn btn-secondary" style="width: 100%;">Open Payment Monitor</a>
+        </div>
+      </div>
+
+      <!-- Service Status -->
+      <div class="card">
+        <div>
+          <h2>ElectrumX Status</h2>
+          <p>Inspect the live network connection between the API Gateway and the private ElectrumX nodes, block height, and response latencies.</p>
+        </div>
+        <div class="card-footer">
+          <a href="/status" class="btn btn-secondary" style="width: 100%;">View Node Status</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Safety Center -->
+    <section id="safety">
+      <h2>Gateway Safety Boundary</h2>
+      <div class="safety-grid">
+        <div class="safety-item">
+          <h3>Read-Only Architecture</h3>
+          <p>The gateway serves public block data. It does not contain private keys, mnemonics, or signing systems, making it secure against credentials theft.</p>
+        </div>
+        <div class="safety-item">
+          <h3>No Custody or Ledgers</h3>
+          <p>We do not operate an invoice database. The payment monitor checks real-time address states. Reusing addresses is discouraged for clarity.</p>
+        </div>
+        <div class="safety-item">
+          <h3>Private ElectrumX Integration</h3>
+          <p>Our ElectrumX server is isolated and bound only to the local interface (`127.0.0.1`), routing all public requests through FastAPI rate limiters.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Developer API Portal -->
+    <section id="api-docs">
+      <h2>Public API Documentation</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-weight: 300;">Developers can integrate with PEPEW Light using the following clean, JSON-RPC backed REST endpoints:</p>
+
+      <!-- GET /api/health -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-health')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/health</span>
+          </div>
+          <div class="desc">Gateway status heartbeat</div>
+        </div>
+        <div id="doc-health" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Lightweight ping to verify the API Gateway is online and reachable. Does not communicate with ElectrumX.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s https://light.pepepow.net/api/health</pre>
+          </div>
+          <div class="doc-group">
+            <h4>Response fields</h4>
+            <table class="field-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="field-name">ok</td><td class="field-type">boolean</td><td>True if gateway is healthy.</td></tr>
+                <tr><td class="field-name">app</td><td class="field-type">string</td><td>Application identifier.</td></tr>
+                <tr><td class="field-name">env</td><td class="field-type">string</td><td>Gateway run environment (e.g. production).</td></tr>
+                <tr><td class="field-name">version</td><td class="field-type">string</td><td>Current package version.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /api/status -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-status')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/status</span>
+          </div>
+          <div class="desc">ElectrumX node state &amp; sync height</div>
+        </div>
+        <div id="doc-status" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Checks connections to ElectrumX server, reports sync height, protocol versions, and latency.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s https://light.pepepow.net/api/status</pre>
+          </div>
+          <div class="doc-group">
+            <h4>Response fields</h4>
+            <table class="field-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="field-name">ok</td><td class="field-type">boolean</td><td>True if ElectrumX connection was checked.</td></tr>
+                <tr><td class="field-name">env</td><td class="field-type">string</td><td>Runtime environment.</td></tr>
+                <tr><td class="field-name">electrumx.connected</td><td class="field-type">boolean</td><td>True if successfully handshake completed with the node.</td></tr>
+                <tr><td class="field-name">electrumx.height</td><td class="field-type">integer | null</td><td>Current synced block height.</td></tr>
+                <tr><td class="field-name">electrumx.response_time_ms</td><td class="field-type">float</td><td>Round-trip node latency in milliseconds.</td></tr>
+                <tr><td class="field-name">error</td><td class="field-type">string | null</td><td>Sanitized error code if connection is offline.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="doc-group">
+            <h4>Safety note</h4>
+            <div class="safety-alert">
+              Returns HTTP 200 even on connection loss to guarantee clean error formatting. Check <code>electrumx.connected</code> and the <code>error</code> field.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /api/address/{address} -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-address')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/address/{address}</span>
+          </div>
+          <div class="desc">Address balance &amp; metadata</div>
+        </div>
+        <div id="doc-address" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Inspects balances (confirmed/unconfirmed) and transaction counts for a specified PEPEPOW address.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre>
+          </div>
+          <div class="doc-group">
+            <h4>Response fields</h4>
+            <table class="field-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="field-name">ok</td><td class="field-type">boolean</td><td>Request success state.</td></tr>
+                <tr><td class="field-name">address</td><td class="field-type">string</td><td>Normalized, validated address.</td></tr>
+                <tr><td class="field-name">scripthash</td><td class="field-type">string</td><td>Computed scripthash identifier.</td></tr>
+                <tr><td class="field-name">balance.confirmed</td><td class="field-type">integer</td><td>Confirmed balance in satoshis.</td></tr>
+                <tr><td class="field-name">balance.unconfirmed</td><td class="field-type">integer</td><td>Unconfirmed mempool balance in satoshis.</td></tr>
+                <tr><td class="field-name">history_count</td><td class="field-type">integer</td><td>Total count of transactions for the address.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /api/address/{address}/history -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-history')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/address/{address}/history</span>
+          </div>
+          <div class="desc">Paginated history lookup</div>
+        </div>
+        <div id="doc-history" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Paginates through address transaction hashes. Supports offset and limit query variables.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb/history?limit=5&offset=0"</pre>
+          </div>
+          <div class="doc-group">
+            <h4>Response fields</h4>
+            <table class="field-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="field-name">history</td><td class="field-type">array</td><td>List of items containing <code>tx_hash</code> and block <code>height</code>.</td></tr>
+                <tr><td class="field-name">has_more</td><td class="field-type">boolean</td><td>True if additional pages are available beyond the current offset.</td></tr>
+                <tr><td class="field-name">limit</td><td class="field-type">integer</td><td>Page limit configuration (max 500).</td></tr>
+                <tr><td class="field-name">offset</td><td class="field-type">integer</td><td>Current offset pointer.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /api/tx/{txid} -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-tx')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/tx/{txid}</span>
+          </div>
+          <div class="desc">Transaction hash lookup</div>
+        </div>
+        <div id="doc-tx" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Placeholder endpoint designed to return transaction confirmations and block data in a subsequent phase.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s https://light.pepepow.net/api/tx/453c4f723b2eb5cf4b8ef9818fac50d08ddc8ed05bc972ee464f2dbc55b6a3db</pre>
+          </div>
+          <div class="doc-group">
+            <h4>Response status</h4>
+            <div class="safety-alert" style="background: rgba(255, 171, 0, 0.07); border: 1px solid rgba(255, 171, 0, 0.2); color: #ffe0b2;">
+              Returns <code>HTTP 501 Not Implemented</code> with code <code>transaction_lookup_unavailable</code>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /api/payment/check -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-pay')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/payment/check</span>
+          </div>
+          <div class="desc">Address-level payment verifier</div>
+        </div>
+        <div id="doc-pay" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Evaluates if a specific address has received at least the requested amount of PEPEW. Includes support for custom confirmations requirements and expiry timestamps.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s "https://light.pepepow.net/api/payment/check?address=PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb&amount=1"</pre>
+          </div>
+          <div class="doc-group">
+            <h4>Response fields</h4>
+            <table class="field-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="field-name">status</td><td class="field-type">string</td><td>Status string: <code>waiting</code>, <code>seen_in_mempool</code>, <code>partial</code>, <code>paid_unconfirmed</code>, <code>paid_confirmed</code>, or <code>overpaid</code>.</td></tr>
+                <tr><td class="field-name">requested_sats</td><td class="field-type">integer</td><td>Requested amount converted to satoshis.</td></tr>
+                <tr><td class="field-name">total_received_sats</td><td class="field-type">integer</td><td>Sum of confirmed and mempool satoshis.</td></tr>
+                <tr><td class="field-name">confirmations_required</td><td class="field-type">integer</td><td>Target confirmation threshold.</td></tr>
+                <tr><td class="field-name">expired</td><td class="field-type">boolean</td><td>True if current server time exceeds the expiry limits.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="doc-group">
+            <h4>Safety note</h4>
+            <div class="safety-alert">
+              This endpoint checks address-level totals only. Generate unique, fresh addresses per payment request to prevent ambiguous detection.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <p>API health: <code>/api/health</code></p>
-  <p>API status: <code>/api/status</code></p>
-  <p>API address summary: <code>/api/address/{address}</code></p>
-  <p>API address history: <code>/api/address/{address}/history?limit=20&amp;offset=0</code></p>
-  <p>API payment check: <code>/api/payment/check?address={address}&amp;amount=1</code></p>
-  <p>Address page: <a href="/address">/address</a></p>
-  <p>Payment page: <a href="/pay">/pay</a></p>
-  <p>Status page: <a href="/status">/status</a></p>
-  <p>Version: <code>{{ version }}</code></p>
+  <footer>
+    <div class="container">
+      <div class="links-row">
+        <a href="https://pepepow.org" target="_blank" rel="noopener noreferrer">PEPEPOW Ecosystem</a>
+        <a href="https://explorer.pepepow.net" target="_blank" rel="noopener noreferrer">Block Explorer</a>
+        <a href="https://pool.pepepow.net" target="_blank" rel="noopener noreferrer">Mining Pool</a>
+        <a href="https://github.com/edisontw/pepepow-electrumx-service" target="_blank" rel="noopener noreferrer">GitHub Codebase</a>
+      </div>
+      <p>&copy; 2026 PEPEPOW Development Community. Core Version {{ version }}. Distributed under MIT.</p>
+    </div>
+  </footer>
+
+  <script>
+    function toggleDoc(id) {
+      const el = document.getElementById(id);
+      if (el.classList.contains('active')) {
+        el.classList.remove('active');
+      } else {
+        // Close others
+        document.querySelectorAll('.endpoint-content').forEach(content => {
+          content.classList.remove('active');
+        });
+        el.classList.add('active');
+      }
+    }
+  </script>
 </body>
 </html>

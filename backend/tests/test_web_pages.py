@@ -15,6 +15,31 @@ def test_homepage_has_address_lookup_form():
     assert 'name="q"' in response.text
 
 
+def test_homepage_contains_documentation_and_safety_details():
+    client = TestClient(app)
+    response = client.get("/")
+
+    assert response.status_code == 200
+    # Safety text assertions
+    assert "Gateway Safety Boundary" in response.text
+    assert "Read-Only" in response.text
+    assert "No Custody" in response.text
+    
+    # Endpoint documentation assertions
+    assert "/api/health" in response.text
+    assert "/api/status" in response.text
+    assert "/api/address/{address}" in response.text
+    assert "/api/address/{address}/history" in response.text
+    assert "/api/tx/{txid}" in response.text
+    assert "/api/payment/check" in response.text
+    
+    # Key links assertions
+    assert "PEPEPOW Ecosystem" in response.text
+    assert "Block Explorer" in response.text
+    assert "Mining Pool" in response.text
+    assert "GitHub Codebase" in response.text
+
+
 def test_address_page_renders_lookup_shell():
     client = TestClient(app)
     response = client.get(f"/address?q={KNOWN_ADDRESS}")
