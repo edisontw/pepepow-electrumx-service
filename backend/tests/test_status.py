@@ -118,3 +118,65 @@ def test_status_service_cache(monkeypatch):
     assert calls["count"] == 1
 
     status_service.clear_status_cache()
+
+
+def test_status_service_timeout_error(monkeypatch):
+    status_service.clear_status_cache()
+
+    class FakeSettings:
+        app_name = "pepew-light"
+        app_env = "testing"
+        electrumx_host = "127.0.0.1"
+        electrumx_port = 50001
+        electrumx_use_ssl = False
+        electrumx_timeout = 1.0
+        cache_status_seconds = 10
+
+    from app.electrumx.errors import ElectrumXTimeoutError
+
+    async def fake_server_version(client):
+        raise ElectrumXTimeoutError("electrumx_timeout")
+
+    monkeypatch.setattr(status_service, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(status_service, "server_version", fake_server_version)
+
+    import asyncio
+    res = asyncio.run(status_service.get_status())
+
+    assert res["ok"] is False
+    assert res["env"] == "testing"
+    assert res["electrumx"]["connected"] is False
+    assert res["error"] == "electrumx_timeout"
+    assert res["cache"]["ttl_seconds"] == 2
+
+    status_service.clear_status_cache()
+
+
+def test_status_service_unexpected_error(monkeypatch):
+    status_service.clear_status_cache()
+
+    class FakeSettings:
+        app_name = "pepew-light"
+        app_env = "testing"
+        electrumx_host = "127.0.0.1"
+        electrumx_port = 50001
+        electrumx_use_ssl = False
+        electrumx_timeout = 1.0
+        cache_status_seconds = 10
+
+    async def fake_server_version(client):
+        raise ValueError("unexpected database failure")
+
+    monkeypatch.setattr(status_service, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(status_service, "server_version", fake_server_version)
+
+    import asyncio
+    res = asyncio.run(status_service.get_status())
+
+    assert res["ok"] is False
+    assert res["env"] == "testing"
+    assert res["electrumx"]["connected"] is False
+    assert res["error"] == "internal_error"
+    assert res["cache"]["ttl_seconds"] == 2
+
+    status_service.clear_status_cache()

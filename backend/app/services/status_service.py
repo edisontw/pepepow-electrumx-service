@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Any
 
@@ -12,6 +13,8 @@ from ..electrumx.errors import (
 )
 from ..electrumx.methods import headers_subscribe, server_features, server_version
 
+logger = logging.getLogger(__name__)
+
 _status_cache: dict[str, Any] = {
     "expires_at": 0.0,
     "value": None,
@@ -25,10 +28,11 @@ def clear_status_cache() -> None:
 
 def _with_cache_metadata(status: dict[str, Any], settings: Any) -> dict[str, Any]:
     checked_at = int(status.get("checked_at") or time.time())
+    ttl = status.get("cache", {}).get("ttl_seconds", settings.cache_status_seconds)
     return {
         **status,
         "checked_at": checked_at,
-        "cache_ttl_seconds": settings.cache_status_seconds,
+        "cache_ttl_seconds": ttl,
         "cache_age_seconds": max(0, int(time.time()) - checked_at),
     }
 
@@ -49,6 +53,7 @@ async def get_status() -> dict[str, Any]:
     checks: dict[str, str] = {}
     base: dict[str, Any] = {
         "app": settings.app_name,
+        "env": getattr(settings, "app_env", "development"),
         "electrumx": {
             "connected": False,
             "host": settings.electrumx_host,
@@ -74,7 +79,8 @@ async def get_status() -> dict[str, Any]:
             features_result = await server_features(client)
             checks["server.features"] = "ok"
         except ElectrumXError as exc:
-            checks["server.features"] = f"optional_failed:{str(exc) or exc.__class__.__name__}"
+            logger.warning("ElectrumX server.features failed: %s", exc)
+            checks["server.features"] = f"optional_failed:{getattr(exc, 'code', None) or 'electrumx_error'}"
 
         checks["blockchain.headers.subscribe"] = "running"
         header_result = await headers_subscribe(client)
@@ -115,21 +121,32 @@ async def get_status() -> dict[str, Any]:
             "checked_at": int(time.time()),
         }
     except ElectrumXTimeoutError as exc:
-        status = _error_status(base, str(exc) or "electrumx_timeout", started)
+        logger.error("ElectrumX status check timeout: %s", exc, exc_info=True)
+        status = _error_status(base, exc.code, started)
     except ElectrumXConnectionError as exc:
-        status = _error_status(base, str(exc) or "electrumx_unavailable", started)
+        logger.error("ElectrumX status check connection failed: %s", exc, exc_info=True)
+        status = _error_status(base, exc.code, started)
     except ElectrumXMethodError as exc:
-        status = _error_status(base, str(exc) or "electrumx_method_error", started)
+        logger.error("ElectrumX status check method error: %s", exc, exc_info=True)
+        status = _error_status(base, exc.code, started)
     except ElectrumXProtocolError as exc:
-        status = _error_status(base, str(exc) or "electrumx_protocol_error", started)
+        logger.error("ElectrumX status check protocol error: %s", exc, exc_info=True)
+        status = _error_status(base, exc.code, started)
     except ElectrumXError as exc:
-        status = _error_status(base, str(exc) or "electrumx_error", started)
+        logger.error("ElectrumX status check error: %s", exc, exc_info=True)
+        status = _error_status(base, exc.code, started)
+    except Exception as exc:
+        logger.error("Unexpected error in get_status: %s", exc, exc_info=True)
+        status = _error_status(base, "internal_error", started)
     finally:
         await client.close()
 
+    is_error = not status.get("ok", False)
     if settings.cache_status_seconds > 0:
+        ttl = min(2, settings.cache_status_seconds) if is_error else settings.cache_status_seconds
+        status["cache"]["ttl_seconds"] = ttl
         _status_cache["value"] = status
-        _status_cache["expires_at"] = time.monotonic() + settings.cache_status_seconds
+        _status_cache["expires_at"] = time.monotonic() + ttl
 
     return _with_cache_metadata(status, settings)
 

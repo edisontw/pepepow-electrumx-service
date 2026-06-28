@@ -45,59 +45,75 @@ cd backend
 python3 -m pytest -q
 ```
 
-## MN3 deployment
+## Production Deployment
 
-Target host:
+Follow these concise steps to deploy the service on a public host (such as Oracle Cloud):
 
-```bash
-ssh -i ssh3.key ubuntu@158.178.140.199
-```
-
-On MN3:
-
+### 1. Clone & Setup Directory
 ```bash
 cd /home/ubuntu
 git clone https://github.com/edisontw/pepepow-electrumx-service.git
 cd pepepow-electrumx-service/backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```
+
+### 2. Create Environment Configuration
+Create the production environment file from the example:
+```bash
 cp -n .env.example .env
+# Edit to set production variables (e.g., correct host, port, caching values)
 nano .env
 ```
 
-If `python3 -m venv .venv` fails, install the venv package first:
-
+### 3. Install Requirements
+Create a python virtual environment and install the required dependencies:
 ```bash
-sudo apt update
-sudo apt install -y python3-venv
 python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+*(If `python3-venv` is missing, install it first via `sudo apt update && sudo apt install -y python3-venv`)*
+
+### 4. Run Verification Tests
+Verify everything is working correctly by running the test suite:
+```bash
+pytest
 ```
 
-Run manually:
-
+### 5. Run Uvicorn Locally (Manual Smoke Test)
+Run uvicorn locally to verify startup succeeds without issues:
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8088
 ```
 
-## systemd install
-
+### 6. Install systemd Service
+Deploy and enable the systemd service to run the app in the background with auto-restart and sandboxing:
 ```bash
 sudo cp /home/ubuntu/pepepow-electrumx-service/deploy/systemd/pepew-light.service /etc/systemd/system/pepew-light.service
 sudo systemctl daemon-reload
 sudo systemctl enable pepew-light
 sudo systemctl restart pepew-light
-sudo systemctl status pepew-light --no-pager
-journalctl -u pepew-light -n 100 --no-pager
 ```
 
-## Nginx install
-
+### 7. Install Nginx Reverse Proxy
+Install Nginx config to reverse proxy traffic from port 80/443 to the local gateway, configure rate limits, and proxy timeouts:
 ```bash
 sudo cp /home/ubuntu/pepepow-electrumx-service/deploy/nginx/pepew-light.nginx.conf /etc/nginx/sites-available/pepew-light
 sudo ln -sfn /etc/nginx/sites-available/pepew-light /etc/nginx/sites-enabled/pepew-light
 sudo nginx -t
 sudo systemctl reload nginx
+```
+
+### 8. Verify Deployment and Check Logs
+Check service status and check logs for any errors:
+```bash
+sudo systemctl status pepew-light --no-pager
+sudo journalctl -u pepew-light -n 50 --no-pager
+```
+
+Verify that the health check and status APIs respond correctly:
+```bash
+curl http://127.0.0.1:8088/api/health
+curl http://127.0.0.1:8088/api/status
 ```
 
 ## Phase 2 public deployment checklist
