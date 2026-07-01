@@ -95,7 +95,8 @@ def test_wallet_address_history_success(monkeypatch):
 
 
 def test_wallet_tx_lookup_success(monkeypatch):
-    async def fake_get_transaction_details(txid):
+    async def fake_get_transaction_details(txid, verbose=True):
+        assert verbose is True
         return {
             "ok": True,
             "txid": txid,
@@ -123,7 +124,8 @@ def test_wallet_tx_lookup_success(monkeypatch):
 
 
 def test_wallet_tx_lookup_not_found(monkeypatch):
-    async def fake_get_transaction_details(txid):
+    async def fake_get_transaction_details(txid, verbose=True):
+        assert verbose is True
         raise TxNotFoundError("tx_not_found", "Transaction not found.")
 
     monkeypatch.setattr(wallet_api, "get_transaction_details", fake_get_transaction_details)
