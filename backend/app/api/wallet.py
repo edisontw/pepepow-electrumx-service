@@ -1,3 +1,4 @@
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Path, Query, status
 from fastapi.responses import JSONResponse
 
@@ -8,16 +9,24 @@ from ..services.address_service import (
     InvalidPepewAddressError,
     get_address_history,
     get_address_summary,
+    get_address_utxos,
 )
 from ..services.tx_service import (
+    broadcast_signed_raw_tx,
     get_transaction_details,
+    InvalidRawTxError,
     InvalidTxidError,
     TxLookupError,
     TxNotFoundError,
+    TxUpstreamError,
 )
 from ..services.payment_service import format_pepew_amount_from_sats
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
+
+
+class BroadcastRequest(BaseModel):
+    raw_tx: str = Field(..., min_length=20, max_length=200_000)
 
 
 @router.get("/address/{address}")
@@ -105,6 +114,29 @@ async def wallet_address_history(
         return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error")
 
 
+@router.get("/utxo/{address}")
+async def wallet_address_utxos(address: str = Path(...)) -> JSONResponse:
+    try:
+        result = await get_address_utxos(address)
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "address": result["address"],
+                "utxos": result["utxos"],
+                "utxo_count": result["utxo_count"],
+                "total": result["total"],
+                "source": "electrumx",
+                "read_only": True,
+            }
+        )
+    except InvalidPepewAddressError as exc:
+        return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
+    except AddressUpstreamError:
+        return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "electrumx_error")
+    except Exception:
+        return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error")
+
+
 @router.get("/tx/{txid}")
 async def wallet_tx_lookup(txid: str = Path(...)) -> JSONResponse:
     try:
@@ -124,5 +156,27 @@ async def wallet_tx_lookup(txid: str = Path(...)) -> JSONResponse:
         return api_error_response(status.HTTP_404_NOT_FOUND, exc.code, exc.message)
     except TxLookupError:
         return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "electrumx_error")
+    except Exception:
+        return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error")
+
+
+@router.post("/broadcast")
+async def wallet_broadcast_signed_raw_tx(payload: BroadcastRequest) -> JSONResponse:
+    try:
+        result = await broadcast_signed_raw_tx(payload.raw_tx)
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "ok": True,
+                "txid": result.get("txid"),
+                "source": "electrumx",
+                "signed_raw_tx_only": True,
+            }
+        )
+    except InvalidRawTxError as exc:
+        return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
+    except TxUpstreamError as exc:
+        code = exc.code if exc.code == "broadcast_rejected" else "electrumx_error"
+        return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, code)
     except Exception:
         return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error")
