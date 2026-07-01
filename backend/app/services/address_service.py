@@ -8,6 +8,7 @@ from ..electrumx.methods import (
     scripthash_get_balance,
     scripthash_get_history,
     scripthash_get_mempool,
+    scripthash_list_unspent,
     server_version,
 )
 from ..pepepow.address import (
@@ -22,6 +23,7 @@ from .cache_service import TTLCache
 
 _address_cache = TTLCache()
 _history_cache = TTLCache()
+_utxo_cache = TTLCache()
 
 
 class AddressLookupError(Exception):
@@ -69,6 +71,37 @@ def _normalize_history(history: Any) -> list[dict[str, Any]]:
         if not isinstance(tx_hash, str):
             continue
         normalized.append({"tx_hash": tx_hash, "height": int(height or 0)})
+    return normalized
+
+
+def _normalize_utxos(utxos: Any) -> list[dict[str, Any]]:
+    if not isinstance(utxos, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    for item in utxos:
+        if not isinstance(item, dict):
+            continue
+        tx_hash = item.get("tx_hash")
+        tx_pos = item.get("tx_pos")
+        value = item.get("value")
+        height = item.get("height")
+        if not isinstance(tx_hash, str):
+            continue
+        try:
+            vout = int(tx_pos)
+            sats = int(value)
+            block_height = int(height or 0)
+        except (TypeError, ValueError):
+            continue
+        if vout < 0 or sats <= 0:
+            continue
+        normalized.append({
+            "txid": tx_hash,
+            "vout": vout,
+            "height": block_height,
+            "value": sats,
+        })
     return normalized
 
 
@@ -207,6 +240,51 @@ async def get_address_summary(address: str) -> dict[str, Any]:
     return result
 
 
+async def get_address_utxos(address: str) -> dict[str, Any]:
+    settings = get_settings()
+    normalized_address, hash160, scripthash = _safe_address_parts(address)
+    cache_key = f"utxo:{scripthash}"
+
+    cached = _utxo_cache.get(cache_key)
+    if cached is not None:
+        result = dict(cached)
+        result["cache"] = dict(result.get("cache", {}))
+        result["cache"]["hit"] = True
+        return result
+
+    client = ElectrumXClient(settings)
+    started = time.perf_counter()
+    try:
+        await _identify_client(client)
+        utxo_result = await scripthash_list_unspent(client, scripthash)
+    except ElectrumXError as exc:
+        raise AddressUpstreamError(_electrumx_error_code(exc), _safe_electrumx_error_detail(exc)) from exc
+    finally:
+        await client.close()
+
+    utxos = _normalize_utxos(utxo_result)
+    result = {
+        "ok": True,
+        "address": normalized_address,
+        "hash160": hash160,
+        "scripthash": scripthash,
+        "utxos": utxos,
+        "utxo_count": len(utxos),
+        "total": sum(int(item["value"]) for item in utxos),
+        "response_time_ms": round((time.perf_counter() - started) * 1000, 2),
+        "checked_at": int(time.time()),
+        "cache": {
+            "enabled": settings.cache_balance_seconds > 0,
+            "ttl_seconds": settings.cache_balance_seconds,
+            "hit": False,
+        },
+    }
+
+    if settings.cache_balance_seconds > 0:
+        _utxo_cache.set(cache_key, result, min(settings.cache_balance_seconds, 20))
+    return result
+
+
 async def get_address_history(address: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     settings = get_settings()
     normalized_address, hash160, scripthash = _safe_address_parts(address)
@@ -270,6 +348,7 @@ async def get_address_history(address: str, limit: int = 50, offset: int = 0) ->
 
 
 def clear_address_caches() -> None:
-    global _address_cache, _history_cache
+    global _address_cache, _history_cache, _utxo_cache
     _address_cache = TTLCache()
     _history_cache = TTLCache()
+    _utxo_cache = TTLCache()
