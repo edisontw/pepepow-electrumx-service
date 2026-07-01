@@ -8,7 +8,9 @@ HEADERS_SUBSCRIBE = "blockchain.headers.subscribe"
 SCRIPTHASH_GET_BALANCE = "blockchain.scripthash.get_balance"
 SCRIPTHASH_GET_HISTORY = "blockchain.scripthash.get_history"
 SCRIPTHASH_GET_MEMPOOL = "blockchain.scripthash.get_mempool"
+SCRIPTHASH_LIST_UNSPENT = "blockchain.scripthash.listunspent"
 TRANSACTION_GET = "blockchain.transaction.get"
+TRANSACTION_BROADCAST = "blockchain.transaction.broadcast"
 
 
 async def server_version(client: ElectrumXClient) -> Any:
@@ -35,5 +37,13 @@ async def scripthash_get_mempool(client: ElectrumXClient, scripthash: str) -> An
     return await client.request(SCRIPTHASH_GET_MEMPOOL, [scripthash])
 
 
+async def scripthash_list_unspent(client: ElectrumXClient, scripthash: str) -> Any:
+    return await client.request(SCRIPTHASH_LIST_UNSPENT, [scripthash])
+
+
 async def transaction_get(client: ElectrumXClient, txid: str, verbose: bool = False) -> Any:
     return await client.request(TRANSACTION_GET, [txid, verbose])
+
+
+async def transaction_broadcast(client: ElectrumXClient, raw_tx: str) -> Any:
+    return await client.request(TRANSACTION_BROADCAST, [raw_tx])
