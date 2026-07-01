@@ -6,6 +6,8 @@ from app.services.tx_service import InvalidRawTxError, TxUpstreamError
 
 KNOWN_ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 KNOWN_TXID = "a" * 64
+VALID_RAW_TX = "0100000001abcdef0123"
+INVALID_RAW_TX = "not_hex_not_hex_1234"
 
 
 def test_wallet_utxo_success(monkeypatch):
@@ -34,13 +36,13 @@ def test_wallet_utxo_success(monkeypatch):
 
 def test_wallet_broadcast_success(monkeypatch):
     async def fake_broadcast_signed_raw_tx(raw_tx):
-        assert raw_tx == "0100000001abcdef"
+        assert raw_tx == VALID_RAW_TX
         return {"ok": True, "txid": KNOWN_TXID, "source": "electrumx"}
 
     monkeypatch.setattr(wallet_api, "broadcast_signed_raw_tx", fake_broadcast_signed_raw_tx)
 
     client = TestClient(app)
-    response = client.post("/api/wallet/broadcast", json={"raw_tx": "0100000001abcdef"})
+    response = client.post("/api/wallet/broadcast", json={"raw_tx": VALID_RAW_TX})
 
     assert response.status_code == 200
     data = response.json()
@@ -56,7 +58,7 @@ def test_wallet_broadcast_invalid_hex(monkeypatch):
     monkeypatch.setattr(wallet_api, "broadcast_signed_raw_tx", fake_broadcast_signed_raw_tx)
 
     client = TestClient(app)
-    response = client.post("/api/wallet/broadcast", json={"raw_tx": "not_hex"})
+    response = client.post("/api/wallet/broadcast", json={"raw_tx": INVALID_RAW_TX})
 
     assert response.status_code == 400
     data = response.json()
@@ -71,7 +73,7 @@ def test_wallet_broadcast_rejected(monkeypatch):
     monkeypatch.setattr(wallet_api, "broadcast_signed_raw_tx", fake_broadcast_signed_raw_tx)
 
     client = TestClient(app)
-    response = client.post("/api/wallet/broadcast", json={"raw_tx": "0100000001abcdef"})
+    response = client.post("/api/wallet/broadcast", json={"raw_tx": VALID_RAW_TX})
 
     assert response.status_code == 503
     data = response.json()
