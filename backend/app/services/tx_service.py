@@ -69,7 +69,7 @@ def normalize_signed_raw_tx(raw_tx: str) -> str:
     return value.lower()
 
 
-async def get_transaction_details(txid: str) -> dict[str, Any]:
+async def get_transaction_details(txid: str, verbose: bool = True) -> dict[str, Any]:
     try:
         norm_txid = normalize_txid(txid)
     except ValueError as exc:
@@ -80,8 +80,7 @@ async def get_transaction_details(txid: str) -> dict[str, Any]:
     try:
         # Some servers require version identification
         await server_version(client)
-        # Query with verbose=True
-        tx_data = await transaction_get(client, norm_txid, verbose=True)
+        tx_data = await transaction_get(client, norm_txid, verbose=verbose)
     except ElectrumXMethodError as exc:
         err_msg = str(exc).lower()
         # Usually daemon error: No such transaction or similar message
