@@ -33,7 +33,6 @@ class BroadcastRequest(BaseModel):
 async def wallet_address_lookup(address: str = Path(...)) -> JSONResponse:
     try:
         summary = await get_address_summary(address)
-        # Fetch history list (cached, fast)
         history_data = await get_address_history(address, limit=50, offset=0)
 
         confirmed_sats = summary["balance"]["confirmed"]
@@ -138,9 +137,9 @@ async def wallet_address_utxos(address: str = Path(...)) -> JSONResponse:
 
 
 @router.get("/tx/{txid}")
-async def wallet_tx_lookup(txid: str = Path(...)) -> JSONResponse:
+async def wallet_tx_lookup(txid: str = Path(...), raw: bool = Query(default=False)) -> JSONResponse:
     try:
-        result = await get_transaction_details(txid)
+        result = await get_transaction_details(txid, verbose=not raw)
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
@@ -148,6 +147,7 @@ async def wallet_tx_lookup(txid: str = Path(...)) -> JSONResponse:
                 "data": result["data"],
                 "source": "electrumx",
                 "read_only": True,
+                "raw": raw,
             }
         )
     except InvalidTxidError as exc:
