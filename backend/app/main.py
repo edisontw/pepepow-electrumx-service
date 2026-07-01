@@ -20,7 +20,7 @@ configure_logging(settings)
 app = FastAPI(
     title="PEPEW Light",
     version=settings.version,
-    description="Read-only PEPEPOW ElectrumX API Gateway.",
+    description="PEPEPOW ElectrumX API Gateway for read queries and signed raw transaction broadcast.",
 )
 
 BASE_DIR = Path(__file__).resolve().parent
