@@ -124,7 +124,7 @@ Payment Monitor is not an invoice database.
 
 The payment monitor is address-level and read-only. Use a unique receiving address per payment request.
 
-Amounts are address-level totals. Mempool values are unconfirmed.
+Amounts are address-level totals. Mempool values are unconfirmed. This endpoint is not a merchant invoice ledger.
 
 Possible states:
 
