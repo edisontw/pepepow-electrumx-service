@@ -110,7 +110,17 @@ POST /api/wallet/broadcast
 
 `POST /api/wallet/broadcast` is only for signed raw transactions. Do not add mnemonic import, private-key upload, or server-side signing routes.
 
-## Payment monitor states
+## Payment monitor
+
+`GET /api/payment/check?address=Pxxx&amount=1` checks current ElectrumX address balance, history, and mempool for a read-only payment status.
+
+Payment Monitor is not an invoice database.
+
+- It does not create, reserve, store, or expire invoices server-side.
+- It only checks whether a given address has received at least the requested amount.
+- Each payment should use a unique receiving address.
+- Reusing addresses can cause ambiguous payment detection.
+- For production merchant use, a real invoice/payment database should be added later.
 
 The payment monitor is address-level and read-only. Use a unique receiving address per payment request.
 
@@ -127,7 +137,37 @@ expired
 error
 ```
 
-It is not a merchant invoice database. It does not reserve, store, or expire invoices server-side.
+Important response fields:
+
+```text
+requested_amount
+requested_sats
+confirmed_received_sats
+mempool_received_sats
+total_received_sats
+status_explanation
+explorer_address_url
+```
+
+Additional common response fields:
+
+```text
+address
+amount_pepew
+pepew_decimals
+confirmed_balance
+confirmed_balance_sats
+mempool_balance
+mempool_balance_sats
+total_visible_balance
+total_visible_balance_sats
+confirmed_received
+mempool_received
+total_received
+confirmations_required
+expired
+message
+```
 
 ## ElectrumX methods used
 
