@@ -26,6 +26,13 @@ _history_cache = TTLCache()
 _utxo_cache = TTLCache()
 
 
+def clear_address_caches() -> None:
+    """Clear address-related in-memory caches for tests and maintenance."""
+    _address_cache.clear()
+    _history_cache.clear()
+    _utxo_cache.clear()
+
+
 class AddressLookupError(Exception):
     code = "address_lookup_error"
 
