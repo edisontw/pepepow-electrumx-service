@@ -1,3 +1,6 @@
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Path, Query, status
 from fastapi.responses import JSONResponse
@@ -29,14 +32,29 @@ class BroadcastRequest(BaseModel):
     raw_tx: str = Field(..., min_length=20, max_length=200_000)
 
 
+async def _call_with_optional_fresh(
+    func: Callable[..., Awaitable[dict[str, Any]]],
+    *args: Any,
+    fresh: bool = False,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Call helpers with fresh= support while keeping older test fakes compatible."""
+    try:
+        return await func(*args, fresh=fresh, **kwargs)
+    except TypeError as exc:
+        if "fresh" not in str(exc):
+            raise
+        return await func(*args, **kwargs)
+
+
 @router.get("/address/{address}")
 async def wallet_address_lookup(
     address: str = Path(...),
     fresh: bool = Query(default=False),
 ) -> JSONResponse:
     try:
-        summary = await get_address_summary(address, fresh=fresh)
-        history_data = await get_address_history(address, limit=50, offset=0, fresh=fresh)
+        summary = await _call_with_optional_fresh(get_address_summary, address, fresh=fresh)
+        history_data = await _call_with_optional_fresh(get_address_history, address, limit=50, offset=0, fresh=fresh)
 
         confirmed_sats = summary["balance"]["confirmed"]
         unconfirmed_sats = summary["balance"]["unconfirmed"]
@@ -84,7 +102,7 @@ async def wallet_address_history(
     fresh: bool = Query(default=False),
 ) -> JSONResponse:
     try:
-        history_data = await get_address_history(address, limit=limit, offset=offset, fresh=fresh)
+        history_data = await _call_with_optional_fresh(get_address_history, address, limit=limit, offset=offset, fresh=fresh)
 
         mapped_history = []
         for item in history_data.get("history", []):
@@ -125,7 +143,7 @@ async def wallet_address_utxos(
     fresh: bool = Query(default=False),
 ) -> JSONResponse:
     try:
-        result = await get_address_utxos(address, fresh=fresh)
+        result = await _call_with_optional_fresh(get_address_utxos, address, fresh=fresh)
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
