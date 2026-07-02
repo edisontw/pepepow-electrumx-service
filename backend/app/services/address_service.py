@@ -191,12 +191,12 @@ async def _identify_client(client: ElectrumXClient) -> None:
     await server_version(client)
 
 
-async def get_address_summary(address: str) -> dict[str, Any]:
+async def get_address_summary(address: str, *, fresh: bool = False) -> dict[str, Any]:
     settings = get_settings()
     normalized_address, hash160, scripthash = _safe_address_parts(address)
     cache_key = f"summary:{scripthash}"
 
-    cached = _address_cache.get(cache_key)
+    cached = None if fresh else _address_cache.get(cache_key)
     if cached is not None:
         result = dict(cached)
         result["cache"] = dict(result.get("cache", {}))
@@ -232,20 +232,21 @@ async def get_address_summary(address: str) -> dict[str, Any]:
             "enabled": settings.cache_balance_seconds > 0,
             "ttl_seconds": settings.cache_balance_seconds,
             "hit": False,
+            "bypass": fresh,
         },
     }
 
-    if settings.cache_balance_seconds > 0:
+    if settings.cache_balance_seconds > 0 and not fresh:
         _address_cache.set(cache_key, result, settings.cache_balance_seconds)
     return result
 
 
-async def get_address_utxos(address: str) -> dict[str, Any]:
+async def get_address_utxos(address: str, *, fresh: bool = False) -> dict[str, Any]:
     settings = get_settings()
     normalized_address, hash160, scripthash = _safe_address_parts(address)
     cache_key = f"utxo:{scripthash}"
 
-    cached = _utxo_cache.get(cache_key)
+    cached = None if fresh else _utxo_cache.get(cache_key)
     if cached is not None:
         result = dict(cached)
         result["cache"] = dict(result.get("cache", {}))
@@ -275,24 +276,27 @@ async def get_address_utxos(address: str) -> dict[str, Any]:
         "checked_at": int(time.time()),
         "cache": {
             "enabled": settings.cache_balance_seconds > 0,
-            "ttl_seconds": settings.cache_balance_seconds,
+            "ttl_seconds": min(settings.cache_balance_seconds, 20),
             "hit": False,
+            "bypass": fresh,
         },
     }
 
-    if settings.cache_balance_seconds > 0:
+    # UTXOs are spend-sensitive for wallet sends. Cache only normal page reads;
+    # wallet send flows should pass fresh=1 to avoid reusing recently spent outpoints.
+    if settings.cache_balance_seconds > 0 and not fresh:
         _utxo_cache.set(cache_key, result, min(settings.cache_balance_seconds, 20))
     return result
 
 
-async def get_address_history(address: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+async def get_address_history(address: str, limit: int = 50, offset: int = 0, *, fresh: bool = False) -> dict[str, Any]:
     settings = get_settings()
     normalized_address, hash160, scripthash = _safe_address_parts(address)
     cache_key = f"history:raw:{scripthash}"
     limit = max(1, min(limit, 500))
     offset = max(offset, 0)
 
-    cached = _history_cache.get(cache_key)
+    cached = None if fresh else _history_cache.get(cache_key)
     if cached is not None:
         result = dict(cached)
         full_history = list(result.get("history", []))
@@ -337,18 +341,12 @@ async def get_address_history(address: str, limit: int = 50, offset: int = 0) ->
             "enabled": settings.cache_history_seconds > 0,
             "ttl_seconds": settings.cache_history_seconds,
             "hit": False,
+            "bypass": fresh,
         },
     }
 
-    if settings.cache_history_seconds > 0:
+    if settings.cache_history_seconds > 0 and not fresh:
         cached_result = dict(result)
         cached_result["history"] = history
         _history_cache.set(cache_key, cached_result, settings.cache_history_seconds)
     return result
-
-
-def clear_address_caches() -> None:
-    global _address_cache, _history_cache, _utxo_cache
-    _address_cache = TTLCache()
-    _history_cache = TTLCache()
-    _utxo_cache = TTLCache()
