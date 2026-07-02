@@ -24,3 +24,6 @@ class TTLCache:
 
     def set(self, key: str, value: Any, ttl_seconds: int) -> None:
         self._items[key] = CacheEntry(value=value, expires_at=time.time() + ttl_seconds)
+
+    def clear(self) -> None:
+        self._items.clear()
