@@ -1,17 +1,178 @@
 # PEPEW Light
 
-Read-only PEPEPOW ElectrumX API Gateway and simple status/address/payment monitor website.
+PEPEW Light is the public FastAPI gateway and lightweight website for PEPEPOW / PEPEW ElectrumX access.
+
+It serves:
+
+- read-only address lookup
+- transaction history lookup
+- transaction lookup
+- payment status monitor
+- ElectrumX status dashboard
+- read-only wallet API for the PEPEW Light Wallet
+- future signed raw transaction broadcast endpoint
+
+Production host:
+
+```text
+https://light.pepepow.net
+```
+
+## Current project phase
+
+Phase 4 read-only wallet API is complete. Current focus is Phase 4.5 / Phase 5:
+
+- polish and publicly deploy the non-custodial web wallet
+- improve `/wallet/` loading speed and static asset paths
+- improve safety warnings, balance display, history display, QR display, API status, and error messages
+- keep broadcast limited to signed raw transactions only
+- keep backend and wallet responsibilities clearly separated
 
 ## Security boundary
 
-PEPEW Light is a public API gateway for read-only chain data. It must not receive,
-store, log, derive, or handle wallet secrets.
+PEPEW Light is a public API gateway. It must not become a custodial wallet.
 
-- Mnemonic, seed phrase, private keys, address derivation, and transaction signing stay client-side.
-- Phase 0 and Phase 1 are read-only.
-- Future broadcast support may only accept signed raw transactions.
-- ElectrumX should remain private on localhost; public traffic should go through Nginx and FastAPI.
-- Payment checking is address-level. Use a unique receiving address per payment request for accurate invoice detection.
+Rules:
+
+1. Mnemonics, seed phrases, private keys, derivation, and signing stay client-side.
+2. The server never receives, stores, logs, derives, or signs with wallet secrets.
+3. Public API routes accept only addresses, txids, query parameters, payment-check parameters, and future signed raw transactions.
+4. ElectrumX is private and reachable only from localhost/internal network.
+5. Public traffic goes through HTTPS, Nginx, rate limiting, validation, and FastAPI.
+6. ElectrumX calls must use timeouts.
+7. Error responses must not expose internal paths, credentials, or upstream exception details.
+8. Avoid long-term storage of IP/address associations.
+9. Broadcast may only accept signed raw tx payloads.
+
+## Architecture
+
+```text
+User
+  |
+  | HTTPS
+  v
+Nginx
+  |-- /wallet/ static PEPEW Light Wallet
+  |-- /api/*   reverse proxy to FastAPI
+  |-- /        status/address/payment pages
+  v
+FastAPI PEPEW Light Gateway
+  |
+  | Electrum protocol, timeout, cache
+  v
+ElectrumX on localhost
+  |
+  v
+PEPEPOWd
+```
+
+Repository boundaries:
+
+| Repository | Responsibility |
+| --- | --- |
+| `pepepow-electrumx-service` | FastAPI gateway, cache, status pages, wallet API, deployment docs |
+| `pepepow-light-wallet` | Static Vite/React non-custodial web wallet and client-side wallet logic |
+| `electrumx-pepepow` | ElectrumX chain support only |
+
+## Public pages
+
+```text
+GET /
+GET /address
+GET /status
+GET /pay
+GET /tx
+GET /wallet/     static wallet app, served by Nginx
+```
+
+## API endpoints
+
+### Core API
+
+```text
+GET /api/health
+GET /api/status
+GET /api/address/{address}
+GET /api/address/{address}/history
+GET /api/tx/{txid}
+GET /api/payment/check
+```
+
+### Wallet API
+
+```text
+GET  /api/wallet/address/{address}
+GET  /api/wallet/history/{address}
+GET  /api/wallet/utxo/{address}
+GET  /api/wallet/tx/{txid}
+POST /api/wallet/broadcast
+```
+
+`POST /api/wallet/broadcast` is only for signed raw transactions. Do not add mnemonic import, private-key upload, or server-side signing routes.
+
+## Payment monitor states
+
+The payment monitor is address-level and read-only. Use a unique receiving address per payment request.
+
+Possible states:
+
+```text
+waiting
+seen_in_mempool
+partial
+paid_unconfirmed
+paid_confirmed
+overpaid
+expired
+error
+```
+
+It is not a merchant invoice database. It does not reserve, store, or expire invoices server-side.
+
+## ElectrumX methods used
+
+Current / expected methods:
+
+```text
+server.version
+features
+headers.subscribe
+scripthash.get_balance
+scripthash.get_history
+scripthash.get_mempool
+transaction.get
+transaction.broadcast
+```
+
+Future candidates:
+
+```text
+block.header
+estimatefee
+```
+
+## Scripthash rule
+
+Address lookup must follow the ElectrumX scripthash format:
+
+```text
+address decode -> scriptPubKey -> sha256 -> reverse bytes -> hex
+```
+
+This flow requires unit tests.
+
+## Cache policy
+
+Recommended TTLs for the single-core Oracle Cloud host:
+
+| Data | TTL |
+| --- | --- |
+| status | 5-10 seconds |
+| balance | 10-20 seconds |
+| history | 20-60 seconds |
+| transaction | 5-10 minutes |
+
+Use cache and rate limiting to protect PEPEPOWd and ElectrumX.
 
 ## Local development
 
@@ -24,7 +185,32 @@ cp -n .env.example .env
 uvicorn app.main:app --host 127.0.0.1 --port 8088 --reload
 ```
 
-Python 3.11+ is preferred. Python 3.10 is acceptable for the initial MN3 deployment.
+Python 3.11+ is preferred.
+
+## Backend configuration
+
+Main `.env` variables:
+
+```text
+APP_NAME=pepew-light
+APP_ENV=production
+APP_HOST=127.0.0.1
+APP_PORT=8088
+APP_PUBLIC_BASE_URL=https://light.pepepow.net
+ELECTRUMX_HOST=127.0.0.1
+ELECTRUMX_PORT=50001
+ELECTRUMX_USE_SSL=false
+ELECTRUMX_TIMEOUT=5.0
+PEPEW_DECIMALS=8
+PEPEW_ADDRESS_PREFIX=P
+PEPEW_MIN_CONFIRMATIONS=3
+PEPEW_EXPLORER_BASE_URL=https://explorer.pepepow.net
+CACHE_STATUS_SECONDS=10
+CACHE_BALANCE_SECONDS=15
+CACHE_HISTORY_SECONDS=30
+CACHE_TX_SECONDS=300
+LOG_LEVEL=INFO
+```
 
 ## Tests
 
@@ -33,69 +219,40 @@ cd backend
 source .venv/bin/activate
 python3 -m py_compile app/main.py
 python3 -m pytest -q
-curl http://127.0.0.1:8088/api/health
-curl http://127.0.0.1:8088/api/status
-curl http://127.0.0.1:8088/status
+curl -s http://127.0.0.1:8088/api/health
+curl -s http://127.0.0.1:8088/api/status
 ```
 
-If the virtual environment is not ready yet, run tests with the system/user Python after installing requirements:
+Coverage priorities:
+
+- address validation
+- scripthash conversion
+- ElectrumX timeout/error handling
+- API endpoint response shape
+- wallet API read-only behavior
+- signed-raw-tx-only broadcast validation
+- safe error responses
+
+## Production deployment
+
+### Backend
 
 ```bash
+cd /home/ubuntu/pepepow-electrumx-service
 cd backend
-python3 -m pytest -q
-```
-
-## Production Deployment
-
-Follow these concise steps to deploy the service on a public host (such as Oracle Cloud):
-
-### 1. Clone & Setup Directory
-```bash
-cd /home/ubuntu
-git clone https://github.com/edisontw/pepepow-electrumx-service.git
-cd pepepow-electrumx-service/backend
-```
-
-### 2. Create Environment Configuration
-Create the production environment file from the example:
-```bash
-cp -n .env.example .env
-# Edit to set production variables (e.g., correct host, port, caching values)
-nano .env
-```
-
-### 3. Install Requirements
-Create a python virtual environment and install the required dependencies:
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-*(If `python3-venv` is missing, install it first via `sudo apt update && sudo apt install -y python3-venv`)*
-
-### 4. Run Verification Tests
-Verify everything is working correctly by running the test suite:
-```bash
 pytest
-```
-
-### 5. Run Uvicorn Locally (Manual Smoke Test)
-Run uvicorn locally to verify startup succeeds without issues:
-```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8088
-```
-
-### 6. Install systemd Service
-Deploy and enable the systemd service to run the app in the background with auto-restart and sandboxing:
-```bash
 sudo cp /home/ubuntu/pepepow-electrumx-service/deploy/systemd/pepew-light.service /etc/systemd/system/pepew-light.service
 sudo systemctl daemon-reload
 sudo systemctl enable pepew-light
 sudo systemctl restart pepew-light
+sudo systemctl status pepew-light --no-pager
 ```
 
-### 7. Install Nginx Reverse Proxy
-Install Nginx config to reverse proxy traffic from port 80/443 to the local gateway, configure rate limits, and proxy timeouts:
+### Nginx
+
 ```bash
 sudo cp /home/ubuntu/pepepow-electrumx-service/deploy/nginx/pepew-light.nginx.conf /etc/nginx/sites-available/pepew-light
 sudo ln -sfn /etc/nginx/sites-available/pepew-light /etc/nginx/sites-enabled/pepew-light
@@ -103,65 +260,20 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 8. Verify Deployment and Check Logs
-Check service status and check logs for any errors:
-```bash
-sudo systemctl status pepew-light --no-pager
-sudo journalctl -u pepew-light -n 50 --no-pager
-```
+Nginx should also serve the built wallet static files under `/wallet/`.
 
-Verify that the health check and status APIs respond correctly:
-```bash
-curl http://127.0.0.1:8088/api/health
-curl http://127.0.0.1:8088/api/status
-```
-
-## Phase 2 public deployment checklist
-
-Confirmed public deployment state for `https://light.pepepow.net`:
-
-- Nginx terminates HTTPS and reverse proxies to FastAPI.
-- HTTP requests redirect to HTTPS.
-- Public ingress is limited to ports `80/tcp` and `443/tcp`.
-- Uvicorn listens on `127.0.0.1:8088` only.
-- ElectrumX listens on `127.0.0.1:50001` only.
-- ElectrumX RPC listens on `127.0.0.1:8000` only.
-- The service remains read-only; it must not handle mnemonic, private key, seed phrase, signing, or wallet secret data.
-
-Service restart:
+### Public verification
 
 ```bash
-cd ~/pepepow-electrumx-service/backend
-source .venv/bin/activate
-pytest
-sudo systemctl restart pepew-light
-sudo systemctl status pepew-light --no-pager
-```
-
-Nginx and certificate checks:
-
-```bash
-sudo nginx -t
-sudo systemctl reload nginx
-sudo systemctl list-timers | grep certbot || true
-sudo certbot renew --dry-run
-```
-
-Public verification:
-
-```bash
-curl -I http://light.pepepow.net/
 curl -I https://light.pepepow.net/
+curl -I https://light.pepepow.net/wallet/
 curl -s https://light.pepepow.net/api/health
 curl -s https://light.pepepow.net/api/status
-curl -I https://light.pepepow.net/address
-curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
+curl -s https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
 curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb/history?limit=5&offset=0"
-curl -s https://light.pepepow.net/api/address/invalid
+curl -s https://light.pepepow.net/api/wallet/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
+curl -s https://light.pepepow.net/api/wallet/utxo/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
 curl -s "https://light.pepepow.net/api/payment/check?address=PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb&amount=1"
-curl -s "https://light.pepepow.net/api/payment/check?address=invalid&amount=1"
-curl -s https://light.pepepow.net/pay
-ss -lntp | grep -E ':80|:443|:8088|:50001'
 ```
 
 Expected port shape:
@@ -170,189 +282,27 @@ Expected port shape:
 0.0.0.0:80       nginx
 0.0.0.0:443      nginx
 127.0.0.1:8088   uvicorn
-127.0.0.1:50001  electrumx_server
+127.0.0.1:50001  ElectrumX
 ```
 
-## Public endpoints
+## Minimum public-ready checklist
 
-- `GET /`
-- `GET /status`
-- `GET /api/health`
-- `GET /api/status`
-- `GET /api/payment/check?address={address}&amount={amount}`
+1. `/api/health` returns ok.
+2. `/api/status` shows ElectrumX connection state.
+3. Address API works.
+4. Wallet API works.
+5. Site can query an address.
+6. Wallet shows balance and QR.
+7. Status page works.
+8. `/wallet/` opens.
+9. Static assets load correctly.
+10. Mnemonic import works client-side.
+11. Wallet shows balance/history.
+12. Non-custodial warning is visible.
+13. README and docs reflect current architecture.
+14. Tests cover key address/scripthash/API flows.
 
-`/api/status` returns HTTP 200 even when ElectrumX is unavailable. Check `ok`, `electrumx.connected`, and `error` in the JSON body.
+## Documentation
 
-## Phase 3 payment monitor
-
-`GET /api/payment/check?address=Pxxx&amount=1` checks the current ElectrumX address balance, history, and mempool for a read-only payment status.
-
-Optional query parameters:
-
-- `confirmations`: defaults to `PEPEW_MIN_CONFIRMATIONS`.
-- `expires_at`: ISO8601 timestamp.
-- `expires_in`: expiry seconds from the current request time.
-
-Example response:
-
-```json
-{
-  "ok": true,
-  "address": "Pxxx",
-  "requested_amount": "1000",
-  "requested_sats": 100000000000,
-  "amount_pepew": "1000",
-  "pepew_decimals": 8,
-  "confirmed_balance": "0",
-  "confirmed_balance_sats": 0,
-  "mempool_balance": "0",
-  "mempool_balance_sats": 0,
-  "total_visible_balance": "0",
-  "total_visible_balance_sats": 0,
-  "confirmed_received": "0",
-  "confirmed_received_sats": 0,
-  "mempool_received": "0",
-  "mempool_received_sats": 0,
-  "total_received": "0",
-  "total_received_sats": 0,
-  "status": "waiting",
-  "confirmations_required": 3,
-  "explorer_address_url": "https://explorer.pepepow.net/address/Pxxx",
-  "expired": false,
-  "status_explanation": "Current address balance is below the requested amount."
-}
-```
-
-Response fields:
-
-- `address`: validated PEPEW address being checked.
-- `requested_amount` and `amount_pepew`: normalized requested PEPEW amount.
-- `requested_sats`: requested amount in sats / smallest units.
-- `pepew_decimals`: decimal precision used for PEPEW amount conversion.
-- `confirmed_balance` and `confirmed_balance_sats`: current confirmed address balance.
-- `mempool_balance` and `mempool_balance_sats`: current unconfirmed mempool balance.
-- `total_visible_balance` and `total_visible_balance_sats`: total visible balance (confirmed + mempool).
-- `confirmed_received` and `confirmed_received_sats`: compatibility aliases for confirmed balance.
-- `mempool_received` and `mempool_received_sats`: compatibility aliases for mempool balance.
-- `total_received` and `total_received_sats`: compatibility aliases for total visible balance.
-- `status`: one of `waiting`, `seen_in_mempool`, `partial`, `paid_unconfirmed`, `paid_confirmed`, or `overpaid`.
-- `confirmations_required`: threshold from `PEPEW_MIN_CONFIRMATIONS` unless overridden by query parameter.
-- `explorer_address_url`: public explorer URL for the checked address.
-- `expires_in` and `expired`: display monitor expiry metadata when an expiry is supplied.
-- `status_explanation` and `message`: short user-facing status text.
-
-Amounts are address-level totals. Mempool values are unconfirmed. Confirmed payment status uses the configured `PEPEW_MIN_CONFIRMATIONS` threshold for deciding whether the monitor should report `paid_confirmed`.
-
-This endpoint is not a merchant invoice ledger.
-
-Payment checking is address-level. Use a unique receiving address per payment request for accurate invoice detection.
-
-The payment monitor remains read-only. It does not add mnemonic, private key, signing, server-side wallet, custody, or broadcast logic.
-
-### Not an invoice database
-
-Payment Monitor is not an invoice database.
-
-- It does not create, reserve, store, or expire invoices server-side.
-- It only checks whether a given address has received at least the requested amount.
-- Each payment should use a unique receiving address.
-- Reusing addresses can cause ambiguous payment detection.
-- For production merchant use, a real invoice/payment database should be added later.
-
-## Phase 1 verification on MN3
-
-```bash
-cd ~/pepepow-electrumx-service
-
-git pull
-cd backend
-source .venv/bin/activate
-python3 -m py_compile app/main.py
-python3 -m pytest -q
-
-sudo systemctl restart pepew-light
-sudo systemctl status pepew-light --no-pager -l
-
-curl -s http://127.0.0.1:8088/api/health | jq
-curl -s http://127.0.0.1:8088/api/status | jq
-curl -I http://127.0.0.1:8088/status
-sudo journalctl -u pepew-light -n 80 --no-pager
-```
-
-Expected successful `/api/status` shape:
-
-```json
-{
-  "ok": true,
-  "app": "pepew-light",
-  "electrumx": {
-    "connected": true,
-    "host": "127.0.0.1",
-    "port": 50001,
-    "server_version": "...",
-    "protocol": "...",
-    "height": 4620000,
-    "tip_hash": null,
-    "response_time_ms": 23.0
-  },
-  "cache": {
-    "enabled": true,
-    "ttl_seconds": 10,
-    "hit": false
-  }
-}
-```
-
-Expected safe unavailable shape:
-
-```json
-{
-  "ok": false,
-  "app": "pepew-light",
-  "electrumx": {
-    "connected": false,
-    "host": "127.0.0.1",
-    "port": 50001
-  },
-  "error": "electrumx_unavailable"
-}
-```
-
-## Production Smoke Test
-
-Run these verification commands to ensure the service behaves correctly in production:
-
-```bash
-# 1. Health check over HTTPS
-curl -s https://light.pepepow.net/api/health
-
-# 2. Detailed backend/upstream connection status
-curl -s https://light.pepepow.net/api/status
-
-# 3. Address balance lookups
-curl -s https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
-
-# 4. Address transaction history
-curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb/history?limit=5&offset=0"
-
-# 5. Read-only payment check monitor
-curl -s "https://light.pepepow.net/api/payment/check?address=PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb&amount=1"
-```
-
-## Next phases
-
-1. PEPEW address validation, scriptPubKey, scripthash conversion, and address lookup
-2. Payment monitor
-3. Web wallet read-only integration
-4. Signed raw transaction broadcast only after the read-only service is stable
-
-## Phase 4 Read-Only Wallet Integration APIs
-
-The gateway provides a dedicated, wallet-oriented read-only namespace under `/api/wallet/*` for frontend integration.
-
-- `GET /api/wallet/address/{address}`: Returns balance summary, confirmed/unconfirmed PEPEW amounts, and historical transaction ID lists.
-- `GET /api/wallet/history/{address}`: Returns lists of transaction IDs in confirmed history and unconfirmed mempool.
-- `GET /api/wallet/tx/{txid}`: Retrieves verbose transaction details from ElectrumX.
-
-All inputs are validated. No private keys, mnemonics, or seeds are ever handled or transmitted to the server.
-
+- [Security](docs/SECURITY.md)
+- [Wallet API](docs/WALLET_API.md)
