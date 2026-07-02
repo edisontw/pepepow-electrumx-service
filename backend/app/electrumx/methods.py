@@ -42,7 +42,11 @@ async def scripthash_list_unspent(client: ElectrumXClient, scripthash: str) -> A
 
 
 async def transaction_get(client: ElectrumXClient, txid: str, verbose: bool = False) -> Any:
-    return await client.request(TRANSACTION_GET, [txid, verbose])
+    # Some ElectrumX forks accept blockchain.transaction.get(txid) for raw hex
+    # but reject blockchain.transaction.get(txid, false). Use the optional
+    # verbose flag only when verbose JSON is explicitly requested.
+    params = [txid, True] if verbose else [txid]
+    return await client.request(TRANSACTION_GET, params)
 
 
 async def transaction_broadcast(client: ElectrumXClient, raw_tx: str) -> Any:
