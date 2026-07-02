@@ -30,10 +30,13 @@ class BroadcastRequest(BaseModel):
 
 
 @router.get("/address/{address}")
-async def wallet_address_lookup(address: str = Path(...)) -> JSONResponse:
+async def wallet_address_lookup(
+    address: str = Path(...),
+    fresh: bool = Query(default=False),
+) -> JSONResponse:
     try:
-        summary = await get_address_summary(address)
-        history_data = await get_address_history(address, limit=50, offset=0)
+        summary = await get_address_summary(address, fresh=fresh)
+        history_data = await get_address_history(address, limit=50, offset=0, fresh=fresh)
 
         confirmed_sats = summary["balance"]["confirmed"]
         unconfirmed_sats = summary["balance"]["unconfirmed"]
@@ -62,6 +65,7 @@ async def wallet_address_lookup(address: str = Path(...)) -> JSONResponse:
                 "history": mapped_history,
                 "source": "electrumx",
                 "read_only": True,
+                "cache": summary.get("cache", {}),
             }
         )
     except InvalidPepewAddressError as exc:
@@ -77,9 +81,10 @@ async def wallet_address_history(
     address: str = Path(...),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    fresh: bool = Query(default=False),
 ) -> JSONResponse:
     try:
-        history_data = await get_address_history(address, limit=limit, offset=offset)
+        history_data = await get_address_history(address, limit=limit, offset=offset, fresh=fresh)
 
         mapped_history = []
         for item in history_data.get("history", []):
@@ -103,6 +108,7 @@ async def wallet_address_history(
                 "mempool": mapped_mempool,
                 "source": "electrumx",
                 "read_only": True,
+                "cache": history_data.get("cache", {}),
             }
         )
     except InvalidPepewAddressError as exc:
@@ -114,9 +120,12 @@ async def wallet_address_history(
 
 
 @router.get("/utxo/{address}")
-async def wallet_address_utxos(address: str = Path(...)) -> JSONResponse:
+async def wallet_address_utxos(
+    address: str = Path(...),
+    fresh: bool = Query(default=False),
+) -> JSONResponse:
     try:
-        result = await get_address_utxos(address)
+        result = await get_address_utxos(address, fresh=fresh)
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
@@ -126,6 +135,7 @@ async def wallet_address_utxos(address: str = Path(...)) -> JSONResponse:
                 "total": result["total"],
                 "source": "electrumx",
                 "read_only": True,
+                "cache": result.get("cache", {}),
             }
         )
     except InvalidPepewAddressError as exc:
