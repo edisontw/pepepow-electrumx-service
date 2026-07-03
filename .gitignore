@@ -17,3 +17,6 @@ backend/.env
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Static wallet deployment artifact
+frontend/static/wallet/

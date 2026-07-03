@@ -27,7 +27,7 @@ server {
     }
 
     location ^~ /wallet/ {
-        alias /var/www/pepepow-light-wallet/;
+        alias /home/ubuntu/pepepow-electrumx-service/frontend/static/wallet/;
         try_files $uri $uri/ /wallet/index.html;
         access_log /var/log/nginx/pepepow-wallet-access.log;
     }

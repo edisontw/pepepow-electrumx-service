@@ -74,6 +74,22 @@ Repository boundaries:
 | `pepepow-light-wallet` | Static Vite/React non-custodial web wallet and client-side wallet logic |
 | `electrumx-pepepow` | ElectrumX chain support only |
 
+## PEPEW Light Wallet Integration
+
+The PEPEW Light Wallet is maintained as a separate client-side repository:
+
+- Wallet repo: https://github.com/edisontw/pepepow-light-wallet
+- Production wallet: https://light.pepepow.net/wallet/
+
+The wallet is built as a static Vite/React app and deployed under `/wallet/`.
+It communicates with the PEPEW Light API through same-origin `/api/wallet/*` endpoints.
+
+## Security Boundary
+
+The backend never receives mnemonic phrases or private keys.
+All wallet derivation and signing logic belongs to the client-side wallet.
+The API only handles addresses, txids, query parameters, and future signed raw transactions.
+
 ## Public pages
 
 ```text
