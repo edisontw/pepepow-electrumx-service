@@ -48,8 +48,9 @@ The wallet build process is managed by `deploy_wallet.sh`. The script executes t
 2. Appends custom Node binaries (under `/home/ubuntu/node-dist/bin`) to system `PATH`
 3. Installs dependencies using `npm ci` (or `npm install`)
 4. Builds the wallet package (`packages/wallet-core` first, then `apps/web`) using `npm run build`
-5. Clears previous deployment files under `/home/ubuntu/pepepow-electrumx-service/frontend/static/wallet`
-6. Copies the built assets from `apps/web/dist` to `/home/ubuntu/pepepow-electrumx-service/frontend/static/wallet`
+5. Clears previous deployment files under `/var/www/pepew-light/wallet`
+6. Copies the built assets from `apps/web/dist` to `/var/www/pepew-light/wallet`
+7. Automatically adjusts ownership to `www-data:www-data` and sets secure file permissions (directories 755, files 644).
 
 ---
 

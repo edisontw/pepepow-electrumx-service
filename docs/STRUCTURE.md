@@ -22,7 +22,7 @@ backend/app/services/   - Business logic services (status, address, tx, payment)
 backend/app/templates/  - Jinja2 HTML templates for landing/status/pay pages
 backend/tests/          - Backend test suite
 frontend/static/        - Static assets for public landing/status/pay pages
-frontend/static/wallet  - [Artifact] Production build of the React wallet
+frontend/static/wallet  - [Deprecated] Previous static path (no longer used in active production)
 deploy/                 - Deployment configs and shell scripts (systemd, nginx, deploy_wallet.sh)
 docs/                   - Documentation (STRUCTURE, DEPLOYMENT, WALLET_INTEGRATION, DEBUGGING)
 ```
@@ -52,8 +52,11 @@ packages/wallet-core/   - Core cryptographic / transaction derivation SDK
 The wallet production build generates static files in the wallet repository under:
 `/home/ubuntu/pepepow-light-wallet/apps/web/dist`
 
-During deployment, these compiled artifacts are copied to the service repository at:
-`/home/ubuntu/pepepow-electrumx-service/frontend/static/wallet`
+During deployment, these compiled artifacts are copied to:
+`/var/www/pepew-light/wallet`
+
+> [!NOTE]
+> `frontend/static/wallet` is no longer the production static serving path if `/var/www/pepew-light/wallet` is used.
 
 ---
 
@@ -63,7 +66,7 @@ During deployment, these compiled artifacts are copied to the service repository
 - **Build Artifacts (Git ignored / ephemeral)**:
   - Wallet core compiled outputs: `packages/wallet-core/dist/`
   - React SPA compiled outputs: `apps/web/dist/`
-  - Service wallet destination: `frontend/static/wallet/` (all contents inside this folder are build outputs and should not be manually modified).
+  - Service wallet destination: `/var/www/pepew-light/wallet` (all contents inside this folder are build outputs and should not be manually modified).
 
 ---
 

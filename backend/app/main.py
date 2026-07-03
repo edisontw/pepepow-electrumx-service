@@ -102,3 +102,21 @@ async def status_page(request: Request) -> HTMLResponse:
 @app.head("/status")
 async def status_head() -> Response:
     return Response(status_code=200)
+
+
+@app.get("/tx", response_class=HTMLResponse)
+async def tx_page(request: Request, txid: str | None = None) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "tx.html",
+        {
+            "app_name": settings.app_name,
+            "version": settings.version,
+            "query_txid": (txid or "").strip(),
+        },
+    )
+
+
+@app.head("/tx")
+async def tx_head() -> Response:
+    return Response(status_code=200)

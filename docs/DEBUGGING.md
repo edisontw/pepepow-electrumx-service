@@ -18,7 +18,7 @@ If the wallet dashboard page or its static files take too long to fetch:
 curl -I https://light.pepepow.net/wallet/
 
 # Confirm deployment folder size and structure
-find /home/ubuntu/pepepow-electrumx-service/frontend/static/wallet -maxdepth 2 -type f
+find /var/www/pepew-light/wallet -maxdepth 2 -type f
 
 # Check active Nginx logs
 sudo tail -n 100 /var/log/nginx/pepew-light.access.log
@@ -40,7 +40,7 @@ If the PEPEW logo fails to render on the page:
 grep -RIn "logo" /home/ubuntu/pepepow-light-wallet/apps/web/src /home/ubuntu/pepepow-light-wallet/apps/web/public
 
 # Verify logo exist in the static deployment location
-find /home/ubuntu/pepepow-electrumx-service/frontend/static/wallet -iname "*logo*"
+find /var/www/pepew-light/wallet -iname "*logo*"
 ```
 
 ---
@@ -58,7 +58,7 @@ If the HTML page loads, but style sheets and scripts return 404:
 grep -R "base:" /home/ubuntu/pepepow-light-wallet/apps/web/vite.config.*
 
 # List deployed CSS/JS assets
-find /home/ubuntu/pepepow-electrumx-service/frontend/static/wallet/assets -maxdepth 1 -type f
+find /var/www/pepew-light/wallet/assets -maxdepth 1 -type f
 ```
 
 ---
@@ -82,8 +82,8 @@ If clicking refresh on paths like `https://light.pepepow.net/wallet/send` or `ht
 ### Nginx Rule Configuration Check:
 
 ```nginx
-location ^~ /wallet/ {
-    alias /home/ubuntu/pepepow-electrumx-service/frontend/static/wallet/;
+location /wallet/ {
+    root /var/www/pepew-light;
     try_files $uri $uri/ /wallet/index.html;
 }
 ```
@@ -105,3 +105,24 @@ curl -s https://light.pepepow.net/api/status
 # Check systemd logs for FastAPI
 journalctl -u pepew-light.service -n 100 --no-pager
 ```
+
+---
+
+## 7. Permission Denied (HTTP 500 / 403)
+
+If you see an HTTP 500 or permission denied error when loading the wallet:
+- Verify that the Nginx user (`www-data`) has read permissions on all files and execute (traversal) permissions on directories.
+
+### Diagnostics:
+```bash
+# Check directory chain permissions
+ls -ld /var/www /var/www/pepew-light /var/www/pepew-light/wallet
+
+# Trace full path permissions step-by-step
+sudo namei -l /var/www/pepew-light/wallet/index.html
+```
+
+### Correct Permissions Guideline:
+- Directories should be `755` (`rwxr-xr-x`)
+- Files should be `644` (`rw-r--r--`)
+- Owner should be `www-data:www-data` (or `root:www-data`)

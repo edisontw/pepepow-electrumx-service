@@ -14,7 +14,7 @@ This document describes how the `pepepow-light-wallet` integration works, its ro
 ## 2. Why Deployed Under `/wallet/`
 
 Oracle Cloud host resources are limited (1 core / 6GB RAM). Running a single web application server simplifies deployment:
-- Serving the wallet under `/wallet/` allows Nginx to handle fast, static file rendering directly from disk, saving CPU and RAM for FastAPI, PEPEPOWd, and ElectrumX.
+- Serving the wallet under `/wallet/` allows Nginx to handle fast static file rendering directly from `/var/www/pepew-light/wallet/`, saving CPU and RAM for FastAPI, PEPEPOWd, and ElectrumX.
 - A single domain name (`https://light.pepepow.net`) serves both the API gateway and the wallet, avoiding complex CORS (Cross-Origin Resource Sharing) configurations.
 
 ---
