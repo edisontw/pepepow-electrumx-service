@@ -126,3 +126,15 @@ sudo namei -l /var/www/pepew-light/wallet/index.html
 - Directories should be `755` (`rwxr-xr-x`)
 - Files should be `644` (`rw-r--r--`)
 - Owner should be `www-data:www-data` (or `root:www-data`)
+
+---
+
+## 8. Mixed-language UI text
+
+If the wallet displays English and Chinese at the same time, search for hard-coded strings in:
+
+```bash
+grep -RIn "助記詞\|私鑰\|公開測試\|非託管\| / " /home/ubuntu/pepepow-light-wallet/apps/web/src
+```
+
+Fix components to use `i18n.t(...)` keys instead of inline bilingual strings.

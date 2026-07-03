@@ -60,3 +60,11 @@ To ensure assets (JS, CSS, logos) are loaded correctly under `/wallet/`, the Vit
 > 後端不得接收助記詞、私鑰或簽章材料。
 > 所有派生與簽名邏輯都只能在 client-side wallet。
 > API 僅接收地址、txid、查詢參數，以及未來的 signed raw transaction。
+
+---
+
+## 7. Wallet UI Language Policy
+
+The production wallet defaults to English.
+
+Chinese and Russian are available through the wallet language switcher. Wallet UI components should not display bilingual text in the same card, banner, button, or paragraph. All user-facing wallet strings should go through the wallet i18n dictionary.
