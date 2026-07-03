@@ -12,16 +12,51 @@
 <body>
   <div class="container">
     <header>
-      <div class="badge">Phase 3.6 Production Ready</div>
+      <div class="badge">PEPEW Light Service Gateway</div>
       <h1>PEPEW Light</h1>
-      <p class="subtitle">Secure, lightweight, and fully read-only API gateway for the PEPEPOW network. Track balances, monitor addresses, and verify payments safely.</p>
+      <p class="subtitle" style="margin-bottom: 2rem;">
+        ElectrumX-backed API gateway and dashboard for the PEPEPOW network.
+        Use PEPEW Light to check addresses, transactions, payment status, and network connectivity. The wallet is client-side and non-custodial.
+      </p>
+      <div class="hero-cta-row" style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <a href="/wallet/" class="btn">Open Wallet</a>
+        <a href="/address" class="btn btn-secondary">Check Address</a>
+        <a href="/status" class="btn btn-secondary">View Status</a>
+        <a href="/api/health" class="btn btn-secondary" target="_blank">API Health</a>
+      </div>
     </header>
 
     <div class="nav-row">
       <a href="/" class="active">Home</a>
-      <a href="/address">Address Lookup</a>
-      <a href="/pay">Payment Monitor</a>
       <a href="/status">Status</a>
+      <a href="/address">Address</a>
+      <a href="/tx">Transaction</a>
+      <a href="/pay">Payment</a>
+      <a href="/wallet/">Wallet</a>
+    </div>
+
+    <!-- Live Status Summary -->
+    <div class="status-summary-bar">
+      <div class="status-item">
+        <span>API Gateway:</span>
+        <span class="status-pill status-online">Online</span>
+      </div>
+      <div class="status-item">
+        <span>ElectrumX Connection:</span>
+        {% if status and status.ok and status.electrumx.connected %}
+          <span class="status-pill status-online">Connected</span>
+        {% else %}
+          <span class="status-pill status-offline">Disconnected</span>
+        {% endif %}
+      </div>
+      <div class="status-item">
+        <span>Network Height:</span>
+        <span class="status-value"><code>{{ status.electrumx.height if (status and status.electrumx and status.electrumx.height) else "n/a" }}</code></span>
+      </div>
+      <div class="status-item">
+        <span>Last Checked:</span>
+        <span class="unix-timestamp status-value" data-timestamp="{{ status.checked_at if status else '' }}">Status temporarily unavailable.</span>
+      </div>
     </div>
 
     <!-- Navigation & Cards Grid -->
@@ -46,8 +81,17 @@
       <!-- Transaction Lookup -->
       <div class="card">
         <div>
-          <h2>Transaction Lookup <span class="badge" style="margin: 0; padding: 0.15rem 0.5rem; font-size: 0.75rem; vertical-align: middle;">Coming soon</span></h2>
-          <p>Retrieve detailed raw transaction formats, hex codes, and confirmations. This feature is planned for a later phase.</p>
+          <h2>Transaction Lookup</h2>
+          <p>Search a transaction by txid to inspect raw data, blocks, and confirmation statuses.</p>
+          <form action="/tx" method="get">
+            <div class="form-group">
+              <label for="tx-input">Transaction ID (TXID)</label>
+              <div class="input-wrapper">
+                <input id="tx-input" name="txid" type="text" placeholder="Enter 64-character TXID" autocomplete="off" minlength="64" maxlength="64" required>
+                <button class="btn" type="submit">Lookup</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
 
@@ -55,28 +99,21 @@
       <div class="card">
         <div>
           <h2>Payment Monitor</h2>
-          <p>Check whether the current visible balance of an address meets a requested amount. It does not store or reserve invoices.</p>
-          <div style="margin-bottom: 1.5rem; font-size: 0.9rem; color: var(--text-muted);">
-            <strong style="color: #ffffff; display: block; margin-bottom: 0.25rem;">Requires:</strong>
-            <ul style="padding-left: 1.25rem;">
-              <li>PEPEW receiving address</li>
-              <li>Requested amount</li>
-            </ul>
-          </div>
+          <p>Check payment receiving status of any address. Instantly verify confirmed balance, unconfirmed mempool state, and recent history.</p>
         </div>
         <div class="card-footer">
           <a href="/pay" class="btn btn-secondary" style="width: 100%;">Open Payment Monitor</a>
         </div>
       </div>
 
-      <!-- Service Status -->
+      <!-- PEPEW Light Wallet -->
       <div class="card">
         <div>
-          <h2>ElectrumX Status</h2>
-          <p>Inspect the live network connection between the API Gateway and the ElectrumX node, block height, and response latencies.</p>
+          <h2>PEPEW Light Wallet</h2>
+          <p>Open the client-side non-custodial web wallet. Generate addresses, manage assets safely, and sign transactions in the browser.</p>
         </div>
         <div class="card-footer">
-          <a href="/status" class="btn btn-secondary" style="width: 100%;">View Node Status</a>
+          <a href="/wallet/" class="btn btn-secondary" style="width: 100%;">Open Wallet</a>
         </div>
       </div>
     </div>
@@ -84,6 +121,9 @@
     <!-- Safety Center -->
     <section id="safety">
       <h2>Gateway Safety Boundary</h2>
+      <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.95rem;">
+        <strong>Security Notice:</strong> PEPEW Light Wallet is non-custodial. Mnemonic phrases and private keys stay in the browser. The PEPEW Light API only receives addresses, transaction IDs, and future signed raw transactions.
+      </div>
       <div class="safety-grid">
         <div class="safety-item">
           <h3>Read-Only Architecture</h3>
@@ -196,12 +236,12 @@
             <span class="method method-get">GET</span>
             <span class="path">/api/tx/{txid}</span>
           </div>
-          <div class="desc">Transaction hash lookup</div>
+          <div class="desc">Transaction lookup</div>
         </div>
         <div id="doc-tx" class="endpoint-content">
           <div class="doc-group">
             <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Placeholder endpoint designed to return transaction confirmations and block data in a subsequent phase.</p>
+            <p style="font-size: 0.95rem; font-weight: 300;">Retrieve transaction block height, confirmation count, input/output data, and full hex values.</p>
           </div>
           <div class="doc-group">
             <h4>Example request</h4>
@@ -267,6 +307,69 @@
           </div>
         </div>
       </div>
+
+      <!-- GET /api/wallet/address/{address} -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-address')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/wallet/address/{address}</span>
+          </div>
+          <div class="desc">Wallet address summary</div>
+        </div>
+        <div id="doc-wallet-address" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Fetch confirmed/unconfirmed balance and basic history for wallet integration.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s https://light.pepepow.net/api/wallet/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /api/wallet/history/{address} -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-history')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/wallet/history/{address}</span>
+          </div>
+          <div class="desc">Wallet transaction history</div>
+        </div>
+        <div id="doc-wallet-history" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Fetch pagination-supported transaction and mempool history for wallet integration.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /api/wallet/utxo/{address} -->
+      <div class="endpoint">
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-utxo')">
+          <div>
+            <span class="method method-get">GET</span>
+            <span class="path">/api/wallet/utxo/{address}</span>
+          </div>
+          <div class="desc">Wallet address UTXOs</div>
+        </div>
+        <div id="doc-wallet-utxo" class="endpoint-content">
+          <div class="doc-group">
+            <h4>Purpose</h4>
+            <p style="font-size: 0.95rem; font-weight: 300;">Retrieve unspent transaction outputs (UTXOs) for wallet transfer creation.</p>
+          </div>
+          <div class="doc-group">
+            <h4>Example request</h4>
+            <pre>curl -s https://light.pepepow.net/api/wallet/utxo/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre>
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -294,6 +397,16 @@
         el.classList.add('active');
       }
     }
+
+    // Format UNIX timestamps dynamically on the client side
+    document.querySelectorAll('.unix-timestamp').forEach(el => {
+      const ts = Number(el.dataset.timestamp);
+      if (ts) {
+        el.textContent = new Date(ts * 1000).toLocaleString();
+      } else {
+        el.textContent = 'Status temporarily unavailable.';
+      }
+    });
   </script>
 </body>
 </html>

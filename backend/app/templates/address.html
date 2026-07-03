@@ -19,9 +19,11 @@
 
     <div class="nav-row">
       <a href="/">Home</a>
-      <a href="/address" class="active">Address Lookup</a>
-      <a href="/pay">Payment Monitor</a>
       <a href="/status">Status</a>
+      <a href="/address" class="active">Address</a>
+      <a href="/tx">Transaction</a>
+      <a href="/pay">Payment</a>
+      <a href="/wallet/">Wallet</a>
     </div>
 
     <div class="card">
@@ -163,9 +165,7 @@
 
             txCell.className = "tx";
             link.className = "tx-link";
-            link.href = `https://explorer.pepepow.net/tx/${encodeURIComponent(txHash)}`;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
+            link.href = `/tx?txid=${encodeURIComponent(txHash)}`;
             link.textContent = txHash;
             heightCell.textContent = String(row.height ?? "");
 

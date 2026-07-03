@@ -14,20 +14,22 @@
     <header>
       <div class="badge">Read-Only Monitor</div>
       <h1>PEPEW Payment Monitor</h1>
-      <p class="subtitle">Check whether the current visible balance of a single PEPEW address meets a requested amount.</p>
+      <p class="subtitle">Check the real-time payment receiving status of any PEPEPOW address.</p>
     </header>
 
     <div class="nav-row">
       <a href="/">Home</a>
-      <a href="/address">Address Lookup</a>
-      <a href="/pay" class="active">Payment Monitor</a>
       <a href="/status">Status</a>
+      <a href="/address">Address</a>
+      <a href="/tx">Transaction</a>
+      <a href="/pay" class="active">Payment</a>
+      <a href="/wallet/">Wallet</a>
     </div>
 
     <div class="notice-box">
       <strong>Important Safety Caveats:</strong>
       <p style="margin-top: 0.25rem; font-size: 0.9rem; font-weight: 300; line-height: 1.5;">
-        This is not an invoice database. It does not create, reserve, store, or reconcile merchant invoices. It only checks the current balance of a single address. For reliable use, generate a unique, fresh receiving address for each payment and avoid spending from that address before the payment is confirmed. Reusing addresses or spending from the address can make balance-based payment checks ambiguous.
+        This is not an invoice database. It does not create, reserve, store, or reconcile merchant invoices. It only checks the current balance and transaction history of a single address. For reliable use, generate a unique, fresh receiving address for each payment and avoid spending from that address before the payment is confirmed. Reusing addresses or spending from the address can make balance-based payment checks ambiguous.
       </p>
     </div>
 
@@ -38,18 +40,10 @@
             <label for="address-input">PEPEW Address</label>
             <input id="address-input" name="address" type="text" placeholder="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb" autocomplete="off" maxlength="128" required>
           </div>
-          <div class="field-block narrow">
-            <label for="amount-input">Amount</label>
-            <input id="amount-input" name="amount" type="text" placeholder="1.0" inputmode="decimal" autocomplete="off" maxlength="64" required>
-          </div>
-          <div class="field-block narrow">
-            <label for="expiry-input">Expiry minutes</label>
-            <input id="expiry-input" name="expiry" type="number" min="1" step="1" placeholder="optional">
-          </div>
-          <button id="check-button" class="btn" type="submit">Check</button>
+          <button id="check-button" class="btn" type="submit">Check Payment</button>
         </div>
       </form>
-      <p id="message" class="muted" style="margin-top: 1rem;">Enter an address and amount to start checking.</p>
+      <p id="message" class="muted" style="margin-top: 1rem;">Enter a PEPEPOW address to start checking payment status.</p>
     </div>
 
     <div id="result-card" class="card" hidden>
@@ -59,11 +53,6 @@
           <strong style="width: 6rem; font-size: 0.9rem;">Address</strong>
           <code id="copy-address-value"></code>
           <button id="copy-address-button" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" type="button">Copy address</button>
-        </div>
-        <div class="copy-row">
-          <strong style="width: 6rem; font-size: 0.9rem;">Amount</strong>
-          <code id="copy-amount-value"></code>
-          <button id="copy-amount-button" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" type="button">Copy amount</button>
         </div>
       </div>
       
@@ -94,23 +83,17 @@
   <script>
     (() => {
       const POLL_MS = 12000;
-      const PEPEW_DECIMALS = {{ pepew_decimals }};
       let timer = null;
-      let expiresAt = null;
 
       const form = document.getElementById("payment-form");
       const addressInput = document.getElementById("address-input");
-      const amountInput = document.getElementById("amount-input");
-      const expiryInput = document.getElementById("expiry-input");
       const checkButton = document.getElementById("check-button");
       const message = document.getElementById("message");
       const resultCard = document.getElementById("result-card");
       const resultBody = document.getElementById("result-body");
       const statusBadge = document.getElementById("status-badge");
       const copyAddressValue = document.getElementById("copy-address-value");
-      const copyAmountValue = document.getElementById("copy-amount-value");
       const copyAddressButton = document.getElementById("copy-address-button");
-      const copyAmountButton = document.getElementById("copy-amount-button");
       const addressQr = document.getElementById("address-qr");
 
       function escapeHtml(value) {
@@ -127,46 +110,16 @@
         message.className = className;
       }
 
-      function formatSats(value, decimals = PEPEW_DECIMALS) {
-        let atoms;
-        try {
-          atoms = BigInt(String(value || 0));
-        } catch (_error) {
+      function formatAtoms(value) {
+        const atoms = Number(value || 0);
+        if (!Number.isSafeInteger(atoms)) {
           return String(value || 0);
         }
-        const sign = atoms < 0n ? "-" : "";
-        const absolute = atoms < 0n ? -atoms : atoms;
-        const scale = 10n ** BigInt(decimals);
-        const whole = absolute / scale;
-        const fraction = String(absolute % scale).padStart(decimals, "0").replace(/0+$/, "");
+        const sign = atoms < 0 ? "-" : "";
+        const absolute = Math.abs(atoms);
+        const whole = Math.floor(absolute / 100000000);
+        const fraction = String(absolute % 100000000).padStart(8, "0").replace(/0+$/, "");
         return `${sign}${whole}${fraction ? "." + fraction : ""}`;
-      }
-
-      function statusClass(status, expired) {
-        // status-waiting status-seen-in-mempool status-partial status-paid-unconfirmed status-paid-confirmed status-overpaid status-expired status-error
-        if (expired) return "status-expired";
-        if (status === "seen_in_mempool") return "status-seen-in-mempool";
-        return `status-${String(status || "error").replaceAll("_", "-")}`;
-      }
-
-      function formatExpiry(data) {
-        if (!data.expires_at) return "No display expiry set.";
-        const remaining = data.expires_in ?? (Number(data.expires_at) - Math.floor(Date.now() / 1000));
-        if (remaining <= 0 || data.expired) return "Expired for display purposes only.";
-        const minutes = Math.floor(remaining / 60);
-        const seconds = remaining % 60;
-        return `${minutes}m ${String(seconds).padStart(2, "0")}s remaining. This monitor link expires for display purposes only.`;
-      }
-
-      async function copyText(text, button) {
-        try {
-          await navigator.clipboard.writeText(text);
-          const original = button.textContent;
-          button.textContent = "Copied";
-          window.setTimeout(() => { button.textContent = original; }, 1200);
-        } catch (_error) {
-          setMessage("Copy failed. Select the value and copy it manually.", "bad");
-        }
       }
 
       async function getJson(url) {
@@ -186,82 +139,110 @@
         return data;
       }
 
-      function render(data) {
-        const badgeClass = statusClass(data.status, data.expired);
-        statusBadge.textContent = data.expired ? "expired" : data.status;
-        statusBadge.className = `payment-badge ${badgeClass}`;
-        const explorerLink = data.explorer_address_url
-          ? `<a href="${escapeHtml(data.explorer_address_url)}" class="tx-link" target="_blank" rel="noopener noreferrer">Open address explorer</a>`
-          : '<span class="muted">Not configured</span>';
-        
-        const requestedAmount = data.requested_amount || data.amount_pepew || data.amount;
-        const requestedSats = data.requested_sats ?? data.amount_sats;
-        
-        // Normalized fields preferred, with fallback to aliases
-        const confirmedBalance = data.confirmed_balance || data.confirmed_received || formatSats(data.confirmed_balance_sats ?? data.confirmed_received_sats ?? data.received_confirmed_sats, data.pepew_decimals || PEPEW_DECIMALS);
-        const confirmedBalanceSats = data.confirmed_balance_sats ?? data.confirmed_received_sats ?? data.received_confirmed_sats;
-        
-        const mempoolBalance = data.mempool_balance || data.mempool_received || formatSats(data.mempool_balance_sats ?? data.mempool_received_sats ?? data.received_unconfirmed_sats, data.pepew_decimals || PEPEW_DECIMALS);
-        const mempoolBalanceSats = data.mempool_balance_sats ?? data.mempool_received_sats ?? data.received_unconfirmed_sats;
-        
-        const totalVisibleBalance = data.total_visible_balance || data.total_received || formatSats(data.total_visible_balance_sats ?? data.total_received_sats, data.pepew_decimals || PEPEW_DECIMALS);
-        const totalVisibleBalanceSats = data.total_visible_balance_sats ?? data.total_received_sats ?? Number(confirmedBalanceSats || 0) + Number(mempoolBalanceSats || 0);
-
-        copyAddressValue.textContent = data.address;
-        copyAmountValue.textContent = `${requestedAmount} PEPEW`;
-        copyAddressButton.dataset.copyValue = data.address;
-        copyAmountButton.dataset.copyValue = requestedAmount;
-        addressQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.address)}`;
-        
-        resultBody.innerHTML = `
-          <tr><th>Address</th><td><code>${escapeHtml(data.address)}</code></td></tr>
-          <tr><th>Required amount</th><td>${escapeHtml(requestedAmount)} PEPEW <span class="muted">(${escapeHtml(requestedSats)} sats)</span></td></tr>
-          <tr><th>Confirmed address balance</th><td>${escapeHtml(confirmedBalance)} PEPEW <span class="muted">(${escapeHtml(confirmedBalanceSats)} sats)</span></td></tr>
-          <tr><th>Mempool / unconfirmed balance</th><td>${escapeHtml(mempoolBalance)} PEPEW <span class="muted">(${escapeHtml(mempoolBalanceSats)} sats)</span></td></tr>
-          <tr><th>Total visible address balance</th><td>${escapeHtml(totalVisibleBalance)} PEPEW <span class="muted">(${escapeHtml(totalVisibleBalanceSats)} sats)</span></td></tr>
-          <tr><th>Payment status</th><td><span class="payment-badge ${badgeClass}">${escapeHtml(data.expired ? "expired" : data.status)}</span></td></tr>
-          <tr><th>Explanation</th><td>${escapeHtml(data.status_explanation || data.message || "Payment status could not be checked.")}</td></tr>
-          <tr><th>Confirmations required</th><td>${escapeHtml(data.confirmations_required)}</td></tr>
-          <tr><th>Display expiry</th><td>${escapeHtml(formatExpiry(data))}</td></tr>
-          <tr><th>Mempool count</th><td>${escapeHtml(data.mempool_count || 0)}</td></tr>
-          <tr><th>Explorer</th><td>${explorerLink}</td></tr>
-          <tr><th>Checked</th><td>${escapeHtml(new Date((data.checked_at || 0) * 1000).toISOString())}</td></tr>
-        `;
-        resultCard.hidden = false;
-        
-        const isPaid = badgeClass === "status-paid-confirmed" || badgeClass === "status-overpaid";
-        setMessage(`Last checked payment status: ${data.expired ? "expired" : data.status}.`, isPaid ? "ok" : "muted");
-      }
-
-      function buildUrl() {
-        const address = addressInput.value.trim();
-        const amount = amountInput.value.trim();
-        if (!address) throw new Error("Please enter a PEPEPOW address.");
-        if (!amount) throw new Error("Please enter a positive PEPEW amount.");
-
-        const params = new URLSearchParams({ address, amount });
-        if (expiresAt !== null) {
-          params.set("expires_at", expiresAt);
-        }
-        return `/api/payment/check?${params.toString()}`;
-      }
-
       async function checkOnce() {
+        const address = addressInput.value.trim();
+        if (!address) {
+          setMessage("Please enter a PEPEPOW address.", "bad");
+          return;
+        }
+
         checkButton.disabled = true;
         try {
-          const data = await getJson(buildUrl());
-          render(data);
+          setMessage("Checking address balance...", "muted");
+          const summary = await getJson(`/api/address/${encodeURIComponent(address)}`);
+          
+          setMessage("Checking address history...", "muted");
+          const historyData = await getJson(`/api/address/${encodeURIComponent(address)}/history?limit=5`);
+          
+          // Calculate client-side status
+          let statusVal = "waiting";
+          let statusLabel = "No payment seen yet";
+          let badgeClass = "status-waiting";
+
+          const confirmed = summary.balance.confirmed || 0;
+          const unconfirmed = summary.balance.unconfirmed || 0;
+          const hasMempool = summary.mempool_count > 0 || unconfirmed > 0;
+          const hasHistory = summary.history_count > 0 || confirmed > 0;
+
+          if (confirmed > 0) {
+            statusVal = "paid_confirmed";
+            statusLabel = "Payment confirmed";
+            badgeClass = "status-paid-confirmed";
+          } else if (hasMempool) {
+            statusVal = "paid_unconfirmed";
+            statusLabel = "Payment seen in mempool, waiting for confirmation";
+            badgeClass = "status-paid-unconfirmed";
+          } else if (hasHistory) {
+            statusVal = "paid_confirmed";
+            statusLabel = "Payment confirmed / history exists";
+            badgeClass = "status-paid-confirmed";
+          }
+
+          // Build recent transactions list
+          let recentTxsHtml = "";
+          const mempoolTxs = historyData.mempool || [];
+          const historyTxs = historyData.history || [];
+          const allRecent = [];
+          
+          mempoolTxs.forEach(tx => {
+            allRecent.push({ txid: tx.tx_hash, height: 0, status: "unconfirmed" });
+          });
+          historyTxs.forEach(tx => {
+            allRecent.push({ txid: tx.tx_hash, height: tx.height, status: "confirmed" });
+          });
+
+          if (allRecent.length === 0) {
+            recentTxsHtml = '<span class="muted">No transaction history found for this address.</span>';
+          } else {
+            recentTxsHtml = '<ul style="margin: 0; padding-left: 1.2rem; line-height: 1.6;">';
+            allRecent.slice(0, 5).forEach(tx => {
+              recentTxsHtml += `<li>
+                <a href="/tx?txid=${encodeURIComponent(tx.txid)}" class="tx-link" style="font-size:0.85rem;">${escapeHtml(tx.txid)}</a> 
+                <span class="muted" style="font-size:0.85rem;">(${tx.status === "unconfirmed" ? "mempool" : "block " + tx.height})</span>
+              </li>`;
+            });
+            recentTxsHtml += "</ul>";
+          }
+
+          copyAddressValue.textContent = summary.address;
+          copyAddressButton.dataset.copyValue = summary.address;
+          addressQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(summary.address)}`;
+
+          statusBadge.textContent = statusVal;
+          statusBadge.className = `payment-badge ${badgeClass}`;
+
+          resultBody.innerHTML = `
+            <tr><th>Address</th><td><code>${escapeHtml(summary.address)}</code></td></tr>
+            <tr><th>Confirmed Balance</th><td>${escapeHtml(formatAtoms(confirmed))} PEPEW <span class="muted">(${escapeHtml(confirmed)} atoms)</span></td></tr>
+            <tr><th>Mempool Balance</th><td>${escapeHtml(formatAtoms(unconfirmed))} PEPEW <span class="muted">(${escapeHtml(unconfirmed)} atoms)</span></td></tr>
+            <tr><th>Payment Status</th><td><span class="payment-badge ${badgeClass}">${escapeHtml(statusLabel)}</span></td></tr>
+            <tr><th>History Count</th><td>${escapeHtml(summary.history_count)} confirmed txs</td></tr>
+            <tr><th>Mempool Count</th><td>${escapeHtml(summary.mempool_count)} unconfirmed txs</td></tr>
+            <tr><th>Recent Transactions</th><td>${recentTxsHtml}</td></tr>
+            <tr><th>Last Checked</th><td><span class="muted">${escapeHtml(new Date().toLocaleString())}</span></td></tr>
+          `;
+          
+          resultCard.hidden = false;
+          setMessage(`Last checked payment status: ${statusLabel}.`, confirmed > 0 ? "ok" : "muted");
+
         } catch (error) {
           statusBadge.textContent = "error";
           statusBadge.className = "payment-badge status-error";
           copyAddressValue.textContent = "";
-          copyAmountValue.textContent = "";
           copyAddressButton.dataset.copyValue = "";
-          copyAmountButton.dataset.copyValue = "";
           addressQr.removeAttribute("src");
-          resultBody.innerHTML = `<tr><th>Error</th><td>${escapeHtml(error.message)}</td></tr>`;
+          
+          let friendlyError = error.message || "Unable to connect to PEPEW Light API. Please try again later.";
+          if (friendlyError.includes("Failed to fetch") || friendlyError.includes("HTTP error") || friendlyError.includes("Request failed")) {
+            friendlyError = "Unable to connect to PEPEW Light API. Please try again later.";
+          }
+          if (friendlyError.includes("invalid") || friendlyError.includes("checksum") || friendlyError.includes("prefix")) {
+            friendlyError = "Invalid PEPEPOW address.";
+          }
+
+          resultBody.innerHTML = `<tr><th>Error</th><td>${escapeHtml(friendlyError)}</td></tr>`;
           resultCard.hidden = false;
-          setMessage(error.message, "bad");
+          setMessage(friendlyError, "bad");
         } finally {
           checkButton.disabled = false;
         }
@@ -276,8 +257,6 @@
 
       form.addEventListener("submit", (event) => {
         event.preventDefault();
-        const minutes = Number(expiryInput.value || 0);
-        expiresAt = minutes > 0 ? new Date(Date.now() + minutes * 60 * 1000).toISOString() : null;
         checkOnce();
         startPolling();
       });
@@ -286,9 +265,16 @@
         copyText(copyAddressButton.dataset.copyValue || "", copyAddressButton);
       });
 
-      copyAmountButton.addEventListener("click", () => {
-        copyText(copyAmountButton.dataset.copyValue || "", copyAmountButton);
-      });
+      async function copyText(text, button) {
+        try {
+          await navigator.clipboard.writeText(text);
+          const original = button.textContent;
+          button.textContent = "Copied";
+          window.setTimeout(() => { button.textContent = original; }, 1200);
+        } catch (_error) {
+          setMessage("Copy failed. Select the value and copy it manually.", "bad");
+        }
+      }
     })();
   </script>
 </body>

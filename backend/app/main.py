@@ -38,14 +38,24 @@ app.include_router(wallet_router, prefix="/api")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
+    try:
+        status = await get_status()
+    except Exception:
+        status = {"ok": False, "error": "status_error"}
     return templates.TemplateResponse(
         request,
         "index.html",
         {
             "app_name": settings.app_name,
             "version": settings.version,
+            "status": status,
         },
     )
+
+
+@app.head("/")
+async def index_head() -> Response:
+    return Response(status_code=200)
 
 
 @app.get("/address", response_class=HTMLResponse)

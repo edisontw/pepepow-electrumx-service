@@ -3,12 +3,13 @@
 PEPEW Light is the public FastAPI gateway and lightweight website for PEPEPOW / PEPEW ElectrumX access.
 
 PEPEW Light provides:
-- ElectrumX-backed API Gateway
+- ElectrumX-backed API gateway
 - status dashboard
-- address / tx lookup
-- payment monitor
+- address lookup
+- transaction lookup
+- simplified payment monitor
 - read-only wallet API
-- static deployment entrypoint for PEPEW Light Wallet under /wallet/
+- static entrypoint for PEPEW Light Wallet under /wallet/
 
 Production:
 https://light.pepepow.net

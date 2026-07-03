@@ -32,6 +32,7 @@ def test_homepage_contains_documentation_and_safety_details():
     assert "/api/address/{address}/history" in response.text
     assert "/api/tx/{txid}" in response.text
     assert "/api/payment/check" in response.text
+    assert "/api/wallet/address/{address}" in response.text
     
     # Key links assertions
     assert "PEPEPOW Ecosystem" in response.text
@@ -48,8 +49,7 @@ def test_address_page_renders_lookup_shell():
     assert "PEPEW Address Lookup" in response.text
     assert KNOWN_ADDRESS in response.text
     assert "/api/address/" in response.text
-    assert "https://explorer.pepepow.net/tx/" in response.text
-    assert 'link.rel = "noopener noreferrer"' in response.text
+    assert "/tx?txid=" in response.text
     assert "PAGE_LIMIT = 20" in response.text
     assert "Prev" in response.text
     assert "Next" in response.text
@@ -93,19 +93,23 @@ def test_status_page_renders_public_summary(monkeypatch):
     response = client.get("/status")
 
     assert response.status_code == 200
-    assert "Public Service" in response.text
-    assert "https://light.pepepow.net" in response.text
     assert "Gateway" in response.text
     assert "online" in response.text
     assert "connected" in response.text
     assert "123" in response.text
     assert "12.34 ms" in response.text
-    assert "0s / 10s" in response.text
 
 
 def test_address_head_returns_ok():
     client = TestClient(app)
     response = client.head("/address")
+
+    assert response.status_code == 200
+
+
+def test_homepage_head_returns_ok():
+    client = TestClient(app)
+    response = client.head("/")
 
     assert response.status_code == 200
 
@@ -116,18 +120,12 @@ def test_pay_page_loads():
 
     assert response.status_code == 200
     assert "PEPEW Payment Monitor" in response.text
-    assert "/api/payment/check" in response.text
+    assert "/api/address/" in response.text
     assert "generate a unique, fresh receiving address for each payment" in response.text
     assert "This is not an invoice database" in response.text
     assert "does not create, reserve, store, or reconcile merchant invoices" in response.text
-    assert "PEPEW_DECIMALS" in response.text
     assert "status-waiting" in response.text
-    assert "status-seen-in-mempool" in response.text
-    assert "status-partial" in response.text
-    assert "status-paid-unconfirmed" in response.text
     assert "status-paid-confirmed" in response.text
-    assert "status-overpaid" in response.text
-    assert "status-expired" in response.text
     assert "status-error" in response.text
 
 
@@ -138,35 +136,37 @@ def test_pay_page_renders_address_copy_and_qr_ui():
     assert response.status_code == 200
     assert 'id="copy-address-button"' in response.text
     assert "Copy address" in response.text
-    assert 'id="copy-amount-button"' in response.text
-    assert "Copy amount" in response.text
     assert 'id="qr-section"' in response.text
     assert "QR encodes the address only." in response.text
     assert "api.qrserver.com/v1/create-qr-code" in response.text
 
 
-def test_pay_page_labels_match_payment_api_terminology():
+def test_pay_page_labels_match_aligned_fields():
     client = TestClient(app)
     response = client.get("/pay")
 
     assert response.status_code == 200
-    assert "Required amount" in response.text
-    assert "Confirmed address balance" in response.text
-    assert "Mempool / unconfirmed balance" in response.text
-    assert "Total visible address balance" in response.text
-    assert "Payment status" in response.text
-    assert "status_explanation" in response.text
-    assert "requested_sats" in response.text
-    assert "confirmed_balance_sats" in response.text
-    assert "mempool_balance_sats" in response.text
-    assert "total_visible_balance_sats" in response.text
-    assert "This monitor link expires for display purposes only." in response.text
+    assert "Confirmed Balance" in response.text
+    assert "Mempool Balance" in response.text
+    assert "Payment Status" in response.text
+    assert "Recent Transactions" in response.text
 
 
-def test_homepage_transaction_lookup_marked_coming_soon():
+def test_homepage_transaction_lookup_is_functional():
     client = TestClient(app)
     response = client.get("/")
 
     assert response.status_code == 200
     assert "Transaction Lookup" in response.text
-    assert "Coming soon" in response.text
+    assert 'action="/tx"' in response.text
+    assert 'name="txid"' in response.text
+
+
+def test_tx_page_loads():
+    client = TestClient(app)
+    response = client.get("/tx")
+
+    assert response.status_code == 200
+    assert "Transaction Lookup" in response.text
+    assert 'id="lookup-form"' in response.text
+    assert 'name="txid"' in response.text

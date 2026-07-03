@@ -138,3 +138,33 @@ grep -RIn "助記詞\|私鑰\|公開測試\|非託管\| / " /home/ubuntu/pepepow
 ```
 
 Fix components to use `i18n.t(...)` keys instead of inline bilingual strings.
+
+---
+
+## 9. Dashboard and Service Page Troubleshooting
+
+If the main service dashboard or lookups encounter issues:
+- **Home page looks incomplete**: Check root loading status and `@app.get("/")` template parameters.
+- **Payment Monitor does not return results**: Verify Javascript console logs, make sure address exists, and check `/api/address/{address}` endpoint state.
+- **Tx page query parameter not working**: Verify `query_txid` mapping in `main.py` and that Javascript parses the query string correctly.
+- **Static wallet link broken**: Check Nginx `/wallet/` location routing and Vite base settings.
+- **API status unavailable**: Ensure the FastAPI server is running and local ElectrumX server is reachable.
+
+### Diagnostics & Monitoring Commands:
+
+```bash
+# Check key landing and dashboard page HEAD statuses
+curl -I https://light.pepepow.net/
+curl -I https://light.pepepow.net/pay
+curl -I https://light.pepepow.net/tx
+
+# Check API status JSON output
+curl -s https://light.pepepow.net/api/status
+
+# Check systemd FastAPI gateway server logs
+sudo journalctl -u pepew-light -n 100 --no-pager
+
+# Check Nginx error logs
+sudo tail -n 100 /var/log/nginx/pepew-light.error.log
+```
+

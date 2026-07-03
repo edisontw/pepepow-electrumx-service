@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Transaction Lookup · PEPEW Light</title>
+  <title>Transaction Lookup · {{ app_name }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,19 +14,43 @@
     <header>
       <div class="badge">Transaction Lookup</div>
       <h1>Transaction Lookup</h1>
-      <p class="subtitle">Detailed transaction format lookup is planned for a subsequent phase.</p>
+      <p class="subtitle">Query details and confirmation status of any PEPEPOW transaction.</p>
     </header>
 
     <div class="nav-row">
       <a href="/">Home</a>
-      <a href="/address">Address Lookup</a>
-      <a href="/pay">Payment Monitor</a>
       <a href="/status">Status</a>
+      <a href="/address">Address</a>
+      <a href="/tx" class="active">Transaction</a>
+      <a href="/pay">Payment</a>
+      <a href="/wallet/">Wallet</a>
     </div>
 
-    <div class="card" style="text-align: center; padding: 3rem 2rem;">
-      <h2 style="justify-content: center; margin-bottom: 1rem;">Coming Soon</h2>
-      <p style="margin-bottom: 0;">Full transaction tracking and hex parsing endpoints will be available in Phase 4.</p>
+    <div class="card">
+      <form id="lookup-form">
+        <label for="txid-input">Transaction ID (TXID)</label>
+        <div class="input-wrapper">
+          <input id="txid-input" name="txid" type="text" value="{{ query_txid }}" placeholder="e.g. 453c4f723b2eb5cf4b8ef9818fac50d08ddc8ed05bc972ee464f2dbc55b6a3db" autocomplete="off" minlength="64" maxlength="64" required>
+          <button class="btn" type="submit">Lookup</button>
+        </div>
+      </form>
+      <p id="message" class="muted" style="margin-top: 1rem;">Enter a 64-character transaction ID to search.</p>
+    </div>
+
+    <div id="result-card" class="card" hidden>
+      <h2>Transaction Details</h2>
+      <table>
+        <tbody id="result-body"></tbody>
+      </table>
+
+      <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <a id="explorer-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open in Block Explorer</a>
+      </div>
+
+      <details style="margin-top: 2rem; cursor: pointer;">
+        <summary style="font-weight: 500; font-size: 0.9rem; color: var(--accent-cyan);">View Raw JSON Response</summary>
+        <pre id="raw-json-block" style="margin-top: 1rem;"></pre>
+      </details>
     </div>
   </div>
 
@@ -41,5 +65,143 @@
       <p>&copy; 2026 PEPEPOW Development Community. Core Version {{ version }}. Distributed under MIT.</p>
     </div>
   </footer>
+
+  <script>
+    (() => {
+      const initialTxid = {{ query_txid | tojson }};
+      const form = document.getElementById("lookup-form");
+      const input = document.getElementById("txid-input");
+      const message = document.getElementById("message");
+      const resultCard = document.getElementById("result-card");
+      const resultBody = document.getElementById("result-body");
+      const explorerBtn = document.getElementById("explorer-btn");
+      const rawJsonBlock = document.getElementById("raw-json-block");
+
+      function setMessage(text, className = "muted") {
+        message.textContent = text;
+        message.className = className;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      async function getJson(url) {
+        const response = await fetch(url, { headers: { "Accept": "application/json" } });
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (_error) {
+          data = {};
+        }
+        if (!response.ok || data.ok === false) {
+          const detail = data.detail || data;
+          const error = detail.error || {};
+          const msg = typeof error === "object" ? error.message : error;
+          throw new Error(msg || response.statusText || "Request failed.");
+        }
+        return data;
+      }
+
+      function render(res) {
+        const txid = res.txid;
+        const data = res.data || {};
+        
+        explorerBtn.href = `https://explorer.pepepow.net/tx/${encodeURIComponent(txid)}`;
+        rawJsonBlock.textContent = JSON.stringify(res, null, 2);
+
+        if (typeof data === "string") {
+          // Hex-only representation
+          resultBody.innerHTML = `
+            <tr><th>Transaction ID</th><td><code>${escapeHtml(txid)}</code></td></tr>
+            <tr><th>Data format</th><td><span class="warn">Hex Only (Non-verbose)</span></td></tr>
+            <tr><th>Raw Hex</th><td style="word-break: break-all;"><code>${escapeHtml(data)}</code></td></tr>
+          `;
+        } else {
+          // Verbose dictionary representation
+          const confs = data.confirmations ?? 0;
+          const blockhash = data.blockhash ?? "mempool / unconfirmed";
+          const blocktime = data.time ? new Date(data.time * 1000).toLocaleString() : "mempool / unconfirmed";
+          const version = data.version ?? "n/a";
+          const locktime = data.locktime ?? "n/a";
+
+          let inputsCount = Array.isArray(data.vin) ? data.vin.length : "n/a";
+          let outputsCount = Array.isArray(data.vout) ? data.vout.length : "n/a";
+          let totalOutput = 0;
+          let hasValues = false;
+
+          if (Array.isArray(data.vout)) {
+            data.vout.forEach(out => {
+              if (out.value !== undefined && out.value !== null) {
+                totalOutput += Number(out.value);
+                hasValues = true;
+              }
+            });
+          }
+
+          const formattedTotal = hasValues ? `${totalOutput.toFixed(8).replace(/\.?0+$/, "")} PEPEW` : "n/a";
+
+          resultBody.innerHTML = `
+            <tr><th>Transaction ID</th><td><code>${escapeHtml(txid)}</code></td></tr>
+            <tr><th>Status</th><td><span class="payment-badge ${confs > 0 ? 'status-paid-confirmed' : 'status-seen-in-mempool'}">${escapeHtml(confs > 0 ? confs + ' confirmations' : 'unconfirmed')}</span></td></tr>
+            <tr><th>Block Hash</th><td><code>${escapeHtml(blockhash)}</code></td></tr>
+            <tr><th>Block Time</th><td>${escapeHtml(blocktime)}</td></tr>
+            <tr><th>Total Output</th><td><strong>${escapeHtml(formattedTotal)}</strong></td></tr>
+            <tr><th>Inputs Count</th><td>${escapeHtml(inputsCount)}</td></tr>
+            <tr><th>Outputs Count</th><td>${escapeHtml(outputsCount)}</td></tr>
+            <tr><th>TX Version</th><td>${escapeHtml(version)}</td></tr>
+            <tr><th>Locktime</th><td>${escapeHtml(locktime)}</td></tr>
+          `;
+        }
+
+        resultCard.hidden = false;
+      }
+
+      async function lookup(txid) {
+        const trimmed = txid.trim();
+        if (!trimmed || trimmed.length !== 64) {
+          setMessage("Transaction id must be 64 hex characters.", "bad");
+          return;
+        }
+
+        input.value = trimmed;
+        window.history.replaceState(null, "", `/tx?txid=${encodeURIComponent(trimmed)}`);
+
+        try {
+          setMessage("Searching transaction...", "muted");
+          const result = await getJson(`/api/tx/${encodeURIComponent(trimmed)}`);
+          render(result);
+          setMessage("Loaded transaction details.", "ok");
+        } catch (error) {
+          resultCard.hidden = true;
+          let friendlyError = error.message || "Unable to retrieve transaction details.";
+          if (friendlyError.includes("Failed to fetch") || friendlyError.includes("HTTP error") || friendlyError.includes("Request failed")) {
+            friendlyError = "Unable to connect to PEPEW Light API. Please try again later.";
+          }
+          if (friendlyError.includes("not found")) {
+            friendlyError = "Transaction not found.";
+          }
+          if (friendlyError.includes("invalid") || friendlyError.includes("txid")) {
+            friendlyError = "Transaction id must be 64 hex characters.";
+          }
+          setMessage(friendlyError, "bad");
+        }
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        lookup(input.value);
+      });
+
+      if (initialTxid) {
+        lookup(initialTxid);
+      }
+    })();
+  </script>
 </body>
 </html>
