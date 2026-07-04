@@ -16,6 +16,7 @@ When the wallet is served from `/wallet/`, frontend calls should normally use sa
 - The API never handles wallet recovery material.
 - Transaction signing belongs to the client wallet.
 - Broadcast accepts only an already signed raw transaction.
+- Broadcast rejects extra fields, including mnemonic, seed, private key, WIF, password, passphrase, and other signing material.
 - ElectrumX remains private behind FastAPI.
 
 ## Endpoints
@@ -103,17 +104,56 @@ POST /api/wallet/broadcast
 Content-Type: application/json
 
 {
-  "raw_tx": "<SIGNED_RAW_TX>"
+  "raw_tx": "<SIGNED_RAW_TX_HEX>"
 }
 ```
 
-Rules:
+Strict contract:
 
-- request body contains only signed raw transaction hex
-- backend validates shape and size
-- backend submits to ElectrumX / node
+- request body must be a JSON object
+- request body must contain only `raw_tx`
+- `raw_tx` must be signed raw transaction hex
+- `raw_tx` must have even hex length
+- `raw_tx` must be between 20 and 200,000 hex characters
+- `0x` prefix is normalized away before broadcast
+- backend submits the signed raw transaction to ElectrumX / node
 - backend returns txid or a stable public error code
 - backend does not derive, build, or sign user transactions
+
+Rejected payload examples:
+
+```json
+{
+  "raw_tx": "01000000...",
+  "mnemonic": "..."
+}
+```
+
+```json
+{
+  "raw_tx": "01000000...",
+  "private_key": "..."
+}
+```
+
+```json
+{
+  "raw_tx": "01000000...",
+  "note": "extra fields are not accepted"
+}
+```
+
+These return:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "invalid_broadcast_payload",
+    "message": "Broadcast accepts only signed raw_tx hex. Do not send mnemonic, seed, private key, or signing material."
+  }
+}
+```
 
 ## Error behavior
 
@@ -124,6 +164,9 @@ Expected public error codes:
 | 400 | `invalid_address` | Address validation failed |
 | 400 | `invalid_txid` | Txid validation failed |
 | 400 | `invalid_raw_tx` | Broadcast payload is not valid raw transaction hex |
+| 400 | `invalid_broadcast_payload` | Broadcast payload contains unsupported fields or signing material |
+| 400 | `raw_tx_too_short` | Broadcast raw tx is too short |
+| 400 | `raw_tx_too_large` | Broadcast raw tx is too large |
 | 404 | `tx_not_found` | Transaction not found |
 | 429 | `rate_limited` | Nginx or app rate limit |
 | 503 | `electrumx_error` | Upstream unavailable or rejected request |
@@ -141,6 +184,7 @@ The wallet client should:
 - use request timeouts
 - show friendly messages for invalid address, timeout, rate limit, and API unavailable states
 - append `fresh=1` only when immediate refresh is needed
+- send only `{ "raw_tx": "<signed raw tx hex>" }` to broadcast
 
 ## Smoke tests
 
@@ -151,3 +195,13 @@ curl -s https://light.pepepow.net/api/wallet/address/PRfbEeHAKKbz6Voz85WJudrJwTA
 curl -s "https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb?limit=5&offset=0"
 curl -s https://light.pepepow.net/api/wallet/utxo/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
 ```
+
+Broadcast safety check:
+
+```bash
+curl -s -X POST https://light.pepepow.net/api/wallet/broadcast \
+  -H 'Content-Type: application/json' \
+  -d '{"raw_tx":"0100000001abcdef0123","mnemonic":"do-not-send"}'
+```
+
+Expected result: `invalid_broadcast_payload`.
