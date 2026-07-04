@@ -655,3 +655,13 @@ footer {
   border: 1px solid var(--code-border);
 }
 
+/* Brand Logo Layout */
+.brand-logo {
+  height: 64px;
+  max-width: 100%;
+  width: auto;
+  margin-bottom: 1rem;
+  display: inline-block;
+  vertical-align: middle;
+}
+

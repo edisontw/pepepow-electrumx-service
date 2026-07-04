@@ -1,5 +1,6 @@
 from pathlib import Path
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -21,6 +22,15 @@ app = FastAPI(
     title="PEPEW Light",
     version=settings.version,
     description="PEPEPOW ElectrumX API Gateway for read queries and signed raw transaction broadcast.",
+)
+
+# CORS configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Cache-Control"],
 )
 
 BASE_DIR = Path(__file__).resolve().parent

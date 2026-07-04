@@ -165,7 +165,10 @@ async def wallet_address_utxos(
 
 
 @router.get("/tx/{txid}")
-async def wallet_tx_lookup(txid: str = Path(...), raw: bool = Query(default=False)) -> JSONResponse:
+async def wallet_tx_lookup(
+    txid: str = Path(...),
+    raw: bool = Query(default=False),
+) -> JSONResponse:
     try:
         result = await get_transaction_details(txid, verbose=not raw)
         return JSONResponse(

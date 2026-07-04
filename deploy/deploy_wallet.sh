@@ -31,6 +31,10 @@ sudo cp -a /home/ubuntu/pepepow-electrumx-service/frontend/static/icon-192.png /
 sudo cp -a /home/ubuntu/pepepow-electrumx-service/frontend/static/icon-512.png /var/www/pepew-light/
 sudo cp -a /home/ubuntu/pepepow-electrumx-service/frontend/static/site.webmanifest /var/www/pepew-light/
 
+# Copy brand assets
+sudo mkdir -p /var/www/pepew-light/static/brand
+sudo cp -a /home/ubuntu/pepepow-electrumx-service/frontend/static/brand/. /var/www/pepew-light/static/brand/
+
 sudo chown -R www-data:www-data /var/www/pepew-light
 sudo find /var/www/pepew-light -type d -exec chmod 755 {} \;
 sudo find /var/www/pepew-light -type f -exec chmod 644 {} \;
