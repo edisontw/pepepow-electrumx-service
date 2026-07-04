@@ -66,6 +66,55 @@ def test_wallet_broadcast_invalid_hex(monkeypatch):
     assert data["error"]["code"] == "invalid_raw_tx"
 
 
+def test_wallet_broadcast_rejects_secret_fields(monkeypatch):
+    called = False
+
+    async def fake_broadcast_signed_raw_tx(raw_tx):
+        nonlocal called
+        called = True
+        return {"ok": True, "txid": KNOWN_TXID, "source": "electrumx"}
+
+    monkeypatch.setattr(wallet_api, "broadcast_signed_raw_tx", fake_broadcast_signed_raw_tx)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/wallet/broadcast",
+        json={
+            "raw_tx": VALID_RAW_TX,
+            "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        },
+    )
+
+    assert response.status_code == 400
+    data = response.json()
+    assert data["ok"] is False
+    assert data["error"]["code"] == "invalid_broadcast_payload"
+    assert called is False
+
+
+def test_wallet_broadcast_rejects_extra_fields(monkeypatch):
+    called = False
+
+    async def fake_broadcast_signed_raw_tx(raw_tx):
+        nonlocal called
+        called = True
+        return {"ok": True, "txid": KNOWN_TXID, "source": "electrumx"}
+
+    monkeypatch.setattr(wallet_api, "broadcast_signed_raw_tx", fake_broadcast_signed_raw_tx)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/wallet/broadcast",
+        json={"raw_tx": VALID_RAW_TX, "note": "extra fields are not accepted"},
+    )
+
+    assert response.status_code == 400
+    data = response.json()
+    assert data["ok"] is False
+    assert data["error"]["code"] == "invalid_broadcast_payload"
+    assert called is False
+
+
 def test_wallet_broadcast_rejected(monkeypatch):
     async def fake_broadcast_signed_raw_tx(raw_tx):
         raise TxUpstreamError("broadcast_rejected", {"message": "rejected"})
