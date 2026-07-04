@@ -5,6 +5,8 @@ limit_req_zone $binary_remote_addr zone=pepew_heavy:10m rate=3r/s;
 server {
     server_name light.pepepow.net;
 
+    limit_req_status 429;
+
     # Access and Error logs. Ensure logrotate is configured for these files
     # (e.g. in /etc/logrotate.d/pepew-light) to prevent disk space exhaustion.
     access_log /var/log/nginx/pepew-light.access.log;
