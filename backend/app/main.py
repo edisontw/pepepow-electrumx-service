@@ -1,6 +1,6 @@
 from pathlib import Path
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -26,6 +26,41 @@ app = FastAPI(
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+FRONTEND_STATIC_DIR = BASE_DIR.parent.parent / "frontend" / "static"
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> FileResponse:
+    return FileResponse(FRONTEND_STATIC_DIR / "favicon.ico")
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+async def favicon_svg() -> FileResponse:
+    return FileResponse(FRONTEND_STATIC_DIR / "favicon.svg")
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+async def apple_touch_icon() -> FileResponse:
+    return FileResponse(FRONTEND_STATIC_DIR / "apple-touch-icon.png")
+
+
+@app.get("/icon-192.png", include_in_schema=False)
+async def icon_192() -> FileResponse:
+    return FileResponse(FRONTEND_STATIC_DIR / "icon-192.png")
+
+
+@app.get("/icon-512.png", include_in_schema=False)
+async def icon_512() -> FileResponse:
+    return FileResponse(FRONTEND_STATIC_DIR / "icon-512.png")
+
+
+@app.get("/site.webmanifest", include_in_schema=False)
+async def site_webmanifest() -> FileResponse:
+    return FileResponse(
+        FRONTEND_STATIC_DIR / "site.webmanifest",
+        media_type="application/manifest+json",
+    )
 
 app.include_router(health_router, prefix="/api")
 app.include_router(status_router, prefix="/api")

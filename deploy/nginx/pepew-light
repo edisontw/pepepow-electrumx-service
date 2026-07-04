@@ -22,6 +22,43 @@ server {
         proxy_read_timeout 15s;
     }
 
+    location = /favicon.ico {
+        alias /var/www/pepew-light/favicon.ico;
+        access_log off;
+        expires 30d;
+    }
+
+    location = /favicon.svg {
+        alias /var/www/pepew-light/favicon.svg;
+        access_log off;
+        expires 30d;
+    }
+
+    location = /apple-touch-icon.png {
+        alias /var/www/pepew-light/apple-touch-icon.png;
+        access_log off;
+        expires 30d;
+    }
+
+    location = /icon-192.png {
+        alias /var/www/pepew-light/icon-192.png;
+        access_log off;
+        expires 30d;
+    }
+
+    location = /icon-512.png {
+        alias /var/www/pepew-light/icon-512.png;
+        access_log off;
+        expires 30d;
+    }
+
+    location = /site.webmanifest {
+        alias /var/www/pepew-light/site.webmanifest;
+        access_log off;
+        expires 30d;
+        default_type application/manifest+json;
+    }
+
     location = /wallet {
         return 301 /wallet/;
     }

@@ -170,3 +170,23 @@ def test_tx_page_loads():
     assert "Transaction Lookup" in response.text
     assert 'id="lookup-form"' in response.text
     assert 'name="txid"' in response.text
+
+
+def test_root_level_icons_and_manifest():
+    client = TestClient(app)
+
+    for path in [
+        "/favicon.ico",
+        "/favicon.svg",
+        "/apple-touch-icon.png",
+        "/icon-192.png",
+        "/icon-512.png",
+    ]:
+        response = client.get(path)
+        assert response.status_code == 200
+        assert len(response.content) > 0
+
+    manifest_response = client.get("/site.webmanifest")
+    assert manifest_response.status_code == 200
+    assert "application/manifest+json" in manifest_response.headers.get("content-type", "")
+    assert b"PEPEW Light" in manifest_response.content
