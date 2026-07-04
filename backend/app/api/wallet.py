@@ -1,8 +1,7 @@
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, Path, Query, status
+from fastapi import APIRouter, Body, Path, Query, status
 from fastapi.responses import JSONResponse
 
 from .errors import api_error_response
@@ -27,9 +26,32 @@ from ..services.payment_service import format_pepew_amount_from_sats
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
+BROADCAST_ALLOWED_FIELDS = {"raw_tx"}
+BROADCAST_FORBIDDEN_SECRET_FIELDS = {
+    "mnemonic",
+    "seed",
+    "private_key",
+    "privateKey",
+    "privkey",
+    "wif",
+    "xprv",
+    "password",
+    "passphrase",
+}
+BROADCAST_INVALID_PAYLOAD_MESSAGE = "Broadcast accepts only signed raw_tx hex. Do not send mnemonic, seed, private key, or signing material."
 
-class BroadcastRequest(BaseModel):
-    raw_tx: str = Field(..., min_length=20, max_length=200_000)
+
+def _extract_broadcast_raw_tx(payload: Any) -> Any:
+    if not isinstance(payload, dict):
+        raise InvalidRawTxError("invalid_broadcast_payload", BROADCAST_INVALID_PAYLOAD_MESSAGE)
+
+    keys = set(payload.keys())
+    extra_keys = keys - BROADCAST_ALLOWED_FIELDS
+    forbidden_keys = keys & BROADCAST_FORBIDDEN_SECRET_FIELDS
+    if extra_keys or forbidden_keys:
+        raise InvalidRawTxError("invalid_broadcast_payload", BROADCAST_INVALID_PAYLOAD_MESSAGE)
+
+    return payload.get("raw_tx")
 
 
 async def _call_with_optional_fresh(
@@ -192,9 +214,10 @@ async def wallet_tx_lookup(
 
 
 @router.post("/broadcast")
-async def wallet_broadcast_signed_raw_tx(payload: BroadcastRequest) -> JSONResponse:
+async def wallet_broadcast_signed_raw_tx(payload: Any = Body(...)) -> JSONResponse:
     try:
-        result = await broadcast_signed_raw_tx(payload.raw_tx)
+        raw_tx = _extract_broadcast_raw_tx(payload)
+        result = await broadcast_signed_raw_tx(raw_tx)
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
