@@ -16,7 +16,7 @@ When the wallet is served from `/wallet/`, frontend calls should normally use sa
 - The API never handles wallet recovery material.
 - Transaction signing belongs to the client wallet.
 - Broadcast accepts only an already signed raw transaction.
-- Broadcast rejects extra fields, including mnemonic, seed, private key, WIF, password, passphrase, and other signing material.
+- Broadcast accepts only the `raw_tx` field and rejects any signing material.
 - ElectrumX remains private behind FastAPI.
 
 ## Endpoints
@@ -25,9 +25,10 @@ When the wallet is served from `/wallet/`, frontend calls should normally use sa
 
 ```http
 GET /api/wallet/address/{address}
+GET /api/wallet/address/{address}?verbose_history=1&detail_limit=10
 ```
 
-Returns balance and a compact recent history list.
+Returns balance and a compact recent history list. `verbose_history=1` enriches recent history rows with wallet-oriented amount and direction fields. Keep `detail_limit` small for UI previews.
 
 Example:
 
@@ -57,6 +58,7 @@ Typical response shape:
 
 ```http
 GET /api/wallet/history/{address}?limit=50&offset=0
+GET /api/wallet/history/{address}?limit=50&offset=0&verbose=1&detail_limit=10
 ```
 
 Returns confirmed history and mempool entries when available.
@@ -65,11 +67,51 @@ Limits:
 
 - `limit`: 1-500
 - `offset`: 0 or greater
+- `detail_limit`: 0-25 when `verbose=1`
+
+Default lightweight rows:
+
+```json
+{
+  "txid": "...",
+  "height": 4691991,
+  "is_mempool": false
+}
+```
+
+Verbose rows add fields calculated for the queried wallet address:
+
+```json
+{
+  "txid": "...",
+  "height": 4691991,
+  "is_mempool": false,
+  "direction": "received",
+  "amount_atoms": 1000000000,
+  "amount_pepew": "10",
+  "address_delta_atoms": 1000000000,
+  "address_delta_pepew": "10",
+  "received_atoms": 1000000000,
+  "spent_atoms": 0,
+  "timestamp": 1780000000,
+  "confirmations": 3
+}
+```
+
+Direction values:
+
+- `received`: net positive amount for the queried address.
+- `sent`: net negative amount for the queried address.
+- `self`: both input and output touch the address but net delta is zero.
+- `unknown`: the transaction could not be fully resolved.
+
+Verbose history may fetch transaction details and previous outputs to compute deltas. Use it for wallet UI, but avoid high `detail_limit` values.
 
 ### UTXO lookup
 
 ```http
 GET /api/wallet/utxo/{address}
+GET /api/wallet/utxo/{address}?fresh=1
 ```
 
 Returns spendable outputs for client-side UTXO selection.
@@ -125,14 +167,7 @@ Rejected payload examples:
 ```json
 {
   "raw_tx": "01000000...",
-  "mnemonic": "..."
-}
-```
-
-```json
-{
-  "raw_tx": "01000000...",
-  "private_key": "..."
+  "mnemonic": "do-not-send"
 }
 ```
 
@@ -150,7 +185,7 @@ These return:
   "ok": false,
   "error": {
     "code": "invalid_broadcast_payload",
-    "message": "Broadcast accepts only signed raw_tx hex. Do not send mnemonic, seed, private key, or signing material."
+    "message": "Broadcast accepts only signed raw_tx hex and rejects signing material."
   }
 }
 ```
@@ -164,7 +199,7 @@ Expected public error codes:
 | 400 | `invalid_address` | Address validation failed |
 | 400 | `invalid_txid` | Txid validation failed |
 | 400 | `invalid_raw_tx` | Broadcast payload is not valid raw transaction hex |
-| 400 | `invalid_broadcast_payload` | Broadcast payload contains unsupported fields or signing material |
+| 400 | `invalid_broadcast_payload` | Broadcast payload contains unsupported fields |
 | 400 | `raw_tx_too_short` | Broadcast raw tx is too short |
 | 400 | `raw_tx_too_large` | Broadcast raw tx is too large |
 | 404 | `tx_not_found` | Transaction not found |
@@ -184,6 +219,7 @@ The wallet client should:
 - use request timeouts
 - show friendly messages for invalid address, timeout, rate limit, and API unavailable states
 - append `fresh=1` only when immediate refresh is needed
+- use `verbose=1&detail_limit=10` for wallet history pages that need amounts
 - send only `{ "raw_tx": "<signed raw tx hex>" }` to broadcast
 
 ## Smoke tests
@@ -193,6 +229,7 @@ curl -s https://light.pepepow.net/api/health
 curl -s https://light.pepepow.net/api/status
 curl -s https://light.pepepow.net/api/wallet/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
 curl -s "https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb?limit=5&offset=0"
+curl -s "https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb?limit=5&offset=0&verbose=1&detail_limit=5"
 curl -s https://light.pepepow.net/api/wallet/utxo/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
 ```
 
