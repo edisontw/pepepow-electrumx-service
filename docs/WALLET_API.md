@@ -58,10 +58,17 @@ Typical response shape:
 
 ```http
 GET /api/wallet/history/{address}?limit=50&offset=0
+GET /api/wallet/history/{address}?limit=50&offset=0&verbose=false
 GET /api/wallet/history/{address}?limit=50&offset=0&verbose=1&detail_limit=10
 ```
 
 Returns confirmed history and mempool entries when available.
+
+Current wallet API behavior:
+
+- `verbose` defaults to `true` for wallet clients.
+- Use `verbose=false` only for a compact txid/height listing.
+- Keep `detail_limit` small because verbose rows may resolve transaction details and previous outputs.
 
 Limits:
 
@@ -69,7 +76,7 @@ Limits:
 - `offset`: 0 or greater
 - `detail_limit`: 0-25 when `verbose=1`
 
-Default lightweight rows:
+Compact rows with `verbose=false`:
 
 ```json
 {
@@ -79,7 +86,7 @@ Default lightweight rows:
 }
 ```
 
-Verbose rows add fields calculated for the queried wallet address:
+Default verbose rows add fields calculated for the queried wallet address:
 
 ```json
 {
@@ -137,7 +144,7 @@ GET /api/wallet/tx/{txid}
 GET /api/wallet/tx/{txid}?raw=1
 ```
 
-Returns transaction data from ElectrumX.
+Returns transaction data from ElectrumX. Wallet list screens should prefer `/api/wallet/history/{address}` and should not bulk-call this endpoint unless verbose history is unavailable.
 
 ### Broadcast
 
@@ -219,7 +226,8 @@ The wallet client should:
 - use request timeouts
 - show friendly messages for invalid address, timeout, rate limit, and API unavailable states
 - append `fresh=1` only when immediate refresh is needed
-- use `verbose=1&detail_limit=10` for wallet history pages that need amounts
+- use `/api/wallet/history/{address}?limit=50&offset=0&detail_limit=10` for wallet history pages
+- avoid bulk `/api/wallet/tx/{txid}` calls when history rows already contain `address_delta_pepew`
 - send only `{ "raw_tx": "<signed raw tx hex>" }` to broadcast
 
 ## Smoke tests
@@ -229,7 +237,7 @@ curl -s https://light.pepepow.net/api/health
 curl -s https://light.pepepow.net/api/status
 curl -s https://light.pepepow.net/api/wallet/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
 curl -s "https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb?limit=5&offset=0"
-curl -s "https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb?limit=5&offset=0&verbose=1&detail_limit=5"
+curl -s "https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb?limit=5&offset=0&verbose=false"
 curl -s https://light.pepepow.net/api/wallet/utxo/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb
 ```
 
