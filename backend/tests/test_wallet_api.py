@@ -81,7 +81,7 @@ def test_wallet_address_history_success(monkeypatch):
     monkeypatch.setattr(wallet_api, "get_address_history", fake_get_address_history)
 
     client = TestClient(app)
-    response = client.get(f"/api/wallet/history/{KNOWN_ADDRESS}?limit=10&offset=0")
+    response = client.get(f"/api/wallet/history/{KNOWN_ADDRESS}?limit=10&offset=0&verbose=false")
 
     assert response.status_code == 200
     data = response.json()
@@ -92,6 +92,50 @@ def test_wallet_address_history_success(monkeypatch):
     assert data["mempool"][0]["txid"] == "b" * 64
     assert data["source"] == "electrumx"
     assert data["read_only"] is True
+    assert data["verbose"] is False
+
+
+def test_wallet_address_history_verbose_success(monkeypatch):
+    async def fake_get_address_history(address, limit=50, offset=0):
+        return {
+            "ok": True,
+            "address": address,
+            "history": [{"tx_hash": KNOWN_TXID, "height": 100}],
+            "mempool": [],
+        }
+
+    async def fake_get_transaction_details(txid, verbose=True):
+        assert txid == KNOWN_TXID
+        return {
+            "ok": True,
+            "txid": txid,
+            "data": {
+                "txid": txid,
+                "confirmations": 2,
+                "time": 1783230886,
+                "vout": [
+                    {
+                        "n": 0,
+                        "value": 1.25,
+                        "scriptPubKey": {"addresses": [KNOWN_ADDRESS]},
+                    }
+                ],
+                "vin": [],
+            },
+        }
+
+    monkeypatch.setattr(wallet_api, "get_address_history", fake_get_address_history)
+    monkeypatch.setattr(wallet_api, "get_transaction_details", fake_get_transaction_details)
+
+    client = TestClient(app)
+    response = client.get(f"/api/wallet/history/{KNOWN_ADDRESS}?limit=10&offset=0&verbose=true&detail_limit=10")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["verbose"] is True
+    assert data["history"][0]["direction"] == "received"
+    assert data["history"][0]["amount_atoms"] == 125000000
+    assert data["history"][0]["address_delta_atoms"] == 125000000
 
 
 def test_wallet_tx_lookup_success(monkeypatch):
