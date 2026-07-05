@@ -318,7 +318,7 @@ async def wallet_address_history(
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     fresh: bool = Query(default=False),
-    verbose: bool = Query(default=False),
+    verbose: bool = Query(default=True),
     detail_limit: int = Query(default=10, ge=0, le=MAX_VERBOSE_HISTORY_DETAILS),
 ) -> JSONResponse:
     try:
