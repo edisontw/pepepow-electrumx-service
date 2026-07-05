@@ -74,6 +74,13 @@ def _format_pepew_from_atoms(value: int) -> str:
     return format_pepew_amount_from_sats(value, settings.pepew_decimals)
 
 
+def _first_present(mapping: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in mapping and mapping[key] is not None:
+            return mapping[key]
+    return None
+
+
 def _tx_addresses_from_script(script: Any) -> list[str]:
     if not isinstance(script, dict):
         return []
@@ -171,7 +178,7 @@ async def _inputs_from_address(tx_data: Any, address: str) -> int:
         if not isinstance(tx_input, dict):
             continue
         prev_txid = tx_input.get("txid") or tx_input.get("tx_hash")
-        prev_vout = tx_input.get("vout") or tx_input.get("tx_pos") or tx_input.get("outputIndex")
+        prev_vout = _first_present(tx_input, "vout", "tx_pos", "outputIndex")
         if not isinstance(prev_txid, str):
             continue
         try:
