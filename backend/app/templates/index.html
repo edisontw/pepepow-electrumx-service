@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{{ app_name }} · PEPEPOW Read-Only API Gateway</title>
+  <title>{{ app_name }} · PEPEPOW API Gateway</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,7 +22,7 @@
       <h1>PEPEW Light</h1>
       <p class="subtitle" style="margin-bottom: 2rem;">
         ElectrumX-backed API gateway and dashboard for the PEPEPOW network.
-        Use PEPEW Light to check addresses, transactions, payment status, and network connectivity. The wallet is client-side and non-custodial.
+        Use PEPEW Light to check addresses, transactions, payment status, market price, and network connectivity.
       </p>
       <div class="hero-cta-row" style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
         <a href="/wallet/" class="btn">Open Wallet</a>
@@ -39,12 +39,8 @@
       <a href="/wallet/">Wallet</a>
     </div>
 
-    <!-- Live Status Summary -->
     <div class="status-summary-bar">
-      <div class="status-item">
-        <span>API Gateway:</span>
-        <span class="status-pill status-online">Online</span>
-      </div>
+      <div class="status-item"><span>API Gateway:</span><span class="status-pill status-online">Online</span></div>
       <div class="status-item">
         <span>ElectrumX Connection:</span>
         {% if status and status.ok and status.electrumx.connected %}
@@ -53,23 +49,15 @@
           <span class="status-pill status-offline">Disconnected</span>
         {% endif %}
       </div>
-      <div class="status-item">
-        <span>Network Height:</span>
-        <span class="status-value"><code>{{ status.electrumx.height if (status and status.electrumx and status.electrumx.height) else "n/a" }}</code></span>
-      </div>
-      <div class="status-item">
-        <span>Last Checked:</span>
-        <span class="unix-timestamp status-value" data-timestamp="{{ status.checked_at if status else '' }}">Status temporarily unavailable.</span>
-      </div>
+      <div class="status-item"><span>Network Height:</span><span class="status-value"><code>{{ status.electrumx.height if (status and status.electrumx and status.electrumx.height) else "n/a" }}</code></span></div>
+      <div class="status-item"><span>Last Checked:</span><span class="unix-timestamp status-value" data-timestamp="{{ status.checked_at if status else '' }}">Status temporarily unavailable.</span></div>
     </div>
 
-    <!-- Navigation & Cards Grid -->
     <div class="grid">
-      <!-- Address Lookup -->
       <div class="card">
         <div>
           <h2>Address Lookup</h2>
-          <p>Query any PEPEPOW address to view confirmed and mempool balances, scripthashes, and transaction history.</p>
+          <p>Query any PEPEPOW address to view balances, scripthash data, and transaction history.</p>
           <form action="/address" method="get">
             <div class="form-group">
               <label for="address-input">PEPEW Address</label>
@@ -81,12 +69,10 @@
           </form>
         </div>
       </div>
-
-      <!-- Transaction Lookup -->
       <div class="card">
         <div>
           <h2>Transaction Lookup</h2>
-          <p>Search a transaction by txid to inspect raw data, blocks, and confirmation statuses.</p>
+          <p>Search a transaction by txid to inspect raw data, blocks, and confirmation status.</p>
           <form action="/tx" method="get">
             <div class="form-group">
               <label for="tx-input">Transaction ID (TXID)</label>
@@ -98,282 +84,50 @@
           </form>
         </div>
       </div>
-
-      <!-- Payment Monitor -->
       <div class="card">
-        <div>
-          <h2>Payment Monitor</h2>
-          <p>Check payment receiving status of any address. Instantly verify confirmed balance, unconfirmed mempool state, and recent history.</p>
-        </div>
-        <div class="card-footer">
-          <a href="/pay" class="btn btn-secondary" style="width: 100%;">Open Payment Monitor</a>
-        </div>
+        <div><h2>Payment Monitor</h2><p>Check payment receiving status of any address with confirmed and mempool balance data.</p></div>
+        <div class="card-footer"><a href="/pay" class="btn btn-secondary" style="width: 100%;">Open Payment Monitor</a></div>
       </div>
-
-      <!-- PEPEW Light Wallet -->
       <div class="card">
-        <div>
-          <h2>PEPEW Light Wallet</h2>
-          <p>Open the client-side non-custodial web wallet. Generate addresses, manage assets safely, and sign transactions in the browser.</p>
-        </div>
-        <div class="card-footer">
-          <a href="/wallet/" class="btn btn-secondary" style="width: 100%;">Open Wallet</a>
-        </div>
+        <div><h2>PEPEW Light Wallet</h2><p>Open the client-side non-custodial web wallet.</p></div>
+        <div class="card-footer"><a href="/wallet/" class="btn btn-secondary" style="width: 100%;">Open Wallet</a></div>
       </div>
     </div>
 
-    <!-- Safety Center -->
     <section id="safety">
       <h2>Gateway Safety Boundary</h2>
       <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.95rem;">
-        <strong>Security Notice:</strong> PEPEW Light Wallet is non-custodial. Mnemonic phrases and private keys stay in the browser. The PEPEW Light API only receives addresses, transaction IDs, and future signed raw transactions.
+        <strong>Security Notice:</strong> PEPEW Light Wallet is non-custodial. Wallet secrets stay in the browser. The public API handles address, txid, status, payment-check, and market-price queries.
       </div>
       <div class="safety-grid">
-        <div class="safety-item">
-          <h3>Read-Only Architecture</h3>
-          <p>We do not store private keys, seed phrases, or wallet configuration. Safe from credential leaks.</p>
-        </div>
-        <div class="safety-item">
-          <h3>No Custody or Ledgers</h3>
-          <p>There is no invoice database. The monitor checks real-time address balances. Generate a fresh address per payment for safety.</p>
-        </div>
-        <div class="safety-item">
-          <h3>Private Node Access</h3>
-          <p>Our ElectrumX server is isolated and bound only to the local interface, routing all traffic through rate limiters.</p>
-        </div>
+        <div class="safety-item"><h3>Read-Only API</h3><p>Address, transaction, wallet, status, and price endpoints are public read-only queries.</p></div>
+        <div class="safety-item"><h3>No Custody</h3><p>The gateway does not operate as a hosted wallet or invoice ledger.</p></div>
+        <div class="safety-item"><h3>Private Node Access</h3><p>ElectrumX remains behind the API gateway and is not directly exposed.</p></div>
       </div>
     </section>
 
-    <!-- Developer API Portal -->
     <section id="api-docs">
       <h2>Public API Documentation</h2>
       <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-weight: 300;">Developers can query the API using the following REST endpoints:</p>
 
-      <!-- GET /api/health -->
       <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-health')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/health</span>
-          </div>
-          <div class="desc">Gateway heartbeat</div>
-        </div>
-        <div id="doc-health" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Lightweight ping to verify the API Gateway is online.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s https://light.pepepow.net/api/health</pre>
-          </div>
+        <div class="endpoint-trigger" onclick="toggleDoc('doc-price')"><div><span class="method method-get">GET</span><span class="path">/api/price</span></div><div class="desc">Cached PEPEW/USDT market price</div></div>
+        <div id="doc-price" class="endpoint-content">
+          <div class="doc-group"><h4>Purpose</h4><p style="font-size: 0.95rem; font-weight: 300;">Returns cached public PEPEW/USDT market price data from NonKYC. Price data is informational only and may be delayed or temporarily unavailable.</p></div>
+          <div class="doc-group"><h4>Example request</h4><pre>curl -s https://light.pepepow.net/api/price</pre></div>
+          <div class="doc-group"><h4>Core fields</h4><table class="field-table"><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td class="field-name">status</td><td class="field-type">string</td><td>ok, stale, or unavailable.</td></tr><tr><td class="field-name">price_usdt</td><td class="field-type">string|null</td><td>Latest PEPEW/USDT price if available.</td></tr><tr><td class="field-name">source</td><td class="field-type">string</td><td>NonKYC.</td></tr><tr><td class="field-name">cached</td><td class="field-type">boolean</td><td>True when served from cache.</td></tr><tr><td class="field-name">last_updated</td><td class="field-type">string|null</td><td>UTC timestamp for the cached price payload.</td></tr></tbody></table></div>
         </div>
       </div>
 
-      <!-- GET /api/status -->
-      <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-status')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/status</span>
-          </div>
-          <div class="desc">ElectrumX node state &amp; sync height</div>
-        </div>
-        <div id="doc-status" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Reports upstream connection status, block height, and protocol info.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s https://light.pepepow.net/api/status</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- GET /api/address/{address} -->
-      <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-address')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/address/{address}</span>
-          </div>
-          <div class="desc">Address balance &amp; metadata</div>
-        </div>
-        <div id="doc-address" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Inspects confirmed/unconfirmed balances (in satoshis) and transaction counts.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- GET /api/address/{address}/history -->
-      <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-history')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/address/{address}/history</span>
-          </div>
-          <div class="desc">Paginated history lookup</div>
-        </div>
-        <div id="doc-history" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Paginates through address transaction hashes.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb/history?limit=5&offset=0"</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- GET /api/tx/{txid} -->
-      <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-tx')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/tx/{txid}</span>
-          </div>
-          <div class="desc">Transaction lookup</div>
-        </div>
-        <div id="doc-tx" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Retrieve transaction block height, confirmation count, input/output data, and full hex values.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s https://light.pepepow.net/api/tx/453c4f723b2eb5cf4b8ef9818fac50d08ddc8ed05bc972ee464f2dbc55b6a3db</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- GET /api/payment/check -->
-      <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-pay')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/payment/check</span>
-          </div>
-          <div class="desc">Address-level payment verifier</div>
-        </div>
-        <div id="doc-pay" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Evaluates if the current visible balance of an address meets the requested amount.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s "https://light.pepepow.net/api/payment/check?address=PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb&amount=1"</pre>
-          </div>
-          <div class="doc-group">
-            <h4>Response fields (Preferred balance fields)</h4>
-            <table class="field-table">
-              <thead>
-                <tr>
-                  <th>Field</th>
-                  <th>Type</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td class="field-name">status</td><td class="field-type">string</td><td>Payment status: <code>waiting</code>, <code>seen_in_mempool</code>, <code>partial</code>, <code>paid_unconfirmed</code>, <code>paid_confirmed</code>, <code>overpaid</code>, or <code>expired</code>.</td></tr>
-                <tr><td class="field-name">confirmed_balance</td><td class="field-type">string</td><td>Confirmed address balance in PEPEW.</td></tr>
-                <tr><td class="field-name">confirmed_balance_sats</td><td class="field-type">integer</td><td>Confirmed address balance in satoshis.</td></tr>
-                <tr><td class="field-name">mempool_balance</td><td class="field-type">string</td><td>Unconfirmed mempool balance in PEPEW.</td></tr>
-                <tr><td class="field-name">mempool_balance_sats</td><td class="field-type">integer</td><td>Unconfirmed mempool balance in satoshis.</td></tr>
-                <tr><td class="field-name">total_visible_balance</td><td class="field-type">string</td><td>Total visible balance in PEPEW (confirmed + mempool).</td></tr>
-                <tr><td class="field-name">total_visible_balance_sats</td><td class="field-type">integer</td><td>Total visible balance in satoshis (confirmed + mempool).</td></tr>
-                <tr><td class="field-name">requested_amount</td><td class="field-type">string</td><td>Requested amount in PEPEW.</td></tr>
-                <tr><td class="field-name">requested_sats</td><td class="field-type">integer</td><td>Requested amount in satoshis.</td></tr>
-                <tr><td class="field-name">expired</td><td class="field-type">boolean</td><td>True if current server time exceeds the expiry limits.</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="doc-group">
-            <h4>Compatibility aliases (Deprecated)</h4>
-            <p style="font-size: 0.95rem; font-weight: 300; margin-bottom: 0.5rem; color: var(--text-muted);">The following fields are kept for backward-compatibility only and should not be used in new integrations:</p>
-            <code style="display: block; background: var(--code-bg); padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--code-border); font-size: 0.85rem; color: var(--text-muted); line-height: 1.8;">
-              confirmed_received, confirmed_received_sats, mempool_received, mempool_received_sats, total_received, total_received_sats, received_confirmed_sats, received_unconfirmed_sats
-            </code>
-          </div>
-          <div class="doc-group">
-            <h4>Safety note</h4>
-            <div class="safety-alert" style="background: rgba(245, 158, 11, 0.07); border-color: rgba(245, 158, 11, 0.2); color: #fde68a;">
-              This is not an invoice database. It checks address balances. For reliable checking, use a unique, unused receiving address for each payment request. Reusing addresses or spending from the address can make checks ambiguous.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- GET /api/wallet/address/{address} -->
-      <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-address')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/wallet/address/{address}</span>
-          </div>
-          <div class="desc">Wallet address summary</div>
-        </div>
-        <div id="doc-wallet-address" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Fetch confirmed/unconfirmed balance and basic history for wallet integration.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s https://light.pepepow.net/api/wallet/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- GET /api/wallet/history/{address} -->
-      <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-history')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/wallet/history/{address}</span>
-          </div>
-          <div class="desc">Wallet transaction history</div>
-        </div>
-        <div id="doc-wallet-history" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Fetch pagination-supported transaction and mempool history for wallet integration.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- GET /api/wallet/utxo/{address} -->
-      <div class="endpoint">
-        <div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-utxo')">
-          <div>
-            <span class="method method-get">GET</span>
-            <span class="path">/api/wallet/utxo/{address}</span>
-          </div>
-          <div class="desc">Wallet address UTXOs</div>
-        </div>
-        <div id="doc-wallet-utxo" class="endpoint-content">
-          <div class="doc-group">
-            <h4>Purpose</h4>
-            <p style="font-size: 0.95rem; font-weight: 300;">Retrieve unspent transaction outputs (UTXOs) for wallet transfer creation.</p>
-          </div>
-          <div class="doc-group">
-            <h4>Example request</h4>
-            <pre>curl -s https://light.pepepow.net/api/wallet/utxo/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre>
-          </div>
-        </div>
-      </div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-health')"><div><span class="method method-get">GET</span><span class="path">/api/health</span></div><div class="desc">Gateway heartbeat</div></div><div id="doc-health" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s https://light.pepepow.net/api/health</pre></div></div></div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-status')"><div><span class="method method-get">GET</span><span class="path">/api/status</span></div><div class="desc">ElectrumX node state and sync height</div></div><div id="doc-status" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s https://light.pepepow.net/api/status</pre></div></div></div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-address')"><div><span class="method method-get">GET</span><span class="path">/api/address/{address}</span></div><div class="desc">Address balance and metadata</div></div><div id="doc-address" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre></div></div></div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-history')"><div><span class="method method-get">GET</span><span class="path">/api/address/{address}/history</span></div><div class="desc">Paginated history lookup</div></div><div id="doc-history" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s "https://light.pepepow.net/api/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb/history?limit=5&amp;offset=0"</pre></div></div></div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-tx')"><div><span class="method method-get">GET</span><span class="path">/api/tx/{txid}</span></div><div class="desc">Transaction lookup</div></div><div id="doc-tx" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s https://light.pepepow.net/api/tx/453c4f723b2eb5cf4b8ef9818fac50d08ddc8ed05bc972ee464f2dbc55b6a3db</pre></div></div></div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-pay')"><div><span class="method method-get">GET</span><span class="path">/api/payment/check</span></div><div class="desc">Address-level payment verifier</div></div><div id="doc-pay" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s "https://light.pepepow.net/api/payment/check?address=PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb&amp;amount=1"</pre></div></div></div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-address')"><div><span class="method method-get">GET</span><span class="path">/api/wallet/address/{address}</span></div><div class="desc">Wallet address summary</div></div><div id="doc-wallet-address" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s https://light.pepepow.net/api/wallet/address/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre></div></div></div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-history')"><div><span class="method method-get">GET</span><span class="path">/api/wallet/history/{address}</span></div><div class="desc">Wallet transaction history</div></div><div id="doc-wallet-history" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s https://light.pepepow.net/api/wallet/history/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre></div></div></div>
+      <div class="endpoint"><div class="endpoint-trigger" onclick="toggleDoc('doc-wallet-utxo')"><div><span class="method method-get">GET</span><span class="path">/api/wallet/utxo/{address}</span></div><div class="desc">Wallet address UTXOs</div></div><div id="doc-wallet-utxo" class="endpoint-content"><div class="doc-group"><h4>Example request</h4><pre>curl -s https://light.pepepow.net/api/wallet/utxo/PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb</pre></div></div></div>
     </section>
   </div>
 
@@ -395,21 +149,13 @@
       if (el.classList.contains('active')) {
         el.classList.remove('active');
       } else {
-        document.querySelectorAll('.endpoint-content').forEach(content => {
-          content.classList.remove('active');
-        });
+        document.querySelectorAll('.endpoint-content').forEach(content => { content.classList.remove('active'); });
         el.classList.add('active');
       }
     }
-
-    // Format UNIX timestamps dynamically on the client side
     document.querySelectorAll('.unix-timestamp').forEach(el => {
       const ts = Number(el.dataset.timestamp);
-      if (ts) {
-        el.textContent = new Date(ts * 1000).toLocaleString();
-      } else {
-        el.textContent = 'Status temporarily unavailable.';
-      }
+      el.textContent = ts ? new Date(ts * 1000).toLocaleString() : 'Status temporarily unavailable.';
     });
   </script>
 </body>
