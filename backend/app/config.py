@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     cache_balance_seconds: int = Field(default=15, alias="CACHE_BALANCE_SECONDS")
     cache_history_seconds: int = Field(default=30, alias="CACHE_HISTORY_SECONDS")
     cache_tx_seconds: int = Field(default=300, alias="CACHE_TX_SECONDS")
+    cache_price_seconds: int = Field(default=120, alias="CACHE_PRICE_SECONDS")
+    cache_price_stale_seconds: int = Field(default=900, alias="CACHE_PRICE_STALE_SECONDS")
+    price_fetch_timeout_seconds: float = Field(default=5.0, alias="PRICE_FETCH_TIMEOUT_SECONDS")
+    nonkyc_ticker_url: str = Field(
+        default="https://api.nonkyc.io/api/v2/ticker/PEPEW_USDT",
+        alias="NONKYC_TICKER_URL",
+    )
 
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     version: str = "0.1.0"
