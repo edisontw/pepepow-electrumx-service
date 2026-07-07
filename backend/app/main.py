@@ -11,6 +11,7 @@ from .api.address import router as address_router
 from .api.tx import router as tx_router
 from .api.payment import router as payment_router
 from .api.wallet import router as wallet_router
+from .api.price import router as price_router
 from .config import get_settings
 from .logging_config import configure_logging
 from .services.status_service import get_status
@@ -21,7 +22,7 @@ configure_logging(settings)
 app = FastAPI(
     title="PEPEW Light",
     version=settings.version,
-    description="PEPEPOW ElectrumX API Gateway for read queries and signed raw transaction broadcast.",
+    description="PEPEPOW ElectrumX API Gateway for public read-only queries.",
 )
 
 # CORS configuration
@@ -78,7 +79,7 @@ app.include_router(address_router, prefix="/api")
 app.include_router(tx_router, prefix="/api")
 app.include_router(payment_router, prefix="/api")
 app.include_router(wallet_router, prefix="/api")
-
+app.include_router(price_router, prefix="/api")
 
 
 @app.get("/", response_class=HTMLResponse)
