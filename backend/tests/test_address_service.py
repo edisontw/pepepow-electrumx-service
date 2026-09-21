@@ -15,6 +15,10 @@ class FakeSettings:
     cache_history_seconds = 30
 
 
+async def fake_identify(_client):
+    return None
+
+
 async def fake_balance(client, scripthash):
     assert scripthash == KNOWN_SCRIPTHASH
     return {"confirmed": 1000, "unconfirmed": -50}
@@ -38,6 +42,7 @@ async def fake_mempool(client, scripthash):
 def test_get_address_summary(monkeypatch):
     address_service.clear_address_caches()
     monkeypatch.setattr(address_service, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(address_service, "_identify_client", fake_identify)
     monkeypatch.setattr(address_service, "scripthash_get_balance", fake_balance)
     monkeypatch.setattr(address_service, "scripthash_get_history", fake_history)
     monkeypatch.setattr(address_service, "scripthash_get_mempool", fake_mempool)
@@ -56,6 +61,7 @@ def test_get_address_summary(monkeypatch):
 def test_get_address_history_paginates(monkeypatch):
     address_service.clear_address_caches()
     monkeypatch.setattr(address_service, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(address_service, "_identify_client", fake_identify)
     monkeypatch.setattr(address_service, "scripthash_get_history", fake_history)
     monkeypatch.setattr(address_service, "scripthash_get_mempool", fake_mempool)
 
@@ -78,6 +84,7 @@ def test_get_address_history_cache_keeps_full_history(monkeypatch):
     calls = {"history": 0}
     address_service.clear_address_caches()
     monkeypatch.setattr(address_service, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(address_service, "_identify_client", fake_identify)
 
     async def counted_history(client, scripthash):
         calls["history"] += 1
@@ -100,6 +107,7 @@ def test_address_summary_cache(monkeypatch):
     calls = {"balance": 0}
     address_service.clear_address_caches()
     monkeypatch.setattr(address_service, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(address_service, "_identify_client", fake_identify)
 
     async def counted_balance(client, scripthash):
         calls["balance"] += 1
