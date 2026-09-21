@@ -262,7 +262,7 @@ Repository: `pepepow-electrumx-service`
 - [ ] Reduce unnecessary ElectrumX work where verified safe
 - [x] Preserve existing public API compatibility (new state primitives are additive; legacy route unchanged)
 - [x] Add authoritative unit tests for payment-domain primitives
-- [ ] Verify the new Python 3.10 backend CI workflow on GitHub Actions
+- [x] Verify Python 3.10 backend CI on GitHub Actions (run 35630626146: 109 passed)
 
 Exit criteria:
 
