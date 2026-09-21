@@ -231,19 +231,20 @@ def evaluate_payment_observations(
             unique[key] = observation
             continue
 
-        # Prefer the most advanced chain observation while preserving first_seen_at.
+        # Later observations are authoritative for chain position so a reorg can
+        # move an output from confirmed back to mempool/unconfirmed. Preserve the
+        # earliest known first-seen timestamp for creation/expiry semantics.
         first_seen_candidates = [
             value for value in (previous.first_seen_at, observation.first_seen_at) if value is not None
         ]
         first_seen_at = min(first_seen_candidates) if first_seen_candidates else None
-        chosen_height = max(previous.height, observation.height)
         if previous.value_sats != observation.value_sats:
             raise PaymentStateError("Conflicting values observed for the same transaction output.")
         unique[key] = PaymentTransactionObservation(
             txid=observation.txid,
             vout=observation.vout,
             value_sats=observation.value_sats,
-            height=chosen_height,
+            height=observation.height,
             first_seen_at=first_seen_at,
         )
 
