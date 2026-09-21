@@ -15,6 +15,14 @@ Production:
 - Gateway: [light.pepepow.net](https://light.pepepow.net)
 - Wallet: [light.pepepow.net/wallet/](https://light.pepepow.net/wallet/)
 
+Current cross-repository development priority:
+
+```text
+pepew-js -> PEPEW Payment URI -> PepewPay -> Payment/Event Gateway -> Webhook
+```
+
+See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
+
 ---
 
 ## 1. Project Structure & Architecture
@@ -42,9 +50,10 @@ User → HTTPS (Port 443) → Nginx (Reverse Proxy & Static Assets)
 
 | Repository | Responsibility |
 | --- | --- |
-| [pepepow-electrumx-service](https://github.com/edisontw/pepepow-electrumx-service) | FastAPI gateway, cache, dashboard pages, wallet API, deployment scripts and configurations |
-| [pepepow-light-wallet](https://github.com/edisontw/pepepow-light-wallet) | Vite/React client-side non-custodial web wallet and wallet core packages |
-| `electrumx-pepepow` | Upstream chain indexing support for PEPEPOW network |
+| [pepepow-electrumx-service](https://github.com/edisontw/pepepow-electrumx-service) | FastAPI gateway, ElectrumX access, cache, payment/event backend, webhook infrastructure, deployment |
+| [pepepow-light-wallet](https://github.com/edisontw/pepepow-light-wallet) | Client-side non-custodial wallet, mnemonic/derivation, transaction signing, wallet UI |
+| [pepepow-devkit](https://github.com/edisontw/pepepow-devkit) | `pepew-js`, Payment URI specification, PepewPay, examples and test vectors |
+| [electrumx-pepepow](https://github.com/edisontw/electrumx-pepepow) | ElectrumX and PEPEPOW chain/indexing support |
 
 ### File Structure Map
 
@@ -223,4 +232,4 @@ Important response fields:
 - `status_explanation`
 - `explorer_address_url`
 
-Configuration features like `PEPEW_MIN_CONFIRMATIONS` define confirmation logic.
+Configuration features like `PEPEW_MIN_CONFIRMATIONS` define the requested confirmation policy for the legacy monitor. The current address-level monitor is not the authoritative merchant payment system; transaction-level payment state is tracked as a separate development path in the Payment Platform roadmap.
