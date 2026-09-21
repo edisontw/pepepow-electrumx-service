@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     pepew_min_confirmations: int = Field(default=3, alias="PEPEW_MIN_CONFIRMATIONS")
     pepew_explorer_base_url: str = Field(default="https://explorer.pepepow.net", alias="PEPEW_EXPLORER_BASE_URL")
 
+    payment_api_enabled: bool = Field(default=False, alias="PAYMENT_API_ENABLED")
+    payment_db_path: str = Field(default="./data/pepew-payments.sqlite3", alias="PAYMENT_DB_PATH")
+    payment_default_expiry_seconds: int = Field(default=900, alias="PAYMENT_DEFAULT_EXPIRY_SECONDS")
+    payment_max_expiry_seconds: int = Field(default=86400, alias="PAYMENT_MAX_EXPIRY_SECONDS")
+
     cache_status_seconds: int = Field(default=10, alias="CACHE_STATUS_SECONDS")
     cache_balance_seconds: int = Field(default=15, alias="CACHE_BALANCE_SECONDS")
     cache_history_seconds: int = Field(default=30, alias="CACHE_HISTORY_SECONDS")
