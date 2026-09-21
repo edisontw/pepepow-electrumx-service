@@ -64,7 +64,7 @@ STATUS_EXPLANATIONS = {
     "error": "Payment status could not be checked.",
 }
 
-_payment_observation_cache = TTLCache()
+_payment_observation_cache = TTLCache(max_items=2048)
 _payment_observation_tasks: dict[str, asyncio.Task[dict[str, Any]]] = {}
 
 
@@ -204,7 +204,7 @@ async def _get_payment_observation(settings: Any, scripthash: str) -> tuple[dict
         _payment_observation_tasks[cache_key] = task
 
     try:
-        observation = await task
+        observation = await asyncio.shield(task)
     finally:
         if _payment_observation_tasks.get(cache_key) is task:
             _payment_observation_tasks.pop(cache_key, None)
