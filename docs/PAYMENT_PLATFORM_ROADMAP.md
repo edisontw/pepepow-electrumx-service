@@ -229,7 +229,7 @@ Status: **COMPLETE**
 
 ### Phase A — Protocol foundation
 
-Status: **IN PROGRESS**
+Status: **COMPLETE**
 
 Repository: `pepepow-devkit`
 
@@ -239,7 +239,7 @@ Repository: `pepepow-devkit`
 - [x] Implement exact amount/address validation shared by URI tooling
 - [x] Add package tests and CI configuration
 - [x] Document compatibility and versioning rules
-- [ ] Verify the first GitHub Actions test run before closing Phase A
+- [x] Verify GitHub Actions on Node 20 (CI run 35626376990: success)
 
 Exit criteria:
 
@@ -250,7 +250,7 @@ Exit criteria:
 
 ### Phase B — Payment correctness and Light optimization
 
-Status: **PLANNED**
+Status: **NEXT**
 
 Repository: `pepepow-electrumx-service`
 
