@@ -76,10 +76,11 @@ is a stateless, address-level monitor. It is useful for simple checks and compat
 
 Verified current behavior on `main`:
 
-- each payment check creates an ElectrumX client/session and closes it after the request
-- it queries `server.version`, balance, history, and mempool
-- it does not currently use a dedicated payment cache
-- `confirmations=N` is not yet a true transaction-height-based N-confirmation check
+- a cache miss creates one ElectrumX client/session and closes it after the observation
+- one cache miss still queries `server.version`, balance, history, and mempool
+- repeated checks for the same address use a bounded short-lived in-process observation cache (default 5 seconds)
+- concurrent checks for the same address share one in-flight ElectrumX observation
+- `confirmations=N` on this legacy monitor remains address-level and is not the authoritative transaction-level confirmation engine
 - status is based primarily on current address balance
 - expiry is not a persisted payment state
 
@@ -250,7 +251,7 @@ Exit criteria:
 
 ### Phase B — Payment correctness and Light optimization
 
-Status: **IN PROGRESS**
+Status: **COMPLETE**
 
 Repository: `pepepow-electrumx-service`
 
@@ -258,11 +259,11 @@ Repository: `pepepow-electrumx-service`
 - [x] Add transaction output matching
 - [x] Implement true N-confirmation logic in the authoritative payment-domain evaluator
 - [x] Define creation-boundary, expiry, duplicate-output, and reorg behavior
-- [ ] Add short-TTL/deduplicated reads for legacy `/api/payment/check`
-- [ ] Reduce unnecessary ElectrumX work where verified safe
+- [x] Add bounded short-TTL and in-flight deduplicated reads for legacy `/api/payment/check`
+- [x] Reduce repeated ElectrumX work with a 5-second observation cache while retaining the existing per-miss methods until protocol-equivalence shortcuts are verified
 - [x] Preserve existing public API compatibility (new state primitives are additive; legacy route unchanged)
 - [x] Add authoritative unit tests for payment-domain primitives
-- [x] Verify Python 3.10 backend CI on GitHub Actions (run 35630626146: 109 passed)
+- [x] Verify Python 3.10 backend CI on GitHub Actions (latest Phase B run 35631522097: 115 passed)
 
 Exit criteria:
 
@@ -273,7 +274,7 @@ Exit criteria:
 
 ### Phase C — PepewPay
 
-Status: **PLANNED**
+Status: **NEXT**
 
 Repository: `pepepow-devkit`
 
