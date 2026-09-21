@@ -235,3 +235,33 @@ Important response fields:
 - `explorer_address_url`
 
 Configuration features like `PEPEW_MIN_CONFIRMATIONS` define the requested confirmation policy for the legacy monitor. The current address-level monitor is not the authoritative merchant payment system; transaction-level payment state is tracked as a separate development path in the Payment Platform roadmap.
+
+
+---
+
+## 7. Persisted Payment API v1
+
+Phase D introduces a separate transaction-level persisted payment path:
+
+```text
+POST /api/v1/payments
+GET  /api/v1/payments/{payment_id}
+```
+
+This path uses SQLite and the transaction-level invariants in [docs/PAYMENT_STATE.md](docs/PAYMENT_STATE.md). Browser status reads are served from persisted state and do not trigger an equivalent ElectrumX request.
+
+The API is intentionally disabled by default:
+
+```text
+PAYMENT_API_ENABLED=false
+```
+
+Production SQLite state is planned at:
+
+```text
+/var/lib/pepew-light/payments.sqlite3
+```
+
+The committed systemd unit creates that writable state directory while keeping `ProtectHome=read-only`.
+
+See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the request/response contract and current deployment status. Do not enable the public create route until the intended merchant access policy has been selected and end-to-end watcher tests are complete.
