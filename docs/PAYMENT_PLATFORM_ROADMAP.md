@@ -229,16 +229,17 @@ Status: **COMPLETE**
 
 ### Phase A — Protocol foundation
 
-Status: **NEXT**
+Status: **IN PROGRESS**
 
 Repository: `pepepow-devkit`
 
-- [ ] Define PEPEW Payment URI v1
-- [ ] Add URI parser/serializer test vectors
-- [ ] Bootstrap `packages/pepew-js`
-- [ ] Implement amount/address validation shared by URI tooling
-- [ ] Add package tests and CI
-- [ ] Document compatibility and versioning rules
+- [x] Define PEPEW Payment URI v1
+- [x] Add URI parser/serializer test vectors
+- [x] Bootstrap `packages/pepew-js`
+- [x] Implement exact amount/address validation shared by URI tooling
+- [x] Add package tests and CI configuration
+- [x] Document compatibility and versioning rules
+- [ ] Verify the first GitHub Actions test run before closing Phase A
 
 Exit criteria:
 
