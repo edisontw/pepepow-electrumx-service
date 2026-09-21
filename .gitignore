@@ -20,3 +20,9 @@ htmlcov/
 
 # Static wallet deployment artifact
 frontend/static/wallet/
+
+# Local SQLite payment state
+backend/data/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
