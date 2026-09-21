@@ -250,18 +250,19 @@ Exit criteria:
 
 ### Phase B — Payment correctness and Light optimization
 
-Status: **NEXT**
+Status: **IN PROGRESS**
 
 Repository: `pepepow-electrumx-service`
 
-- [ ] Define transaction-level payment state machine
-- [ ] Add transaction output matching
-- [ ] Implement true N-confirmation logic
-- [ ] Define expiry and terminal-state behavior
+- [x] Define transaction-level payment state machine ([PAYMENT_STATE.md](PAYMENT_STATE.md))
+- [x] Add transaction output matching
+- [x] Implement true N-confirmation logic in the authoritative payment-domain evaluator
+- [x] Define creation-boundary, expiry, duplicate-output, and reorg behavior
 - [ ] Add short-TTL/deduplicated reads for legacy `/api/payment/check`
 - [ ] Reduce unnecessary ElectrumX work where verified safe
-- [ ] Preserve existing public API compatibility
-- [ ] Add authoritative unit tests
+- [x] Preserve existing public API compatibility (new state primitives are additive; legacy route unchanged)
+- [x] Add authoritative unit tests for payment-domain primitives
+- [ ] Verify the new Python 3.10 backend CI workflow on GitHub Actions
 
 Exit criteria:
 
