@@ -223,6 +223,8 @@ Payment Monitor is not an invoice database.
 
 The payment monitor is address-level and read-only. Amounts are address-level totals. Mempool values are unconfirmed. This is not a merchant invoice ledger.
 
+Repeated checks for the same address share a short in-process ElectrumX observation cache (default `CACHE_PAYMENT_SECONDS=5`) and concurrent refreshes are single-flight deduplicated. This reduces load without changing the address-level semantics. Set the TTL to `0` to disable this cache.
+
 Important response fields:
 - `requested_amount`
 - `requested_sats`
