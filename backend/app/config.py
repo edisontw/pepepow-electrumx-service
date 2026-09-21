@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     cache_status_seconds: int = Field(default=10, alias="CACHE_STATUS_SECONDS")
     cache_balance_seconds: int = Field(default=15, alias="CACHE_BALANCE_SECONDS")
     cache_history_seconds: int = Field(default=30, alias="CACHE_HISTORY_SECONDS")
+    cache_payment_seconds: int = Field(default=5, alias="CACHE_PAYMENT_SECONDS")
     cache_tx_seconds: int = Field(default=300, alias="CACHE_TX_SECONDS")
     cache_price_seconds: int = Field(default=120, alias="CACHE_PRICE_SECONDS")
     cache_price_stale_seconds: int = Field(default=900, alias="CACHE_PRICE_STALE_SECONDS")
