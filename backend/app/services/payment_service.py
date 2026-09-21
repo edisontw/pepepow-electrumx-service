@@ -1,3 +1,4 @@
+import asyncio
 import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -21,6 +22,7 @@ from .address_service import (
     _safe_address_parts,
     _safe_electrumx_error_detail,
 )
+from .cache_service import TTLCache
 
 
 class PaymentCheckError(Exception):
@@ -61,6 +63,18 @@ STATUS_EXPLANATIONS = {
     "expired": "This display monitor has expired.",
     "error": "Payment status could not be checked.",
 }
+
+_payment_observation_cache = TTLCache()
+_payment_observation_tasks: dict[str, asyncio.Task[dict[str, Any]]] = {}
+
+
+def clear_payment_cache() -> None:
+    """Clear legacy payment-monitor observation cache and in-flight registry."""
+    _payment_observation_cache.clear()
+    for task in tuple(_payment_observation_tasks.values()):
+        if not task.done():
+            task.cancel()
+    _payment_observation_tasks.clear()
 
 
 def parse_pepew_amount(amount: str, decimals: int = 8) -> int:
@@ -151,6 +165,55 @@ def _payment_status(
     return "waiting"
 
 
+async def _fetch_payment_observation(settings: Any, scripthash: str) -> dict[str, Any]:
+    client = ElectrumXClient(settings)
+    try:
+        await _identify_client(client)
+        balance_result = await scripthash_get_balance(client, scripthash)
+        history_result = await scripthash_get_history(client, scripthash)
+        mempool_result = await scripthash_get_mempool(client, scripthash)
+    except ElectrumXError as exc:
+        raise PaymentUpstreamError(_electrumx_error_code(exc), _safe_electrumx_error_detail(exc)) from exc
+    finally:
+        await client.close()
+
+    return {
+        "balance": _normalize_balance(balance_result),
+        "history": _normalize_history(history_result),
+        "mempool": _normalize_mempool(mempool_result),
+        "observed_at": int(time.time()),
+    }
+
+
+async def _get_payment_observation(settings: Any, scripthash: str) -> tuple[dict[str, Any], bool, bool]:
+    """Return a short-lived address observation with per-process single-flight deduplication."""
+    cache_key = f"payment-observation:{scripthash}"
+    ttl_seconds = max(0, int(getattr(settings, "cache_payment_seconds", 0)))
+
+    if ttl_seconds > 0:
+        cached = _payment_observation_cache.get(cache_key)
+        if cached is not None:
+            return dict(cached), True, False
+
+    task = _payment_observation_tasks.get(cache_key)
+    shared_inflight = task is not None
+    if task is None:
+        # No await occurs between lookup and assignment. Under the single Uvicorn
+        # event loop this prevents duplicate upstream work for concurrent refreshes.
+        task = asyncio.create_task(_fetch_payment_observation(settings, scripthash))
+        _payment_observation_tasks[cache_key] = task
+
+    try:
+        observation = await task
+    finally:
+        if _payment_observation_tasks.get(cache_key) is task:
+            _payment_observation_tasks.pop(cache_key, None)
+
+    if ttl_seconds > 0:
+        _payment_observation_cache.set(cache_key, observation, ttl_seconds)
+    return dict(observation), False, shared_inflight
+
+
 async def check_payment(
     address: str,
     amount: str,
@@ -167,21 +230,11 @@ async def check_payment(
     expiry_timestamp = _parse_expires_at(expires_at, expires_in)
     normalized_address, _hash160, scripthash = _safe_address_parts(address)
 
-    client = ElectrumXClient(settings)
     started = time.perf_counter()
-    try:
-        await _identify_client(client)
-        balance_result = await scripthash_get_balance(client, scripthash)
-        history_result = await scripthash_get_history(client, scripthash)
-        mempool_result = await scripthash_get_mempool(client, scripthash)
-    except ElectrumXError as exc:
-        raise PaymentUpstreamError(_electrumx_error_code(exc), _safe_electrumx_error_detail(exc)) from exc
-    finally:
-        await client.close()
-
-    balance = _normalize_balance(balance_result)
-    history = _normalize_history(history_result)
-    mempool = _normalize_mempool(mempool_result)
+    observation, cache_hit, shared_inflight = await _get_payment_observation(settings, scripthash)
+    balance = observation["balance"]
+    history = observation["history"]
+    mempool = observation["mempool"]
     confirmed_sats = max(0, int(balance.get("confirmed") or 0))
     unconfirmed_sats = max(0, int(balance.get("unconfirmed") or 0))
     total_sats = confirmed_sats + unconfirmed_sats
@@ -231,7 +284,14 @@ async def check_payment(
         "history_count": len(history),
         "mempool_count": len(mempool),
         "checked_at": now,
+        "observed_at": int(observation["observed_at"]),
         "response_time_ms": round((time.perf_counter() - started) * 1000, 2),
+        "cache": {
+            "enabled": settings.cache_payment_seconds > 0,
+            "ttl_seconds": max(0, int(settings.cache_payment_seconds)),
+            "hit": cache_hit,
+            "shared_inflight": shared_inflight,
+        },
     }
     if expiry_timestamp is not None:
         result["expires_at"] = expiry_timestamp
