@@ -13,6 +13,10 @@ ERROR_MESSAGES = {
     "internal_error": "Request failed.",
     "transaction_lookup_unavailable": "Transaction lookup is not available yet.",
     "payment_check_unavailable": "Payment checking is not available yet.",
+    "payment_api_disabled": "Payment API is not enabled.",
+    "payment_tip_unavailable": "Current chain tip is temporarily unavailable.",
+    "payment_not_found": "Payment was not found.",
+    "payment_store_error": "Payment state could not be stored.",
 }
 
 
