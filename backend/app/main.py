@@ -10,6 +10,7 @@ from .api.status import router as status_router
 from .api.address import router as address_router
 from .api.tx import router as tx_router
 from .api.payment import router as payment_router
+from .api.payment_v1 import router as payment_v1_router
 from .api.wallet import router as wallet_router
 from .api.price import router as price_router
 from .config import get_settings
@@ -78,6 +79,7 @@ app.include_router(status_router, prefix="/api")
 app.include_router(address_router, prefix="/api")
 app.include_router(tx_router, prefix="/api")
 app.include_router(payment_router, prefix="/api")
+app.include_router(payment_v1_router, prefix="/api")
 app.include_router(wallet_router, prefix="/api")
 app.include_router(price_router, prefix="/api")
 
