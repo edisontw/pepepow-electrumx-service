@@ -25,6 +25,8 @@ class FakeElectrumXClient:
 
 
 def install_payment_fakes(monkeypatch, balance, history=None, mempool=None):
+    payment_service.clear_payment_cache()
+
     async def fake_identify(_client):
         return None
 
@@ -191,3 +193,121 @@ def test_status_explanations_exist_for_all_known_statuses():
             assert payment_status_explanation(status) == STATUS_EXPLANATIONS[status]
 
     assert payment_status_explanation("waiting", expired=True) == STATUS_EXPLANATIONS["expired"]
+
+
+def test_payment_check_short_cache_reuses_one_upstream_observation(monkeypatch):
+    payment_service.clear_payment_cache()
+    settings = payment_service.get_settings().model_copy(update={"cache_payment_seconds": 5})
+    monkeypatch.setattr(payment_service, "get_settings", lambda: settings)
+
+    calls = {"identify": 0, "balance": 0, "history": 0, "mempool": 0}
+
+    async def fake_identify(_client):
+        calls["identify"] += 1
+
+    async def fake_balance(_client, _scripthash):
+        calls["balance"] += 1
+        return {"confirmed": 100, "unconfirmed": 0}
+
+    async def fake_history(_client, _scripthash):
+        calls["history"] += 1
+        return [{"tx_hash": "a" * 64, "height": 100}]
+
+    async def fake_mempool(_client, _scripthash):
+        calls["mempool"] += 1
+        return []
+
+    monkeypatch.setattr(payment_service, "ElectrumXClient", FakeElectrumXClient)
+    monkeypatch.setattr(payment_service, "_identify_client", fake_identify)
+    monkeypatch.setattr(payment_service, "scripthash_get_balance", fake_balance)
+    monkeypatch.setattr(payment_service, "scripthash_get_history", fake_history)
+    monkeypatch.setattr(payment_service, "scripthash_get_mempool", fake_mempool)
+
+    async def run_checks():
+        first = await check_payment(KNOWN_ADDRESS, "0.000001")
+        second = await check_payment(KNOWN_ADDRESS, "0.000001")
+        return first, second
+
+    first, second = asyncio.run(run_checks())
+
+    assert calls == {"identify": 1, "balance": 1, "history": 1, "mempool": 1}
+    assert first["cache"]["hit"] is False
+    assert second["cache"]["hit"] is True
+    assert second["observed_at"] == first["observed_at"]
+
+
+def test_payment_check_concurrent_requests_share_inflight_fetch(monkeypatch):
+    payment_service.clear_payment_cache()
+    settings = payment_service.get_settings().model_copy(update={"cache_payment_seconds": 5})
+    monkeypatch.setattr(payment_service, "get_settings", lambda: settings)
+
+    calls = {"balance": 0, "history": 0, "mempool": 0}
+
+    async def fake_identify(_client):
+        return None
+
+    async def fake_balance(_client, _scripthash):
+        calls["balance"] += 1
+        await asyncio.sleep(0.01)
+        return {"confirmed": 0, "unconfirmed": 100}
+
+    async def fake_history(_client, _scripthash):
+        calls["history"] += 1
+        return []
+
+    async def fake_mempool(_client, _scripthash):
+        calls["mempool"] += 1
+        return [{"tx_hash": "b" * 64, "height": 0}]
+
+    monkeypatch.setattr(payment_service, "ElectrumXClient", FakeElectrumXClient)
+    monkeypatch.setattr(payment_service, "_identify_client", fake_identify)
+    monkeypatch.setattr(payment_service, "scripthash_get_balance", fake_balance)
+    monkeypatch.setattr(payment_service, "scripthash_get_history", fake_history)
+    monkeypatch.setattr(payment_service, "scripthash_get_mempool", fake_mempool)
+
+    async def run_checks():
+        return await asyncio.gather(
+            check_payment(KNOWN_ADDRESS, "0.000001"),
+            check_payment(KNOWN_ADDRESS, "0.000001"),
+        )
+
+    results = asyncio.run(run_checks())
+
+    assert calls == {"balance": 1, "history": 1, "mempool": 1}
+    assert sum(1 for result in results if result["cache"]["shared_inflight"]) == 1
+    assert all(result["status"] == "paid_unconfirmed" for result in results)
+
+
+def test_payment_cache_can_be_disabled(monkeypatch):
+    payment_service.clear_payment_cache()
+    settings = payment_service.get_settings().model_copy(update={"cache_payment_seconds": 0})
+    monkeypatch.setattr(payment_service, "get_settings", lambda: settings)
+
+    calls = {"balance": 0}
+
+    async def fake_identify(_client):
+        return None
+
+    async def fake_balance(_client, _scripthash):
+        calls["balance"] += 1
+        return {"confirmed": 0, "unconfirmed": 0}
+
+    async def fake_history(_client, _scripthash):
+        return []
+
+    async def fake_mempool(_client, _scripthash):
+        return []
+
+    monkeypatch.setattr(payment_service, "ElectrumXClient", FakeElectrumXClient)
+    monkeypatch.setattr(payment_service, "_identify_client", fake_identify)
+    monkeypatch.setattr(payment_service, "scripthash_get_balance", fake_balance)
+    monkeypatch.setattr(payment_service, "scripthash_get_history", fake_history)
+    monkeypatch.setattr(payment_service, "scripthash_get_mempool", fake_mempool)
+
+    async def run_checks():
+        await check_payment(KNOWN_ADDRESS, "1")
+        await check_payment(KNOWN_ADDRESS, "1")
+
+    asyncio.run(run_checks())
+
+    assert calls["balance"] == 2
