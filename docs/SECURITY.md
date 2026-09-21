@@ -74,7 +74,10 @@ Recommended behavior:
 - avoid analytics on wallet pages
 - avoid long-lived request logs that bind IP and address
 - avoid user identity systems for the public web wallet unless explicitly required later
-- keep payment monitor address-level and stateless unless a real invoice system is designed later
+- keep the legacy payment monitor address-level and stateless
+- persist only payment/event metadata required by the Payment Platform; never persist wallet recovery or signing material
+- keep webhook secrets out of application and access logs
+- validate webhook destinations and block unsafe private/internal targets unless explicitly trusted by deployment policy
 
 ## Incident response priorities
 
