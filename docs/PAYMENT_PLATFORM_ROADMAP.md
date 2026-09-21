@@ -294,18 +294,22 @@ Exit criteria:
 
 ### Phase D — Payment/Event Gateway
 
-Status: **NEXT — required to complete PepewPay persisted status**
+Status: **IN PROGRESS — SQLite/API foundation complete; watcher next**
 
 Repository: `pepepow-electrumx-service`
 
-- [ ] Add SQLite payment/event persistence
-- [ ] Add payment creation/status API
+- [x] Add SQLite payment/transaction/event schema foundation with WAL and persisted chain state
+- [x] Add feature-gated `POST /api/v1/payments` and persisted `GET /api/v1/payments/{payment_id}`
+- [x] Snapshot creation height from ElectrumX status and fail closed when the chain tip is unavailable
+- [x] Keep browser payment-status reads SQLite-only (no ElectrumX polling per refresh)
 - [ ] Implement persistent ElectrumX event watcher
 - [ ] Verify required ElectrumX subscription behavior against the PEPEPOW fork
-- [ ] Track chain-tip confirmations
+- [x] Persist chain-tip state and apply true confirmation math to stored transaction observations
 - [ ] Add reconnect/resubscribe/reconciliation
 - [ ] Deduplicate event creation
-- [ ] Add resource and failure-boundary tests
+- [x] Add persistence/restart/reorg and API boundary tests (Backend CI run 35633418184: 127 passed)
+- [x] Add deployment-safe SQLite state directory and Nginx request/rate limits
+- [ ] Select merchant access/auth policy before enabling public payment creation
 
 Exit criteria:
 
