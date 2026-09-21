@@ -45,6 +45,35 @@ server {
         proxy_read_timeout 15s;
     }
 
+    # Persisted payment creation/status. Keep request bodies small and rate-limit
+    # separately from lightweight read-only status endpoints.
+    location = /api/v1/payments {
+        limit_req zone=pepew_heavy burst=5 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://127.0.0.1:8088;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 15s;
+        proxy_read_timeout 15s;
+    }
+
+    location ~ ^/api/v1/payments/ {
+        limit_req zone=pepew_heavy burst=10 nodelay;
+        proxy_pass http://127.0.0.1:8088;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 15s;
+        proxy_read_timeout 15s;
+    }
+
     # Heavy query routes (address, history, tx, utxo, payment/check)
     location ~ ^/api/(?:address|tx|payment|wallet)/ {
         limit_req zone=pepew_heavy burst=15 nodelay;
