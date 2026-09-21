@@ -1,0 +1,89 @@
+from fastapi.testclient import TestClient
+
+from app.api import payment_v1
+from app.main import app
+
+ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
+
+
+def test_create_payment_v1_returns_201(monkeypatch):
+    async def fake_create(**kwargs):
+        return {
+            "ok": True,
+            "payment_id": "pay_example",
+            "address": kwargs["address"],
+            "amount": kwargs["amount"],
+            "amount_sats": 100000000,
+            "confirmations_required": 3,
+            "created_at": 1000,
+            "created_height": 500,
+            "expires_at": 1900,
+            "status": "waiting",
+            "version": 1,
+            "received_sats": 0,
+            "confirmed_sats": 0,
+            "policy_confirmed_sats": 0,
+            "overpaid_by_sats": 0,
+            "label": kwargs["label"],
+            "message": kwargs["message"],
+            "updated_at": 1000,
+        }
+
+    monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/payments",
+        json={
+            "address": ADDRESS,
+            "amount": "1",
+            "label": "Demo",
+            "message": "Order 1",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["payment_id"] == "pay_example"
+    assert response.json()["status"] == "waiting"
+
+
+def test_get_payment_v1_reads_persisted_service(monkeypatch):
+    async def fake_get(payment_id):
+        return {
+            "ok": True,
+            "payment_id": payment_id,
+            "address": ADDRESS,
+            "amount": "1",
+            "amount_sats": 100000000,
+            "confirmations_required": 3,
+            "created_at": 1000,
+            "created_height": 500,
+            "expires_at": 1900,
+            "status": "paid_confirmed",
+            "version": 2,
+            "received_sats": 100000000,
+            "confirmed_sats": 100000000,
+            "policy_confirmed_sats": 100000000,
+            "overpaid_by_sats": 0,
+            "label": None,
+            "message": None,
+            "updated_at": 1100,
+        }
+
+    monkeypatch.setattr(payment_v1, "get_persisted_payment", fake_get)
+    client = TestClient(app)
+    response = client.get("/api/v1/payments/pay_example")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "paid_confirmed"
+
+
+def test_get_payment_v1_not_found(monkeypatch):
+    async def fake_get(_payment_id):
+        raise payment_v1.PaymentNotFoundError("missing")
+
+    monkeypatch.setattr(payment_v1, "get_persisted_payment", fake_get)
+    client = TestClient(app)
+    response = client.get("/api/v1/payments/pay_missing")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "payment_not_found"
