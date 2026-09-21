@@ -274,16 +274,18 @@ Exit criteria:
 
 ### Phase C — PepewPay
 
-Status: **NEXT**
+Status: **IN PROGRESS — checkout shell complete; persisted status depends on Phase D**
 
 Repository: `pepepow-devkit`
 
-- [ ] Build PepewPay PWA
-- [ ] Render Payment URI QR
-- [ ] Add wallet handoff
-- [ ] Display persisted payment state
-- [ ] Keep frontend deployable as static output
-- [ ] Avoid requiring Node.js on the production chain host
+- [x] Build PepewPay static PWA shell
+- [x] Render canonical PEPEW Payment URI QR
+- [x] Add native `pepew:` wallet handoff
+- [x] Add existing PEPEW Light web-wallet fallback using public `to` / `amount` parameters only
+- [ ] Display authoritative persisted payment state from the Payment/Event Gateway
+- [x] Keep frontend deployable as static output
+- [x] Avoid requiring Node.js on the production chain host
+- [x] Add PepewPay unit tests and static production build to devkit CI (run 35632180507: success; 4 app tests passed)
 
 Exit criteria:
 
@@ -292,7 +294,7 @@ Exit criteria:
 
 ### Phase D — Payment/Event Gateway
 
-Status: **PLANNED**
+Status: **NEXT — required to complete PepewPay persisted status**
 
 Repository: `pepepow-electrumx-service`
 
