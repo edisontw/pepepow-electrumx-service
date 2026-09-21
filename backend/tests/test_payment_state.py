@@ -274,3 +274,23 @@ def test_conflicting_duplicate_outpoint_is_rejected():
             created_at=1000,
             now=1004,
         )
+
+
+def test_later_observation_can_downgrade_confirmation_after_reorg():
+    confirmed = obs(TX_A, 0, 100, height=501, seen=1001)
+    reorged = obs(TX_A, 0, 100, height=0, seen=1001)
+
+    evaluation = evaluate_payment_observations(
+        100,
+        [confirmed, reorged],
+        tip_height=503,
+        confirmations_required=3,
+        created_height=500,
+        created_at=1000,
+        now=1004,
+    )
+
+    assert evaluation.received_sats == 100
+    assert evaluation.confirmed_sats == 0
+    assert evaluation.policy_confirmed_sats == 0
+    assert evaluation.status == "paid_unconfirmed"
