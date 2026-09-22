@@ -74,3 +74,33 @@ def test_webhook_url_accepts_public_dns_and_preserves_path_query():
         assert target.path_and_query == "/hooks/pepew?source=pay"
         assert target.host_header == "merchant.example"
     asyncio.run(run())
+
+
+def test_webhook_url_percent_encodes_unicode_path_and_query():
+    async def run():
+        target = await resolve_webhook_target(
+            "https://merchant.example/收款?note=測試",
+            resolver=_resolver("93.184.216.34"),
+        )
+        assert target.path_and_query == "/%E6%94%B6%E6%AC%BE?note=%E6%B8%AC%E8%A9%A6"
+    asyncio.run(run())
+
+
+def test_webhook_url_rejects_control_characters():
+    async def run():
+        with pytest.raises(WebhookUrlError):
+            await resolve_webhook_target(
+                "https://merchant.example/hook\nX-Test: injected",
+                resolver=_resolver("93.184.216.34"),
+            )
+    asyncio.run(run())
+
+
+def test_public_ipv6_literal_uses_bracketed_host_header():
+    async def run():
+        target = await resolve_webhook_target(
+            "https://[2606:2800:220:1:248:1893:25c8:1946]/hook",
+        )
+        assert target.addresses == ("2606:2800:220:1:248:1893:25c8:1946",)
+        assert target.host_header == "[2606:2800:220:1:248:1893:25c8:1946]"
+    asyncio.run(run())
