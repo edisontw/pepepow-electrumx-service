@@ -76,7 +76,7 @@ Recommended behavior:
 - avoid user identity systems for the public web wallet unless explicitly required later
 - keep the legacy payment monitor address-level and stateless
 - persist only payment/event metadata required by the Payment Platform; never persist wallet recovery or signing material
-- keep merchant API keys and webhook secrets out of application and access logs
+- keep merchant API keys, webhook master keys, and derived signing secrets out of application and access logs
 - validate webhook destinations and block unsafe private/internal targets unless explicitly trusted by deployment policy
 - require server-side Bearer authorization for persisted payment creation; never embed merchant API keys in browser JavaScript, Payment URI, QR data, or wallet handoff
 - treat persisted payment status URLs as capability links because possession of the high-entropy payment ID grants read-only status access
@@ -92,3 +92,22 @@ If a suspected issue occurs:
 4. Do not publish internal secrets, stack traces, or host paths.
 5. If wallet UI may be compromised, remove `/wallet/` static serving until verified.
 6. Re-deploy wallet from a known safe commit.
+
+
+## Webhook-specific rules
+
+Payment webhooks are outbound server requests to merchant-controlled URLs and therefore require explicit SSRF defenses.
+
+- HTTPS only, port 443 only.
+- Reject localhost, private, loopback, link-local, reserved, multicast, unspecified, and metadata targets.
+- Resolve DNS before connection and reject mixed public/private answers.
+- Re-resolve every delivery attempt.
+- Connect the TLS socket directly to the validated public IP while preserving merchant hostname for SNI and HTTP Host.
+- Do not follow redirects.
+- Bound DNS, connect, write, response-header read time, response-header size, batch size, and retry count.
+- Persist delivery state before/after attempts; assume at-least-once delivery.
+- Merchant receivers must deduplicate by stable event ID.
+- Webhook signing secrets are derived from a protected server master key and are not stored in plaintext SQLite.
+- Changing the webhook master key changes every endpoint secret; disable/recreate endpoints during initial-version key rotation.
+
+See [WEBHOOKS.md](WEBHOOKS.md).
