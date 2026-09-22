@@ -25,6 +25,11 @@ def _event_id(payment_id: str, payment_version: int, event_type: str) -> str:
     return "evt_" + hashlib.sha256(material).hexdigest()
 
 
+def _delivery_id(event_id: str, endpoint_id: str) -> str:
+    material = f"pepew-webhook-delivery-v1:{event_id}:{endpoint_id}".encode("utf-8")
+    return "dlv_" + hashlib.sha256(material).hexdigest()
+
+
 def _event_payload(
     payment: dict[str, Any],
     *,
@@ -64,7 +69,13 @@ def _insert_event(
         int(payment["version"]),
         event_type,
     )
-    connection.execute(
+    payload_json = _event_payload(
+        payment,
+        event_id=event_id,
+        event_type=event_type,
+        created_at=int(created_at),
+    )
+    cursor = connection.execute(
         """
         INSERT OR IGNORE INTO events (
             event_id, payment_id, event_type, payment_version, created_at, payload_json
@@ -76,14 +87,47 @@ def _insert_event(
             event_type,
             int(payment["version"]),
             int(created_at),
-            _event_payload(
-                payment,
-                event_id=event_id,
-                event_type=event_type,
-                created_at=int(created_at),
-            ),
+            payload_json,
         ),
     )
+
+    if cursor.rowcount:
+        endpoints = connection.execute(
+            """
+            SELECT endpoint_id, event_types_json
+            FROM webhook_endpoints
+            WHERE enabled = 1
+            ORDER BY endpoint_id
+            """
+        ).fetchall()
+        for endpoint in endpoints:
+            raw_types = endpoint["event_types_json"]
+            if isinstance(raw_types, str):
+                try:
+                    event_types = json.loads(raw_types)
+                except json.JSONDecodeError:
+                    event_types = []
+                if not isinstance(event_types, list) or event_type not in event_types:
+                    continue
+
+            endpoint_id = str(endpoint["endpoint_id"])
+            delivery_id = _delivery_id(event_id, endpoint_id)
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO webhook_deliveries (
+                    delivery_id, event_id, endpoint_id, status,
+                    attempt_count, next_attempt_at, created_at, updated_at
+                ) VALUES (?, ?, ?, 'pending', 0, ?, ?, ?)
+                """,
+                (
+                    delivery_id,
+                    event_id,
+                    endpoint_id,
+                    int(created_at),
+                    int(created_at),
+                    int(created_at),
+                ),
+            )
     return event_id
 
 
@@ -170,6 +214,41 @@ class PaymentStore:
                         UNIQUE (payment_id, event_type, payment_version),
                         FOREIGN KEY (payment_id) REFERENCES payments(payment_id) ON DELETE CASCADE
                     );
+
+                    CREATE TABLE IF NOT EXISTS webhook_endpoints (
+                        endpoint_id TEXT PRIMARY KEY,
+                        url TEXT NOT NULL,
+                        event_types_json TEXT,
+                        enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+                        delivery_id TEXT PRIMARY KEY,
+                        event_id TEXT NOT NULL,
+                        endpoint_id TEXT NOT NULL,
+                        status TEXT NOT NULL CHECK (
+                            status IN ('pending', 'retry', 'delivered', 'dead')
+                        ),
+                        attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+                        next_attempt_at INTEGER NOT NULL,
+                        last_attempt_at INTEGER,
+                        http_status INTEGER,
+                        error_code TEXT,
+                        delivered_at INTEGER,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL,
+                        UNIQUE (event_id, endpoint_id),
+                        FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
+                        FOREIGN KEY (endpoint_id) REFERENCES webhook_endpoints(endpoint_id) ON DELETE CASCADE
+                    );
+
+                    CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_due
+                    ON webhook_deliveries (status, next_attempt_at);
+
+                    CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_event
+                    ON webhook_deliveries (event_id);
 
                     CREATE TABLE IF NOT EXISTS chain_state (
                         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -302,6 +381,206 @@ class PaymentStore:
                 item["payload"] = None
             events.append(item)
         return events
+
+    def create_webhook_endpoint(
+        self,
+        *,
+        endpoint_id: str,
+        url: str,
+        event_types: tuple[str, ...] | None,
+        created_at: int,
+    ) -> dict[str, Any]:
+        self.initialize()
+        event_types_json = (
+            None
+            if event_types is None
+            else json.dumps(list(event_types), separators=(",", ":"))
+        )
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO webhook_endpoints (
+                    endpoint_id, url, event_types_json, enabled, created_at, updated_at
+                ) VALUES (?, ?, ?, 1, ?, ?)
+                """,
+                (
+                    endpoint_id,
+                    url,
+                    event_types_json,
+                    int(created_at),
+                    int(created_at),
+                ),
+            )
+        return self.get_webhook_endpoint(endpoint_id)
+
+    def get_webhook_endpoint(self, endpoint_id: str) -> dict[str, Any]:
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT endpoint_id, url, event_types_json, enabled, created_at, updated_at
+                FROM webhook_endpoints
+                WHERE endpoint_id = ?
+                """,
+                (endpoint_id,),
+            ).fetchone()
+        if row is None:
+            raise PaymentNotFoundError(endpoint_id)
+        item = dict(row)
+        raw_types = item.pop("event_types_json", None)
+        item["event_types"] = None if raw_types is None else json.loads(raw_types)
+        item["enabled"] = bool(item["enabled"])
+        return item
+
+    def list_webhook_endpoints(self) -> list[dict[str, Any]]:
+        self.initialize()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT endpoint_id, url, event_types_json, enabled, created_at, updated_at
+                FROM webhook_endpoints
+                ORDER BY created_at ASC, endpoint_id ASC
+                """
+            ).fetchall()
+        endpoints: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            raw_types = item.pop("event_types_json", None)
+            item["event_types"] = None if raw_types is None else json.loads(raw_types)
+            item["enabled"] = bool(item["enabled"])
+            endpoints.append(item)
+        return endpoints
+
+    def disable_webhook_endpoint(self, endpoint_id: str, *, updated_at: int) -> None:
+        self.initialize()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE webhook_endpoints
+                SET enabled = 0, updated_at = ?
+                WHERE endpoint_id = ?
+                """,
+                (int(updated_at), endpoint_id),
+            )
+        if cursor.rowcount == 0:
+            raise PaymentNotFoundError(endpoint_id)
+
+    def list_due_webhook_deliveries(
+        self,
+        *,
+        now: int,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        self.initialize()
+        bounded_limit = min(100, max(1, int(limit)))
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    d.delivery_id,
+                    d.event_id,
+                    d.endpoint_id,
+                    d.status,
+                    d.attempt_count,
+                    d.next_attempt_at,
+                    e.payload_json,
+                    w.url
+                FROM webhook_deliveries AS d
+                JOIN events AS e ON e.event_id = d.event_id
+                JOIN webhook_endpoints AS w ON w.endpoint_id = d.endpoint_id
+                WHERE d.status IN ('pending', 'retry')
+                  AND d.next_attempt_at <= ?
+                  AND w.enabled = 1
+                ORDER BY d.next_attempt_at ASC, d.created_at ASC, d.delivery_id ASC
+                LIMIT ?
+                """,
+                (int(now), bounded_limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_webhook_delivery(self, delivery_id: str) -> dict[str, Any]:
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM webhook_deliveries
+                WHERE delivery_id = ?
+                """,
+                (delivery_id,),
+            ).fetchone()
+        if row is None:
+            raise PaymentNotFoundError(delivery_id)
+        return dict(row)
+
+    def mark_webhook_delivery_success(
+        self,
+        delivery_id: str,
+        *,
+        http_status: int,
+        attempted_at: int,
+    ) -> None:
+        self.initialize()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE webhook_deliveries
+                SET status = 'delivered',
+                    attempt_count = attempt_count + 1,
+                    last_attempt_at = ?,
+                    http_status = ?,
+                    error_code = NULL,
+                    delivered_at = ?,
+                    updated_at = ?
+                WHERE delivery_id = ?
+                """,
+                (
+                    int(attempted_at),
+                    int(http_status),
+                    int(attempted_at),
+                    int(attempted_at),
+                    delivery_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise PaymentNotFoundError(delivery_id)
+
+    def mark_webhook_delivery_failure(
+        self,
+        delivery_id: str,
+        *,
+        http_status: int | None,
+        error_code: str,
+        attempted_at: int,
+        next_attempt_at: int,
+        dead: bool,
+    ) -> None:
+        self.initialize()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE webhook_deliveries
+                SET status = ?,
+                    attempt_count = attempt_count + 1,
+                    last_attempt_at = ?,
+                    http_status = ?,
+                    error_code = ?,
+                    next_attempt_at = ?,
+                    updated_at = ?
+                WHERE delivery_id = ?
+                """,
+                (
+                    "dead" if dead else "retry",
+                    int(attempted_at),
+                    None if http_status is None else int(http_status),
+                    error_code,
+                    int(next_attempt_at),
+                    int(attempted_at),
+                    delivery_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise PaymentNotFoundError(delivery_id)
 
 
     def get_payments_by_scripthash(self, scripthash: str) -> list[dict[str, Any]]:
