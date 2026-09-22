@@ -58,7 +58,7 @@ def test_worker_delivers_signed_event_and_marks_success(tmp_path, monkeypatch):
     settings, store = _setup(tmp_path)
     sent = {}
 
-    async def fake_resolve(_url):
+    async def fake_resolve(_url, **_kwargs):
         return _target()
 
     async def fake_sender(target, *, body, headers, timeout_seconds):
@@ -99,7 +99,7 @@ def test_worker_retries_5xx_then_delivers_same_event(tmp_path, monkeypatch):
     clock = {"now": 1000}
     calls = []
 
-    async def fake_resolve(_url):
+    async def fake_resolve(_url, **_kwargs):
         return _target()
 
     async def fake_sender(_target_value, *, body, headers, timeout_seconds):
@@ -131,7 +131,7 @@ def test_worker_retries_5xx_then_delivers_same_event(tmp_path, monkeypatch):
 def test_worker_marks_nonretryable_4xx_dead(tmp_path, monkeypatch):
     settings, store = _setup(tmp_path)
 
-    async def fake_resolve(_url):
+    async def fake_resolve(_url, **_kwargs):
         return _target()
 
     async def fake_sender(_target_value, **_kwargs):
@@ -162,7 +162,7 @@ def test_worker_blocks_unsafe_target_without_sending(tmp_path, monkeypatch):
     settings, store = _setup(tmp_path)
     sent = {"count": 0}
 
-    async def unsafe(_url):
+    async def unsafe(_url, **_kwargs):
         raise WebhookUrlError("unsafe_webhook_target", "unsafe")
 
     async def fake_sender(*_args, **_kwargs):
@@ -188,7 +188,7 @@ def test_worker_blocks_unsafe_target_without_sending(tmp_path, monkeypatch):
 def test_worker_marks_retryable_error_dead_at_max_attempts(tmp_path, monkeypatch):
     settings, store = _setup(tmp_path, max_attempts=1)
 
-    async def fake_resolve(_url):
+    async def fake_resolve(_url, **_kwargs):
         return _target()
 
     async def fake_sender(*_args, **_kwargs):
