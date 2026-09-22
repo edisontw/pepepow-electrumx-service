@@ -105,7 +105,10 @@ class WebhookWorker:
         terminal = attempt_number >= max(1, int(self.settings.payment_webhook_max_attempts))
 
         try:
-            target = await resolve_webhook_target(url)
+            target = await resolve_webhook_target(
+                url,
+                timeout_seconds=float(self.settings.payment_webhook_timeout_seconds),
+            )
             secret = derive_webhook_secret(
                 self.settings.payment_webhook_master_key,
                 endpoint_id,
