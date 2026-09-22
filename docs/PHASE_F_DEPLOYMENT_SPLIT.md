@@ -142,6 +142,45 @@ Requirements:
 Prefer the simplest option that preserves the private boundary after the actual
 network topology is known.
 
+## 5.1 Observed VM-B baseline (2026-09-22)
+
+Candidate dedicated Payment Platform host:
+
+```text
+hostname: pepepow-nm2-ub3
+OS: Ubuntu 22.04.2 LTS
+architecture: aarch64
+CPU: 1 core
+RAM: 5.8 GiB
+swap: none
+root filesystem: ~45 GiB, ~29 GiB available
+Python: 3.10.12
+private address: 10.0.0.95/24
+timezone: UTC
+NTP: synchronized
+```
+
+Current observed services/ports:
+
+```text
+22/tcp        SSH
+8833/tcp      PEPEPOWd P2P
+8834/tcp      PEPEPOWd RPC, loopback only
+111/tcp/udp   rpcbind
+```
+
+Nginx is not installed. Git and Node.js were not reported by the audit command;
+confirm Git explicitly before repository deployment. Node.js is not required on
+this host for PepewPay because static assets are built in CI.
+
+The host currently runs PEPEPOWd. Keep it unchanged during connectivity and
+bootstrap validation. Before the final Payment Platform cutover, decide whether
+to remove that node so the dedicated host actually provides CPU/failure
+isolation.
+
+The next gate is to identify VM-A's private address/subnet and prove VM-B can
+reach it through an approved private path. Do not expose ElectrumX publicly.
+
 ## 6. New-host inspection before deployment
 
 Before installing the Payment Platform on VM-B, record:
