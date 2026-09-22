@@ -53,7 +53,10 @@ async def create_webhook_endpoint(
     settings = get_settings()
     _require_enabled(settings)
 
-    await resolve_webhook_target(url)
+    await resolve_webhook_target(
+        url,
+        timeout_seconds=float(settings.payment_webhook_timeout_seconds),
+    )
     normalized_events = normalize_event_types(event_types)
     endpoint_id = f"wh_{secrets.token_urlsafe(18)}"
     signing_secret = derive_webhook_secret(
