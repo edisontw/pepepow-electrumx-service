@@ -301,8 +301,7 @@ The VM-B public IP is currently OCI ephemeral and has been stable for years; the
 initial rollout keeps it. If that IP changes, update both the DNS A record and
 the VM-A tunnel key source restriction.
 
-The next gate is PepewPay same-origin API readiness followed by the SQLite
-single-writer cutover.
+PepewPay same-origin Payment API readiness is complete. Its default persisted-status API base is now `/api`, so the same static build targets the local Payment API origin on both `light.pepepow.net/pay/` and `pay.pepepow.net/`. The next gate is the SQLite single-writer cutover.
 
 ## 7. VM-B deployment shape
 
@@ -325,25 +324,27 @@ read-only deploy key.
 
 ## 8. PepewPay API/domain handling
 
-The current PepewPay browser default is:
+PepewPay now uses a same-origin persisted-status API base:
 
 ```text
-https://light.pepepow.net/api
+/api
 ```
 
-Before making `pay.pepepow.net` authoritative, rebuild/configure PepewPay so
-persisted checkout polling points to the intended Payment API on VM-B, preferably
-same-origin:
+This allows one static build to resolve locally on either deployment:
 
 ```text
-https://pay.pepepow.net/api
+https://pay.pepepow.net/
+  -> /api/v1/payments/...
+  -> VM-B
+
+https://light.pepepow.net/pay/
+  -> /api/v1/payments/...
+  -> VM-A
 ```
 
-Do not silently leave production checkout status reads pointed at VM-A after the
-SQLite authority moves to VM-B.
+This change is implemented and covered by devkit tests. After SQLite authority moves to VM-B, the primary `pay.pepepow.net` deployment therefore follows VM-B automatically without a host-specific API URL baked into the frontend.
 
-The native/web-wallet handoff can continue to use the existing PEPEW Light
-wallet unless a separate wallet migration is intentionally planned.
+The native/web-wallet handoff remains on the existing PEPEW Light wallet and does not move mnemonic, private-key, or signing logic server-side.
 
 ## 9. Secret policy during split
 
