@@ -40,6 +40,10 @@ def _payment_response(payment: dict[str, Any], *, decimals: int) -> dict[str, An
     received_sats = int(payment["received_sats"])
     confirmed_sats = int(payment["confirmed_sats"])
     policy_confirmed_sats = int(payment["policy_confirmed_sats"])
+    received = format_pepew_amount_from_sats(received_sats, decimals)
+    confirmed = format_pepew_amount_from_sats(confirmed_sats, decimals)
+    policy_confirmed = format_pepew_amount_from_sats(policy_confirmed_sats, decimals)
+    overpaid_by_sats = max(0, received_sats - amount_sats)
     return {
         "ok": True,
         "payment_id": str(payment["payment_id"]),
@@ -52,10 +56,14 @@ def _payment_response(payment: dict[str, Any], *, decimals: int) -> dict[str, An
         "expires_at": int(payment["expires_at"]),
         "status": str(payment["status"]),
         "version": int(payment["version"]),
+        "received": received,
         "received_sats": received_sats,
+        "confirmed": confirmed,
         "confirmed_sats": confirmed_sats,
+        "policy_confirmed": policy_confirmed,
         "policy_confirmed_sats": policy_confirmed_sats,
-        "overpaid_by_sats": max(0, received_sats - amount_sats),
+        "overpaid_by": format_pepew_amount_from_sats(overpaid_by_sats, decimals),
+        "overpaid_by_sats": overpaid_by_sats,
         "label": payment.get("label"),
         "message": payment.get("message"),
         "updated_at": int(payment["updated_at"]),
