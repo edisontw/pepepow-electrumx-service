@@ -1,0 +1,26 @@
+[Unit]
+Description=PEPEW Payment ElectrumX SSH Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/usr/bin/ssh -NT \
+  -i /home/ubuntu/.ssh/pepew-electrumx-tunnel \
+  -o IdentitiesOnly=yes \
+  -o BatchMode=yes \
+  -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile=/home/ubuntu/.ssh/known_hosts \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -L 127.0.0.1:50001:127.0.0.1:50001 \
+  ubuntu@light.pepepow.net
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
