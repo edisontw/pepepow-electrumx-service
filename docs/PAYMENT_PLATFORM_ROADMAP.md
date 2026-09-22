@@ -383,6 +383,7 @@ Current production rollout status (2026-09-22):
 - persistent watcher advanced a real 1 PEPEW payment to `paid_confirmed`
 - Payment API and watcher are now enabled on the current host for rollout validation
 - webhook worker remains disabled pending its own production E2E
+- reproducible production webhook E2E helpers are prepared to verify SSRF rejection, HMAC, real HTTP 503 retry -> 204 delivery, stable IDs/body, delivery log, and cleanup without printing secrets
 - PepewPay static UI is deployed and verified at `https://light.pepepow.net/pay/`
 - Live PepewPay production E2E is verified with a new 0.1 PEPEW payment through web-wallet handoff, broadcast, `paid_unconfirmed`, and `paid_confirmed`
 - Production retrieval of the private `pepepow-devkit` static artifact uses a dedicated repository-scoped read-only SSH deploy key; do not store a long-lived GitHub PAT in shell history or the repository
