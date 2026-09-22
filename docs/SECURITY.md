@@ -76,8 +76,11 @@ Recommended behavior:
 - avoid user identity systems for the public web wallet unless explicitly required later
 - keep the legacy payment monitor address-level and stateless
 - persist only payment/event metadata required by the Payment Platform; never persist wallet recovery or signing material
-- keep webhook secrets out of application and access logs
+- keep merchant API keys and webhook secrets out of application and access logs
 - validate webhook destinations and block unsafe private/internal targets unless explicitly trusted by deployment policy
+- require server-side Bearer authorization for persisted payment creation; never embed merchant API keys in browser JavaScript, Payment URI, QR data, or wallet handoff
+- treat persisted payment status URLs as capability links because possession of the high-entropy payment ID grants read-only status access
+- before storing real payment/webhook secrets on production, restrict the backend environment file to the service account (for the current host, prefer mode 600 or an equivalent systemd credential mechanism)
 
 ## Incident response priorities
 
