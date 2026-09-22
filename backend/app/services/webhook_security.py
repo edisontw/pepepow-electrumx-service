@@ -2,7 +2,7 @@ import asyncio
 import ipaddress
 import socket
 from dataclasses import dataclass
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 
 class WebhookUrlError(ValueError):
@@ -60,6 +60,8 @@ async def resolve_webhook_target(
 ) -> ResolvedWebhookTarget:
     if not isinstance(url, str) or len(url) > 2048:
         raise WebhookUrlError("invalid_webhook_url", "Webhook URL is invalid.")
+    if any(ord(character) < 32 or ord(character) == 127 for character in url):
+        raise WebhookUrlError("invalid_webhook_url", "Webhook URL contains control characters.")
 
     parsed = urlsplit(url)
     if parsed.scheme.lower() != "https":
@@ -116,11 +118,34 @@ async def resolve_webhook_target(
         if any(not _is_safe_public_ip(address) for address in addresses):
             raise WebhookUrlError("unsafe_webhook_target", "Webhook target resolved to a non-public address.")
 
-    path = parsed.path or "/"
+    path = quote(
+        parsed.path or "/",
+        safe="/%:@-._~!    path = parsed.path or "/"
     if parsed.query:
         path += f"?{parsed.query}"
 
     host_header = hostname
+'()*+,;=",
+    )
+    if parsed.query:
+        query = quote(
+            parsed.query,
+            safe="=&%:@/?-._~!    return ResolvedWebhookTarget(
+        hostname=hostname,
+        port=port,
+        path_and_query=path,
+        host_header=host_header,
+        addresses=tuple(addresses),
+    )
+()*+,;",
+        )
+        path += f"?{query}"
+
+    host_header = (
+        f"[{hostname}]"
+        if literal is not None and literal.version == 6
+        else hostname
+    )
     return ResolvedWebhookTarget(
         hostname=hostname,
         port=port,
