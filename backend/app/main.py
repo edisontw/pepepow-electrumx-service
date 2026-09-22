@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,15 +16,29 @@ from .api.wallet import router as wallet_router
 from .api.price import router as price_router
 from .config import get_settings
 from .logging_config import configure_logging
+from .services.payment_watcher import PaymentWatcher
 from .services.status_service import get_status
 
 settings = get_settings()
 configure_logging(settings)
+payment_watcher = PaymentWatcher(settings)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    if settings.payment_watcher_enabled:
+        await payment_watcher.start()
+    try:
+        yield
+    finally:
+        await payment_watcher.stop()
+
 
 app = FastAPI(
     title="PEPEW Light",
     version=settings.version,
     description="PEPEPOW ElectrumX API Gateway for public read-only queries.",
+    lifespan=lifespan,
 )
 
 # CORS configuration
