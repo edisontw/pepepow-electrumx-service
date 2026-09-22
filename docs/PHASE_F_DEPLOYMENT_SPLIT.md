@@ -175,7 +175,7 @@ this host for PepewPay because static assets are built in CI.
 
 The host currently runs PEPEPOWd. For the initial low-traffic rollout, keep this node running rather than removing it. This means VM-B is a separate Payment Platform host from the ElectrumX/Light host, but is not a payment-only machine. Revisit removal only if CPU/failure isolation becomes operationally necessary.
 
-VM-A was subsequently confirmed at `10.0.0.132/24`, while VM-B is `10.0.0.95/24`; both report `10.0.0.0/24`. However, an actual VM-B -> VM-A TCP/22 private-path probe failed on 2026-09-22. Therefore matching CIDRs must not be treated as proof that the instances share one reachable OCI VCN/subnet. Keep ElectrumX localhost-only until VCN/subnet identity and reachability are verified. If the instances are in separate overlapping-CIDR VCNs, prefer the controlled SSH-tunnel option rather than attempting unsafe/public ElectrumX exposure.
+VM-A was subsequently confirmed at `10.0.0.132/24`, while VM-B is `10.0.0.95/24`; both report `10.0.0.0/24`. Bidirectional private TCP/22 probes failed and neighbor discovery remained `INCOMPLETE`/`FAILED` on 2026-09-22. This is consistent with separate OCI networks using overlapping CIDRs rather than a shared reachable subnet. OCI local VCN peering requires non-overlapping CIDRs, so the preferred Phase F path is now a controlled SSH tunnel from VM-B to VM-A over the existing SSH service. Keep ElectrumX bound to `127.0.0.1:50001`; do not expose port 50001 publicly or bind it to a public interface.
 
 ## 6. New-host inspection before deployment
 
