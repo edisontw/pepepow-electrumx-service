@@ -5,7 +5,10 @@ from functools import lru_cache
 from typing import Any
 
 from ..config import get_settings
-from .address_service import _safe_address_parts
+from ..electrumx.client import ElectrumXClient
+from ..electrumx.errors import ElectrumXError
+from ..electrumx.methods import headers_subscribe, scripthash_get_history
+from .address_service import _identify_client, _normalize_history, _safe_address_parts
 from .payment_service import (
     InvalidPaymentAmountError,
     InvalidPaymentParameterError,
@@ -13,7 +16,6 @@ from .payment_service import (
     parse_pepew_amount,
 )
 from .payment_store import PaymentNotFoundError, PaymentStore, PaymentStoreError
-from .status_service import get_status
 
 
 class PaymentGatewayDisabledError(RuntimeError):
@@ -65,6 +67,37 @@ def _require_enabled(settings: Any) -> None:
         raise PaymentGatewayDisabledError("Payment API is disabled.")
 
 
+async def _snapshot_creation_state(settings: Any, scripthash: str) -> tuple[int, str | None, tuple[str, ...]]:
+    """Capture chain tip and pre-existing confirmed/mempool txids on one ElectrumX session."""
+    client = ElectrumXClient(settings)
+    try:
+        await _identify_client(client)
+        header_result = await headers_subscribe(client)
+        history_result = await scripthash_get_history(client, scripthash)
+    except ElectrumXError as exc:
+        raise PaymentTipUnavailableError("Payment creation snapshot is unavailable.") from exc
+    finally:
+        await client.close()
+
+    if not isinstance(header_result, dict):
+        raise PaymentTipUnavailableError("Current chain tip is unavailable.")
+
+    height = header_result.get("height")
+    if not isinstance(height, int) or height < 0:
+        raise PaymentTipUnavailableError("Current chain tip is unavailable.")
+
+    tip_hash = header_result.get("hash")
+    if tip_hash is not None and not isinstance(tip_hash, str):
+        tip_hash = None
+
+    baseline_txids = tuple(
+        item["tx_hash"].lower()
+        for item in _normalize_history(history_result)
+        if isinstance(item.get("tx_hash"), str)
+    )
+    return height, tip_hash, baseline_txids
+
+
 async def create_persisted_payment(
     *,
     address: str,
@@ -98,20 +131,15 @@ async def create_persisted_payment(
             f"Expiry seconds must be between 60 and {settings.payment_max_expiry_seconds}.",
         )
 
-    status = await get_status()
-    electrumx = status.get("electrumx") if isinstance(status, dict) else None
-    height = electrumx.get("height") if isinstance(electrumx, dict) else None
-    if not status.get("ok") or not isinstance(height, int) or height < 0:
-        raise PaymentTipUnavailableError("Current chain tip is unavailable.")
-
     now = int(time.time())
+    height, tip_hash, baseline_txids = await _snapshot_creation_state(settings, scripthash)
     payment_id = f"pay_{secrets.token_urlsafe(18)}"
     store = _store_for_path(settings.payment_db_path)
 
     await asyncio.to_thread(
         store.set_chain_tip,
         int(height),
-        tip_hash=electrumx.get("tip_hash") if isinstance(electrumx, dict) else None,
+        tip_hash=tip_hash,
         updated_at=now,
     )
     payment = await asyncio.to_thread(
@@ -126,6 +154,7 @@ async def create_persisted_payment(
         expires_at=now + expiry_seconds,
         label=label or None,
         message=message or None,
+        baseline_txids=baseline_txids,
     )
     return _payment_response(payment, decimals=settings.pepew_decimals)
 
