@@ -1,6 +1,5 @@
 import sqlite3
 import threading
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +69,13 @@ class PaymentStore:
                     CREATE INDEX IF NOT EXISTS idx_payments_expires_at
                     ON payments (expires_at);
 
+                    CREATE TABLE IF NOT EXISTS payment_baseline_transactions (
+                        payment_id TEXT NOT NULL,
+                        txid TEXT NOT NULL,
+                        PRIMARY KEY (payment_id, txid),
+                        FOREIGN KEY (payment_id) REFERENCES payments(payment_id) ON DELETE CASCADE
+                    );
+
                     CREATE TABLE IF NOT EXISTS payment_transactions (
                         payment_id TEXT NOT NULL,
                         txid TEXT NOT NULL,
@@ -119,6 +125,7 @@ class PaymentStore:
         expires_at: int,
         label: str | None = None,
         message: str | None = None,
+        baseline_txids: tuple[str, ...] = (),
     ) -> dict[str, Any]:
         self.initialize()
         with self._connect() as connection:
@@ -146,6 +153,13 @@ class PaymentStore:
                     int(created_at),
                 ),
             )
+            connection.executemany(
+                """
+                INSERT OR IGNORE INTO payment_baseline_transactions (payment_id, txid)
+                VALUES (?, ?)
+                """,
+                [(payment_id, txid.lower()) for txid in baseline_txids],
+            )
         return self.get_payment(payment_id)
 
     def get_payment(self, payment_id: str) -> dict[str, Any]:
@@ -158,6 +172,97 @@ class PaymentStore:
         if row is None:
             raise PaymentNotFoundError(payment_id)
         return dict(row)
+
+
+    def get_payments_by_scripthash(self, scripthash: str) -> list[dict[str, Any]]:
+        self.initialize()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM payments
+                WHERE scripthash = ?
+                ORDER BY created_at ASC, payment_id ASC
+                """,
+                (scripthash,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_watch_scripthashes(self, *, limit: int) -> list[str]:
+        self.initialize()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT scripthash, MAX(created_at) AS last_created
+                FROM payments
+                GROUP BY scripthash
+                ORDER BY last_created DESC
+                LIMIT ?
+                """,
+                (max(1, int(limit)),),
+            ).fetchall()
+        return [str(row["scripthash"]) for row in rows]
+
+    def get_baseline_txids(self, payment_id: str) -> set[str]:
+        self.initialize()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT txid
+                FROM payment_baseline_transactions
+                WHERE payment_id = ?
+                """,
+                (payment_id,),
+            ).fetchall()
+        return {str(row["txid"]).lower() for row in rows}
+
+    def delete_transactions_not_in(self, payment_id: str, txids: set[str]) -> None:
+        self.initialize()
+        normalized = {txid.lower() for txid in txids}
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT DISTINCT txid
+                FROM payment_transactions
+                WHERE payment_id = ?
+                """,
+                (payment_id,),
+            ).fetchall()
+            stale = [
+                str(row["txid"])
+                for row in rows
+                if str(row["txid"]).lower() not in normalized
+            ]
+            connection.executemany(
+                """
+                DELETE FROM payment_transactions
+                WHERE payment_id = ? AND txid = ?
+                """,
+                [(payment_id, txid) for txid in stale],
+            )
+
+    def list_refreshable_payment_ids(self, *, now: int, limit: int) -> list[str]:
+        self.initialize()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT p.payment_id
+                FROM payments AS p
+                WHERE p.status != 'expired'
+                  AND (
+                    p.expires_at <= ?
+                    OR EXISTS (
+                        SELECT 1
+                        FROM payment_transactions AS t
+                        WHERE t.payment_id = p.payment_id
+                    )
+                  )
+                ORDER BY p.updated_at DESC
+                LIMIT ?
+                """,
+                (int(now), max(1, int(limit))),
+            ).fetchall()
+        return [str(row["payment_id"]) for row in rows]
 
     def set_chain_tip(self, tip_height: int, *, tip_hash: str | None, updated_at: int) -> None:
         self.initialize()
