@@ -326,18 +326,19 @@ Exit criteria:
 
 ### Phase E — Webhook
 
-Status: **NEXT — PepewPay persisted-status integration is implemented; production rollout can remain gated**
+Status: **COMPLETE — production rollout remains gated**
 
 Repository: `pepepow-electrumx-service`
 
 - [x] Define stable Payment Event Envelope v1 and deterministic event IDs in Phase D
-- [ ] Implement HMAC signatures
-- [ ] Add delivery queue in SQLite
-- [ ] Add timeout/retry/backoff
-- [ ] Add idempotency/dedup rules
-- [ ] Add delivery log
-- [ ] Add SSRF/private-network protections
-- [ ] Add webhook security tests
+- [x] Implement per-endpoint HMAC-SHA256 signatures derived from a server-side master key ([WEBHOOKS.md](WEBHOOKS.md))
+- [x] Add durable SQLite endpoint/delivery queue created atomically with new events
+- [x] Add bounded DNS/connect/read timeouts and exponential retry/backoff
+- [x] Add at-least-once/idempotency rules with stable event and delivery IDs
+- [x] Add authenticated endpoint-management and delivery-log APIs
+- [x] Add HTTPS-only SSRF/private/link-local/metadata/DNS-rebinding protections with direct validated-IP connections
+- [x] Add webhook signing, queue, retry, API, direct-IP sender, URL-hardening, and SSRF tests
+- [x] Keep webhook worker feature-gated off by default until production E2E
 
 Exit criteria:
 
@@ -346,9 +347,9 @@ Exit criteria:
 - no secret leakage in logs
 - blocked unsafe destinations
 
-### Phase F — Production deployment split
+### Phase F — Production rollout / deployment split
 
-Status: **PLANNED**
+Status: **NEXT — first production E2E can use the current host; VM split remains optional until load justifies it**
 
 Preferred direction when the event/webhook workload becomes active:
 
