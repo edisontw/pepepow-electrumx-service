@@ -144,3 +144,24 @@ def test_selected_state_event_enqueues_delivery(tmp_path):
     events = store.list_events(payment_id="pay_test")
     assert events[-1]["event_type"] == "payment.paid_confirmed"
     assert due[0]["event_id"] == events[-1]["event_id"]
+
+
+def test_webhook_delivery_log_supports_endpoint_filter(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    for endpoint_id in ("wh_one", "wh_two"):
+        store.create_webhook_endpoint(
+            endpoint_id=endpoint_id,
+            url=f"https://{endpoint_id}.example/hook",
+            event_types=None,
+            created_at=900,
+        )
+
+    _payment(store, "pay_test")
+    all_deliveries = store.list_webhook_deliveries(limit=10)
+    one = store.list_webhook_deliveries(endpoint_id="wh_one", limit=10)
+
+    assert len(all_deliveries) == 2
+    assert len(one) == 1
+    assert one[0]["endpoint_id"] == "wh_one"
+    assert one[0]["event_type"] == "payment.created"
+    assert one[0]["payment_id"] == "pay_test"
