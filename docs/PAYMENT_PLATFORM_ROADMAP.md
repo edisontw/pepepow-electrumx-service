@@ -274,7 +274,7 @@ Exit criteria:
 
 ### Phase C — PepewPay
 
-Status: **IN PROGRESS — production static deployment and confirmed-payment UI verified; live state-transition E2E pending**
+Status: **COMPLETE**
 
 Repository: `pepepow-devkit`
 
@@ -293,7 +293,7 @@ Repository: `pepepow-devkit`
 - [x] Production backend E2E on 2026-09-22: unauthenticated create rejected -> authenticated create -> wallet broadcast -> watcher persisted state -> `paid_confirmed` (1 PEPEW, 1 confirmation)
 - [x] Production static deployment verified at `https://light.pepepow.net/pay/`
 - [x] Existing confirmed payment capability link verified in production with read-only persisted details, QR, and wallet handoff
-- [ ] Final live PepewPay E2E: create a new small payment -> waiting -> wallet handoff/broadcast -> paid_unconfirmed -> paid_confirmed
+- [x] Final live PepewPay E2E on 2026-09-22: new 0.1 PEPEW payment -> waiting -> PEPEW Light web-wallet handoff/broadcast -> paid_unconfirmed -> paid_confirmed (1 confirmation)
 
 Exit criteria:
 
@@ -352,7 +352,7 @@ Exit criteria:
 
 ### Phase F — Production rollout / deployment split
 
-Status: **IN PROGRESS — backend payment E2E passed on the current host; PepewPay static deployment and webhook production E2E remain**
+Status: **IN PROGRESS — backend payment and PepewPay production E2E passed on the current host; webhook production E2E remains**
 
 Preferred direction when the event/webhook workload becomes active:
 
@@ -384,7 +384,7 @@ Current production rollout status (2026-09-22):
 - Payment API and watcher are now enabled on the current host for rollout validation
 - webhook worker remains disabled pending its own production E2E
 - PepewPay static UI is deployed and verified at `https://light.pepepow.net/pay/`
-- Existing confirmed payment capability-link UI is verified in production; final live state-transition UI E2E remains
+- Live PepewPay production E2E is verified with a new 0.1 PEPEW payment through web-wallet handoff, broadcast, `paid_unconfirmed`, and `paid_confirmed`
 - Production retrieval of the private `pepepow-devkit` static artifact uses a dedicated repository-scoped read-only SSH deploy key; do not store a long-lived GitHub PAT in shell history or the repository
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
