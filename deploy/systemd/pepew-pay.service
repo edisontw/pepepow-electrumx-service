@@ -1,0 +1,22 @@
+[Unit]
+Description=PEPEW Payment Platform API (VM-B)
+After=network-online.target pepew-electrumx-tunnel.service
+Wants=network-online.target pepew-electrumx-tunnel.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/pepepow-electrumx-service/backend
+EnvironmentFile=/home/ubuntu/pepepow-electrumx-service/backend/.env
+ExecStart=/home/ubuntu/pepepow-electrumx-service/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8088
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+StateDirectory=pepew-pay
+StateDirectoryMode=0750
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
