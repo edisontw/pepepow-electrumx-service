@@ -300,16 +300,67 @@ payment.expired
 
 A chain reorg may legitimately produce a later-version event that moves payment state backward. Merchants should process event versions in context rather than assuming payment state is strictly monotonic.
 
+## Production E2E procedure
+
+The repository includes production helpers under:
+
+```text
+backend/scripts/configure_webhook_production.py
+backend/scripts/webhook_production_e2e.py
+```
+
+The configuration helper:
+
+- preserves an existing non-empty `PAYMENT_WEBHOOK_MASTER_KEY`
+- generates a new 48-byte URL-safe master key only when the setting is empty
+- enables `PAYMENT_WEBHOOK_ENABLED=true`
+- rewrites `backend/.env` atomically with mode `0600`
+- never prints the master-key value
+
+After restarting `pepew-light.service`, the E2E helper uses an anonymous,
+temporary Webhook.site HTTPS receiver and a `payment.created` event to verify
+the production path without requiring another real PEPEW transfer.
+
+The E2E flow verifies:
+
+1. a loopback target is rejected as `unsafe_webhook_target`
+2. endpoint creation succeeds while the endpoint list does not expose
+   `signing_secret`
+3. a one-atom test payment emits `payment.created`
+4. an intentional HTTP 503 is persisted as `retry`
+5. the captured request signature verifies against the exact raw body bytes
+6. the receiver is switched to HTTP 204
+7. the retry reaches `delivered` using the same event ID, delivery ID, and body
+8. the authenticated delivery log reports delivery metadata without secrets
+9. the temporary endpoint is disabled and the temporary receiver token is
+   deleted on cleanup
+
+Only non-sensitive test payment metadata is sent to the third-party receiver.
+Do not put customer/private data into the E2E payment label or message.
+
+Example:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service
+git pull --ff-only
+
+cd backend
+python3 scripts/configure_webhook_production.py
+
+sudo systemctl restart pepew-light
+sudo systemctl --no-pager --full status pepew-light
+
+python3 scripts/webhook_production_e2e.py \
+  --reference-payment-id pay_<existing-production-payment-id>
+```
+
+The E2E helper reads the existing merchant API key and webhook configuration
+from `backend/.env` and never prints their values.
+
 ## Production state
 
 The implementation is complete in GitHub but production rollout remains gated.
 
-Current safe defaults remain:
+The repository defaults remain disabled, while the current production rollout has already enabled the Payment API and watcher. Webhook delivery remains the final gated production E2E step.
 
-```text
-PAYMENT_API_ENABLED=false
-PAYMENT_WATCHER_ENABLED=false
-PAYMENT_WEBHOOK_ENABLED=false
-```
-
-Production enablement should happen as an explicit E2E deployment step with protected environment-file permissions, a generated merchant API key, a generated webhook master key, Nginx/systemd reload, and end-to-end validation.
+Production enablement must remain explicit: keep the environment file protected, configure a webhook master key without logging it, restart the service, run the production E2E helper, and review the resulting delivery metadata before considering webhook rollout verified.
