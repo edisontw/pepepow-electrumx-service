@@ -513,6 +513,50 @@ class PaymentStore:
             raise PaymentNotFoundError(delivery_id)
         return dict(row)
 
+    def list_webhook_deliveries(
+        self,
+        *,
+        endpoint_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        self.initialize()
+        bounded_limit = min(500, max(1, int(limit)))
+        params: list[Any] = []
+        where = ""
+        if endpoint_id is not None:
+            where = "WHERE d.endpoint_id = ?"
+            params.append(endpoint_id)
+        params.append(bounded_limit)
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    d.delivery_id,
+                    d.event_id,
+                    d.endpoint_id,
+                    d.status,
+                    d.attempt_count,
+                    d.next_attempt_at,
+                    d.last_attempt_at,
+                    d.http_status,
+                    d.error_code,
+                    d.delivered_at,
+                    d.created_at,
+                    d.updated_at,
+                    e.payment_id,
+                    e.event_type,
+                    e.payment_version
+                FROM webhook_deliveries AS d
+                JOIN events AS e ON e.event_id = d.event_id
+                {where}
+                ORDER BY d.created_at DESC, d.delivery_id DESC
+                LIMIT ?
+                """,
+                tuple(params),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def mark_webhook_delivery_success(
         self,
         delivery_id: str,
