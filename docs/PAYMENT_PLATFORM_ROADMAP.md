@@ -274,7 +274,7 @@ Exit criteria:
 
 ### Phase C — PepewPay
 
-Status: **IN PROGRESS — implementation complete; production E2E/deployment pending**
+Status: **IN PROGRESS — production static deployment and confirmed-payment UI verified; live state-transition E2E pending**
 
 Repository: `pepepow-devkit`
 
@@ -291,7 +291,9 @@ Repository: `pepepow-devkit`
 - [x] Keep Payment API requests out of the PWA app-shell fallback cache
 - [x] Add PepewPay status/unit tests and static production build to devkit CI (run 35726364293: success; 10 app tests passed)
 - [x] Production backend E2E on 2026-09-22: unauthenticated create rejected -> authenticated create -> wallet broadcast -> watcher persisted state -> `paid_confirmed` (1 PEPEW, 1 confirmation)
-- [ ] Production PepewPay E2E: capability link -> QR/wallet handoff -> live persisted status display
+- [x] Production static deployment verified at `https://light.pepepow.net/pay/`
+- [x] Existing confirmed payment capability link verified in production with read-only persisted details, QR, and wallet handoff
+- [ ] Final live PepewPay E2E: create a new small payment -> waiting -> wallet handoff/broadcast -> paid_unconfirmed -> paid_confirmed
 
 Exit criteria:
 
@@ -381,7 +383,8 @@ Current production rollout status (2026-09-22):
 - persistent watcher advanced a real 1 PEPEW payment to `paid_confirmed`
 - Payment API and watcher are now enabled on the current host for rollout validation
 - webhook worker remains disabled pending its own production E2E
-- PepewPay static UI is not yet deployed on the production domain
+- PepewPay static UI is deployed and verified at `https://light.pepepow.net/pay/`
+- Existing confirmed payment capability-link UI is verified in production; final live state-transition UI E2E remains
 - Production retrieval of the private `pepepow-devkit` static artifact uses a dedicated repository-scoped read-only SSH deploy key; do not store a long-lived GitHub PAT in shell history or the repository
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
