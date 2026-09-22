@@ -361,6 +361,25 @@ and signing-secret rotation explicitly rather than rotating silently.
 
 Never copy mnemonic/private keys; Payment Platform does not need them.
 
+## 9.1 Cutover preflight helper
+
+Before freezing VM-A, run:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service
+git pull --ff-only
+cd backend
+python3 scripts/phase_f_cutover_preflight.py --require-no-enabled-webhooks
+```
+
+The helper is read-only. It reports feature-gate state, SQLite integrity, row
+counts, enabled webhook endpoint count, and delivery-status counts without
+printing merchant API keys, webhook master keys, signing secrets, payment
+addresses, or webhook URLs.
+
+For the initial migration, zero enabled webhook endpoints is required if VM-B
+will use a newly generated webhook master key.
+
 ## 10. SQLite migration
 
 The existing SQLite database contains authoritative payment/event history and
