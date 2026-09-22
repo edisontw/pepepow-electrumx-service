@@ -17,6 +17,8 @@ ERROR_MESSAGES = {
     "payment_tip_unavailable": "Current chain tip is temporarily unavailable.",
     "payment_not_found": "Payment was not found.",
     "payment_store_error": "Payment state could not be stored.",
+    "payment_auth_required": "Valid merchant authorization is required.",
+    "payment_auth_unconfigured": "Payment creation authentication is not configured.",
 }
 
 
@@ -30,5 +32,15 @@ def api_error_payload(code: str, message: str | None = None) -> dict:
     }
 
 
-def api_error_response(status_code: int, code: str, message: str | None = None) -> JSONResponse:
-    return JSONResponse(status_code=status_code, content=api_error_payload(code, message))
+def api_error_response(
+    status_code: int,
+    code: str,
+    message: str | None = None,
+    *,
+    headers: dict[str, str] | None = None,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=api_error_payload(code, message),
+        headers=headers,
+    )
