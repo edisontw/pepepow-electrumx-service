@@ -329,7 +329,7 @@ Exit criteria:
 
 ### Phase E — Webhook
 
-Status: **COMPLETE — production rollout remains gated**
+Status: **COMPLETE — production E2E verified**
 
 Repository: `pepepow-electrumx-service`
 
@@ -342,6 +342,7 @@ Repository: `pepepow-electrumx-service`
 - [x] Add HTTPS-only SSRF/private/link-local/metadata/DNS-rebinding protections with direct validated-IP connections
 - [x] Add webhook signing, queue, retry, API, direct-IP sender, URL-hardening, and SSRF tests
 - [x] Keep webhook worker feature-gated off by default until production E2E
+- [x] Production webhook E2E on 2026-09-22: SSRF loopback rejection -> endpoint create/list secret boundary -> `payment.created` -> intentional HTTP 503 -> persisted retry -> exact-body HMAC verification -> HTTP 204 retry delivery -> stable event/delivery IDs and body -> authenticated delivery log
 
 Exit criteria:
 
@@ -352,7 +353,7 @@ Exit criteria:
 
 ### Phase F — Production rollout / deployment split
 
-Status: **IN PROGRESS — backend payment and PepewPay production E2E passed on the current host; webhook production E2E remains**
+Status: **IN PROGRESS — current-host production rollout verified; deployment split to a dedicated Payment Platform host remains**
 
 Preferred direction when the event/webhook workload becomes active:
 
@@ -382,8 +383,8 @@ Current production rollout status (2026-09-22):
 - existing client-side wallet broadcast verified
 - persistent watcher advanced a real 1 PEPEW payment to `paid_confirmed`
 - Payment API and watcher are now enabled on the current host for rollout validation
-- webhook worker remains disabled pending its own production E2E
-- reproducible production webhook E2E helpers are prepared to verify SSRF rejection, HMAC, real HTTP 503 retry -> 204 delivery, stable IDs/body, delivery log, and cleanup without printing secrets
+- webhook worker is enabled on the current production host after successful production E2E
+- production webhook E2E verified SSRF rejection, exact-body HMAC, real HTTP 503 retry -> 204 delivery, stable event/delivery IDs and body, authenticated delivery log, cleanup, and no printed secrets
 - PepewPay static UI is deployed and verified at `https://light.pepepow.net/pay/`
 - Live PepewPay production E2E is verified with a new 0.1 PEPEW payment through web-wallet handoff, broadcast, `paid_unconfirmed`, and `paid_confirmed`
 - Production retrieval of the private `pepepow-devkit` static artifact uses a dedicated repository-scoped read-only SSH deploy key; do not store a long-lived GitHub PAT in shell history or the repository
