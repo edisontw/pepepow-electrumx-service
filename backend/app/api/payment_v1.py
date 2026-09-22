@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Path, status
+from fastapi import APIRouter, Header, Path, status
 from pydantic import BaseModel, Field
 
 from .errors import api_error_response
 from ..services.address_service import InvalidPepewAddressError
+from ..services.payment_auth import (
+    PaymentAuthError,
+    PaymentAuthUnconfiguredError,
+    require_payment_create_auth,
+)
 from ..services.payment_gateway_service import (
     PaymentGatewayDisabledError,
     PaymentNotFoundError,
@@ -26,8 +31,12 @@ class CreatePaymentRequest(BaseModel):
 
 
 @router.post("/v1/payments", status_code=status.HTTP_201_CREATED)
-async def create_payment(request: CreatePaymentRequest):
+async def create_payment(
+    request: CreatePaymentRequest,
+    authorization: str | None = Header(default=None),
+):
     try:
+        require_payment_create_auth(authorization)
         return await create_persisted_payment(
             address=request.address,
             amount=request.amount,
@@ -35,6 +44,17 @@ async def create_payment(request: CreatePaymentRequest):
             expires_in=request.expires_in,
             label=request.label,
             message=request.message,
+        )
+    except PaymentAuthUnconfiguredError:
+        return api_error_response(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "payment_auth_unconfigured",
+        )
+    except PaymentAuthError:
+        return api_error_response(
+            status.HTTP_401_UNAUTHORIZED,
+            "payment_auth_required",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     except InvalidPepewAddressError as exc:
         return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
