@@ -61,10 +61,8 @@ Current response fields include:
 - `expires_at`
 - `status`
 - `version`
-- `received_sats`
-- `confirmed_sats`
-- `policy_confirmed_sats`
-- `overpaid_by_sats`
+- exact decimal strings: `received`, `confirmed`, `policy_confirmed`, `overpaid_by`
+- compatibility integer fields: `received_sats`, `confirmed_sats`, `policy_confirmed_sats`, `overpaid_by_sats`
 - optional `label` / `message`
 
 When `PAYMENT_WATCHER_ENABLED=true`, the persistent ElectrumX watcher subscribes to tracked scripthashes and chain headers, reconciles transaction outputs into SQLite, and advances confirmations without browser polling. Both Payment API and watcher remain disabled by default until production access policy and end-to-end validation are complete.
@@ -104,3 +102,5 @@ SQLite uses WAL mode, foreign keys, a bounded busy timeout, and short transactio
 Merchant authentication is defined in [PAYMENT_API_AUTH.md](PAYMENT_API_AUTH.md): payment creation requires a server-side Bearer API key, while status GET uses the high-entropy payment ID as a read-only capability. The create endpoint fails closed if the key is missing or shorter than 32 characters.
 
 Durable state-change events are defined in [PAYMENT_EVENTS.md](PAYMENT_EVENTS.md) and are persisted atomically with payment version updates.
+
+Browser clients should prefer the exact decimal-string amount fields rather than converting large JSON integer atom values through JavaScript `Number`.
