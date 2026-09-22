@@ -1,6 +1,13 @@
 # Bootstrap-only HTTP configuration for pay.pepepow.net.
 # Before authoritative cutover, expose only health/status. All Payment Platform
 # creation/status/webhook routes remain unavailable through this virtual host.
+
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+}
+
 server {
     listen 80;
     server_name pay.pepepow.net;
