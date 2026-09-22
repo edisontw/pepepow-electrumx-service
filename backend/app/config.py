@@ -43,6 +43,15 @@ class Settings(BaseSettings):
         alias="PAYMENT_WATCHER_MAX_SUBSCRIPTIONS",
     )
 
+    payment_webhook_enabled: bool = Field(default=False, alias="PAYMENT_WEBHOOK_ENABLED")
+    payment_webhook_master_key: str | None = Field(default=None, alias="PAYMENT_WEBHOOK_MASTER_KEY")
+    payment_webhook_timeout_seconds: float = Field(default=5.0, alias="PAYMENT_WEBHOOK_TIMEOUT_SECONDS")
+    payment_webhook_poll_seconds: float = Field(default=2.0, alias="PAYMENT_WEBHOOK_POLL_SECONDS")
+    payment_webhook_max_attempts: int = Field(default=8, alias="PAYMENT_WEBHOOK_MAX_ATTEMPTS")
+    payment_webhook_retry_base_seconds: int = Field(default=30, alias="PAYMENT_WEBHOOK_RETRY_BASE_SECONDS")
+    payment_webhook_retry_max_seconds: int = Field(default=3600, alias="PAYMENT_WEBHOOK_RETRY_MAX_SECONDS")
+    payment_webhook_batch_size: int = Field(default=20, alias="PAYMENT_WEBHOOK_BATCH_SIZE")
+
     cache_status_seconds: int = Field(default=10, alias="CACHE_STATUS_SECONDS")
     cache_balance_seconds: int = Field(default=15, alias="CACHE_BALANCE_SECONDS")
     cache_history_seconds: int = Field(default=30, alias="CACHE_HISTORY_SECONDS")
