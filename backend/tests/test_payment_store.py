@@ -129,3 +129,105 @@ def test_unknown_payment_raises_not_found(tmp_path):
 
     with pytest.raises(PaymentNotFoundError):
         store.get_payment("pay_missing")
+
+
+def test_payment_creation_emits_one_deterministic_created_event(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    create(store)
+
+    events = store.list_events(payment_id="pay_test")
+
+    assert len(events) == 1
+    event = events[0]
+    assert event["event_type"] == "payment.created"
+    assert event["payment_version"] == 1
+    assert event["payload"]["schema_version"] == 1
+    assert event["payload"]["payment_id"] == "pay_test"
+    assert event["payload"]["data"]["status"] == "waiting"
+
+    restarted = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    restarted_events = restarted.list_events(payment_id="pay_test")
+    assert restarted_events[0]["event_id"] == event["event_id"]
+
+
+def test_state_change_event_is_atomic_and_duplicate_refresh_is_deduplicated(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    create(store)
+    store.upsert_transaction(
+        "pay_test",
+        PaymentTransactionObservation(
+            txid="a" * 64,
+            vout=0,
+            value_sats=40,
+            height=0,
+            first_seen_at=1001,
+        ),
+        updated_at=1001,
+    )
+
+    first = store.refresh_payment("pay_test", now=1001)
+    second = store.refresh_payment("pay_test", now=1002)
+    events = store.list_events(payment_id="pay_test")
+
+    assert first["status"] == "partial"
+    assert first["version"] == 2
+    assert second["version"] == 2
+    assert [event["event_type"] for event in events] == [
+        "payment.created",
+        "payment.partial",
+    ]
+    assert events[-1]["payment_version"] == 2
+    assert events[-1]["payload"]["data"]["received_sats"] == 40
+
+
+def test_reorg_or_dropped_mempool_creates_new_versioned_state_event(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    create(store)
+    observation = PaymentTransactionObservation(
+        txid="a" * 64,
+        vout=0,
+        value_sats=100,
+        height=0,
+        first_seen_at=1001,
+    )
+    store.upsert_transaction("pay_test", observation, updated_at=1001)
+    paid = store.refresh_payment("pay_test", now=1001)
+    assert paid["status"] == "paid_unconfirmed"
+
+    store.delete_transactions_not_in("pay_test", set())
+    waiting = store.refresh_payment("pay_test", now=1002)
+
+    events = store.list_events(payment_id="pay_test")
+    assert waiting["status"] == "waiting"
+    assert waiting["version"] == 3
+    assert [event["event_type"] for event in events] == [
+        "payment.created",
+        "payment.paid_unconfirmed",
+        "payment.waiting",
+    ]
+    assert [event["payment_version"] for event in events] == [1, 2, 3]
+
+
+def test_event_sequence_supports_incremental_consumers(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    create(store)
+    first = store.list_events()
+    assert len(first) == 1
+
+    store.upsert_transaction(
+        "pay_test",
+        PaymentTransactionObservation(
+            txid="a" * 64,
+            vout=0,
+            value_sats=40,
+            height=0,
+            first_seen_at=1001,
+        ),
+        updated_at=1001,
+    )
+    store.refresh_payment("pay_test", now=1001)
+
+    later = store.list_events(after_sequence=first[0]["sequence"])
+    assert len(later) == 1
+    assert later[0]["event_type"] == "payment.partial"
+    assert later[0]["sequence"] > first[0]["sequence"]
