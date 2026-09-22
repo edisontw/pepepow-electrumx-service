@@ -126,6 +126,30 @@ Requirements:
 
 This is operationally simple when both VMs share an appropriate private network.
 
+### Selected path — controlled SSH tunnel
+
+Selected on 2026-09-22 after bidirectional private-path probes failed.
+
+Observed:
+
+```text
+VM-A private IP: 10.0.0.132/24
+VM-B private IP: 10.0.0.95/24
+VM-B public IP: 192.9.179.139
+VM-A sshd: AllowTcpForwarding=yes
+VM-A sshd: GatewayPorts=no
+VM-A ElectrumX: 127.0.0.1:50001 only
+```
+
+The tunnel key must be source-restricted to VM-B's public IP and authorized only
+for local forwarding to `127.0.0.1:50001`. It must not provide an interactive
+shell. VM-B should expose the tunnel only on its own `127.0.0.1:50001`, with a
+systemd unit maintaining the connection.
+
+No OCI ingress rule for TCP 50001 is required. VM-A needs SSH/TCP 22 reachable
+from VM-B's public IP. If VM-B's public IP is ephemeral, reserve it or update the
+source restriction when the address changes.
+
 ### Option B — controlled SSH tunnel
 
 Keep ElectrumX bound to `127.0.0.1:50001` on VM-A and create a persistent,
