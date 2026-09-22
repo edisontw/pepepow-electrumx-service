@@ -1,6 +1,6 @@
 # Phase F — Dedicated Payment Platform Host
 
-Status: **IN PROGRESS — VM-B audited and ElectrumX SSH tunnel verified; Payment Platform bootstrap pending**
+Status: **IN PROGRESS — VM-B bootstrap backend verified; DNS/TLS and authoritative cutover pending**
 
 This document defines the staged migration from the verified single-host rollout on
 `light.pepepow.net` to a dedicated Payment Platform host, expected to use:
@@ -262,6 +262,28 @@ The bootstrap environment intentionally keeps Payment API, watcher, and webhook
 disabled and uses a staging SQLite path. The bootstrap Nginx virtual host exposes
 only `/api/health` and `/api/status`; other paths return 404 until the
 authoritative cutover.
+
+
+VM-B staging backend validation completed on 2026-09-22:
+
+```text
+pepew-pay.service: active
+/api/health: ok=true, app=pepew-pay, env=production
+/api/status: ElectrumX connected through localhost SSH tunnel
+ElectrumX version: 1.19.0
+protocol: 1.4
+Nginx bootstrap config: syntax PASS
+Nginx Host=pay.pepepow.net /api/health: PASS
+Nginx Host=pay.pepepow.net /api/status: PASS
+Nginx /api/v1/payments: 404 during bootstrap
+PAYMENT_API_ENABLED=false
+PAYMENT_WATCHER_ENABLED=false
+PAYMENT_WEBHOOK_ENABLED=false
+```
+
+This confirms the non-authoritative VM-B application path without creating a
+second Payment Platform writer. The next gate is stable public addressing,
+`pay.pepepow.net` DNS, and HTTPS before any SQLite cutover.
 
 ## 7. VM-B deployment shape
 
