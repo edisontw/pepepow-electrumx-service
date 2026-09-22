@@ -274,7 +274,7 @@ Exit criteria:
 
 ### Phase C — PepewPay
 
-Status: **IN PROGRESS — NEXT: connect persisted status now that Phase D is complete**
+Status: **IN PROGRESS — implementation complete; production E2E/deployment pending**
 
 Repository: `pepepow-devkit`
 
@@ -282,10 +282,15 @@ Repository: `pepepow-devkit`
 - [x] Render canonical PEPEW Payment URI QR
 - [x] Add native `pepew:` wallet handoff
 - [x] Add existing PEPEW Light web-wallet fallback using public `to` / `amount` parameters only
-- [ ] Display authoritative persisted payment state from the Payment/Event Gateway
+- [x] Display authoritative persisted payment state from the Payment/Event Gateway using read-only `?payment_id=...` capability links
 - [x] Keep frontend deployable as static output
 - [x] Avoid requiring Node.js on the production chain host
-- [x] Add PepewPay unit tests and static production build to devkit CI (run 35632180507: success; 4 app tests passed)
+- [x] Poll SQLite-backed status every 4 seconds while visible; hidden tabs skip refreshes
+- [x] Use exact decimal-string status amounts in browser calculations; do not rely on large JSON integer atoms through JavaScript Number
+- [x] Keep merchant create API key entirely server-side; PepewPay performs status GET only
+- [x] Keep Payment API requests out of the PWA app-shell fallback cache
+- [x] Add PepewPay status/unit tests and static production build to devkit CI (run 35726364293: success; 10 app tests passed)
+- [ ] Production E2E: merchant create -> PepewPay capability link -> wallet handoff -> watcher status transition
 
 Exit criteria:
 
@@ -321,7 +326,7 @@ Exit criteria:
 
 ### Phase E — Webhook
 
-Status: **PLANNED — after PepewPay persisted-status integration**
+Status: **NEXT — PepewPay persisted-status integration is implemented; production rollout can remain gated**
 
 Repository: `pepepow-electrumx-service`
 
