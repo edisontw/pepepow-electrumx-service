@@ -114,6 +114,11 @@ def require_status(status: int, expected: int, payload: dict[str, Any], label: s
         raise E2EError(f"{label}: expected HTTP {expected}, got {status}{suffix}")
 
 
+def require_2xx(status: int, label: str) -> None:
+    if status < 200 or status >= 300:
+        raise E2EError(f"{label}: expected HTTP 2xx, got {status}")
+
+
 def header_value(headers: dict[str, Any], name: str) -> str | None:
     wanted = name.lower()
     for key, value in headers.items():
@@ -306,7 +311,7 @@ def main() -> int:
                 "default_content_type": "text/plain",
             },
         )
-        require_status(status, 201, token, "Create temporary Webhook.site token")
+        require_2xx(status, "Create temporary Webhook.site token")
         token_id_value = token.get("uuid")
         if not isinstance(token_id_value, str) or not token_id_value:
             raise E2EError("Webhook.site token response did not contain uuid")
@@ -411,7 +416,7 @@ def main() -> int:
                 "default_content_type": "text/plain",
             },
         )
-        require_status(status, 200, updated, "Switch temporary receiver to HTTP 204")
+        require_2xx(status, "Switch temporary receiver to HTTP 204")
 
         delivered = wait_for_delivery(
             api_base,
