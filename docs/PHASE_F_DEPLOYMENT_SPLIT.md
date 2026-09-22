@@ -1,6 +1,6 @@
 # Phase F — Dedicated Payment Platform Host
 
-Status: **IN PROGRESS — VM-B bootstrap backend verified; DNS/TLS and authoritative cutover pending**
+Status: **IN PROGRESS — VM-B DNS/TLS/bootstrap verified; authoritative cutover pending**
 
 This document defines the staged migration from the verified single-host rollout on
 `light.pepepow.net` to a dedicated Payment Platform host, expected to use:
@@ -282,8 +282,27 @@ PAYMENT_WEBHOOK_ENABLED=false
 ```
 
 This confirms the non-authoritative VM-B application path without creating a
-second Payment Platform writer. The next gate is stable public addressing,
-`pay.pepepow.net` DNS, and HTTPS before any SQLite cutover.
+second Payment Platform writer.
+
+Public bootstrap validation completed on 2026-09-22:
+
+```text
+pay.pepepow.net A -> 192.9.179.139
+authoritative/public DNS: PASS
+Let's Encrypt certificate: issued and deployed
+HTTPS /api/health: PASS
+HTTPS /api/status: PASS
+HTTPS /api/v1/payments: 404 during bootstrap
+certificate expiry: 2026-12-21
+automatic renewal task: installed by Certbot
+```
+
+The VM-B public IP is currently OCI ephemeral and has been stable for years; the
+initial rollout keeps it. If that IP changes, update both the DNS A record and
+the VM-A tunnel key source restriction.
+
+The next gate is PepewPay same-origin API readiness followed by the SQLite
+single-writer cutover.
 
 ## 7. VM-B deployment shape
 
