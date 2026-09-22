@@ -302,12 +302,14 @@ Repository: `pepepow-electrumx-service`
 - [x] Add feature-gated `POST /api/v1/payments` and persisted `GET /api/v1/payments/{payment_id}`
 - [x] Snapshot creation height from ElectrumX status and fail closed when the chain tip is unavailable
 - [x] Keep browser payment-status reads SQLite-only (no ElectrumX polling per refresh)
-- [ ] Implement persistent ElectrumX event watcher
-- [ ] Verify required ElectrumX subscription behavior against the PEPEPOW fork
+- [x] Implement feature-gated persistent ElectrumX subscription client and payment watcher
+- [x] Verify PEPEPOW fork subscription semantics: server.version first; header notifications; scripthash status notifications; get_history includes mempool ([ELECTRUMX_PAYMENT_WATCHER.md](ELECTRUMX_PAYMENT_WATCHER.md))
 - [x] Persist chain-tip state and apply true confirmation math to stored transaction observations
-- [ ] Add reconnect/resubscribe/reconciliation
-- [ ] Deduplicate event creation
-- [x] Add persistence/restart/reorg and API boundary tests (Backend CI run 35633418184: 127 passed)
+- [x] Add reconnect/backoff, resubscribe, initial/full reconciliation, queue-overflow recovery, and bounded subscription set
+- [x] Snapshot creation-time history txids so pre-existing mempool transactions cannot become false new payments
+- [x] Reconcile dropped mempool transactions and confirmed-to-unconfirmed reorg state
+- [ ] Create durable payment state-change events and deduplicate logical events
+- [x] Add persistence/restart/reorg/watcher/API failure-boundary tests (Backend CI run 35688211529: 134 passed)
 - [x] Add deployment-safe SQLite state directory and Nginx request/rate limits
 - [ ] Select merchant access/auth policy before enabling public payment creation
 
