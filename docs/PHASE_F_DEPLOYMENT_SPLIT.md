@@ -1,6 +1,6 @@
 # Phase F — Dedicated Payment Platform Host
 
-Status: **PLANNED — current-host production rollout verified; split not started**
+Status: **IN PROGRESS — VM-B audited and ElectrumX SSH tunnel verified; Payment Platform bootstrap pending**
 
 This document defines the staged migration from the verified single-host rollout on
 `light.pepepow.net` to a dedicated Payment Platform host, expected to use:
@@ -149,6 +149,22 @@ systemd unit maintaining the connection.
 No OCI ingress rule for TCP 50001 is required. VM-A needs SSH/TCP 22 reachable
 from VM-B's public IP. If VM-B's public IP is ephemeral, reserve it or update the
 source restriction when the address changes.
+
+
+
+Tunnel validation completed on 2026-09-22:
+
+```text
+VM-B -> VM-A public SSH: PASS
+VM-A ED25519 host fingerprint: SHA256:yA7XTzmQLxoO58Is81eNoZ+zLoTWq0+w548FJlQBmz4
+VM-B local tunnel listener: 127.0.0.1:50001
+ElectrumX server.version through tunnel: ElectrumX 1.19.0 / protocol 1.4
+```
+
+VM-A continues to expose ElectrumX only on `127.0.0.1:50001`. No OCI ingress
+for TCP 50001 is required. The VM-B tunnel is systemd-managed and uses the
+repository template at
+`deploy/systemd/pepew-electrumx-tunnel.service.example`.
 
 ### Option B — controlled SSH tunnel
 
