@@ -393,6 +393,8 @@ Current production rollout status (2026-09-22):
 - VM-B staging backend is running with Payment API/watcher/webhook disabled; `/api/health` and `/api/status` pass through Nginx and the SSH ElectrumX tunnel while `/api/v1/payments` remains blocked with 404
 - `pay.pepepow.net` DNS and Let's Encrypt HTTPS are verified; the bootstrap host still exposes only health/status
 - Phase F cutover preflight tooling is available to verify SQLite integrity/counts and ensure no enabled webhook endpoint would be silently invalidated by key rotation
+- VM-A Phase F cutover preflight passed on 2026-09-23: SQLite integrity ok; 3 payments, 3 payment transactions, 8 events, 1 disabled webhook endpoint, 1 delivered webhook delivery, and zero enabled webhook endpoints
+- Phase F snapshot/verification helpers are now available; the snapshot helper refuses to run while the authoritative VM-A `pepew-light.service` remains active and emits a SHA-256 for destination verification
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
