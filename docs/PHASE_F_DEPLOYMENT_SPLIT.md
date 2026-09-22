@@ -1,6 +1,6 @@
 # Phase F — Dedicated Payment Platform Host
 
-Status: **IN PROGRESS — VM-B DNS/TLS/bootstrap verified; authoritative cutover pending**
+Status: **IN PROGRESS — VM-A cutover preflight passed; authoritative SQLite transfer pending**
 
 This document defines the staged migration from the verified single-host rollout on
 `light.pepepow.net` to a dedicated Payment Platform host, expected to use:
@@ -381,6 +381,70 @@ addresses, or webhook URLs.
 For the initial migration, zero enabled webhook endpoints is required if VM-B
 will use a newly generated webhook master key.
 
+VM-A preflight completed successfully on 2026-09-23:
+
+```text
+feature_gates=api:true,watcher:true,webhook:true
+integrity_check=ok
+payments=3
+payment_transactions=3
+events=8
+webhook_endpoints=1
+webhook_deliveries=1
+enabled_webhook_endpoints=0
+webhook_delivery_statuses=delivered:1
+PRECHECK: PASS
+```
+
+An accidental preflight invocation on VM-B returned
+`PRECHECK: FAIL: payment database does not exist`. This is expected while VM-B
+is still using the bootstrap configuration and the authoritative SQLite database
+has not yet moved. Do not create an empty production database to satisfy that
+check.
+
+## 9.2 Snapshot and destination verification helpers
+
+The cutover uses repository-provided helpers rather than copying a live SQLite
+file directly:
+
+```text
+backend/scripts/phase_f_sqlite_snapshot.py
+backend/scripts/phase_f_verify_snapshot.py
+```
+
+The snapshot helper:
+
+- reads the authoritative source path from `backend/.env`
+- refuses to run while `pepew-light.service` is active
+- opens the source read-only
+- verifies source integrity and required tables
+- uses SQLite's backup API to create a consistent standalone snapshot
+- verifies row counts before/after and in the snapshot
+- can require zero enabled webhook endpoints
+- writes the snapshot mode as `0600`
+- prints a SHA-256 checksum for transfer verification
+- does not print payment addresses, webhook URLs, or secrets
+
+Example after VM-A writers have been stopped:
+
+```bash
+python3 scripts/phase_f_sqlite_snapshot.py \
+  --output /home/ubuntu/phase-f-payments.sqlite3 \
+  --require-no-enabled-webhooks
+```
+
+On VM-B, verify the transferred file before installing it as the production
+database:
+
+```bash
+python3 scripts/phase_f_verify_snapshot.py \
+  /home/ubuntu/phase-f-payments.sqlite3 \
+  --sha256 '<SOURCE_SHA256>' \
+  --require-no-enabled-webhooks
+```
+
+Do not paste the database itself into chat or expose it over HTTP.
+
 ## 10. SQLite migration
 
 The existing SQLite database contains authoritative payment/event history and
@@ -393,13 +457,14 @@ Staged migration:
 3. verify VM-B backend tests
 4. verify Nginx/TLS and a non-authoritative health endpoint
 5. choose a short maintenance/cutover window
-6. stop or explicitly disable Payment API/watcher/webhook writes on VM-A
-7. create a consistent SQLite backup/snapshot
+6. stop `pepew-light.service` on VM-A so Payment API/watcher/webhook writers are frozen
+7. create the final snapshot with `phase_f_sqlite_snapshot.py`
 8. transfer the snapshot to VM-B through an authenticated encrypted path
-9. verify database integrity and ownership/permissions
-10. start VM-B with the selected production feature gates
-11. rerun payment and webhook E2E
-12. only then route production checkout/API traffic to VM-B
+9. verify SHA-256, SQLite integrity, row counts, and permissions with `phase_f_verify_snapshot.py`
+10. install the verified snapshot as VM-B's production Payment DB and configure new production secrets
+11. start VM-B with the selected production feature gates
+12. rerun payment and webhook E2E
+13. only then route production checkout/API traffic to VM-B
 
 Do not rsync/copy a live SQLite database file casually while authoritative
 writers remain active.
