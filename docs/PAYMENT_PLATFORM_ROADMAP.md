@@ -274,7 +274,7 @@ Exit criteria:
 
 ### Phase C — PepewPay
 
-Status: **IN PROGRESS — checkout shell complete; persisted status depends on Phase D**
+Status: **IN PROGRESS — NEXT: connect persisted status now that Phase D is complete**
 
 Repository: `pepepow-devkit`
 
@@ -294,7 +294,7 @@ Exit criteria:
 
 ### Phase D — Payment/Event Gateway
 
-Status: **IN PROGRESS — SQLite/API foundation complete; watcher next**
+Status: **COMPLETE**
 
 Repository: `pepepow-electrumx-service`
 
@@ -308,10 +308,10 @@ Repository: `pepepow-electrumx-service`
 - [x] Add reconnect/backoff, resubscribe, initial/full reconciliation, queue-overflow recovery, and bounded subscription set
 - [x] Snapshot creation-time history txids so pre-existing mempool transactions cannot become false new payments
 - [x] Reconcile dropped mempool transactions and confirmed-to-unconfirmed reorg state
-- [ ] Create durable payment state-change events and deduplicate logical events
-- [x] Add persistence/restart/reorg/watcher/API failure-boundary tests (Backend CI run 35688211529: 134 passed)
+- [x] Create durable deterministic payment state-change events atomically with payment version updates ([PAYMENT_EVENTS.md](PAYMENT_EVENTS.md))
+- [x] Add persistence/restart/reorg/watcher/API/event-dedup failure-boundary tests (Backend CI run 35714325135: 148 passed)
 - [x] Add deployment-safe SQLite state directory and Nginx request/rate limits
-- [ ] Select merchant access/auth policy before enabling public payment creation
+- [x] Select fail-closed merchant create policy: server-to-server Bearer API key; read-only status uses high-entropy payment ID capability ([PAYMENT_API_AUTH.md](PAYMENT_API_AUTH.md))
 
 Exit criteria:
 
@@ -321,11 +321,11 @@ Exit criteria:
 
 ### Phase E — Webhook
 
-Status: **PLANNED**
+Status: **PLANNED — after PepewPay persisted-status integration**
 
 Repository: `pepepow-electrumx-service`
 
-- [ ] Define event envelope/versioning
+- [x] Define stable Payment Event Envelope v1 and deterministic event IDs in Phase D
 - [ ] Implement HMAC signatures
 - [ ] Add delivery queue in SQLite
 - [ ] Add timeout/retry/backoff
