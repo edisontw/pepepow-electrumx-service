@@ -1,11 +1,17 @@
 import asyncio
 import time
 
+import pytest
+
 from app.config import get_settings
 from app.services import webhook_worker
 from app.services.payment_store import PaymentStore
 from app.services.webhook_security import ResolvedWebhookTarget, WebhookUrlError
-from app.services.webhook_signing import derive_webhook_secret, verify_webhook_signature
+from app.services.webhook_signing import (
+    WebhookSigningError,
+    derive_webhook_secret,
+    verify_webhook_signature,
+)
 from app.services.webhook_worker import WebhookWorker
 
 
@@ -142,17 +148,11 @@ def test_worker_marks_nonretryable_4xx_dead(tmp_path, monkeypatch):
     worker.store = store
 
     asyncio.run(worker.run_once())
-    delivery = store.get_webhook_delivery(
-        store.list_events(payment_id="pay_test")[0]["payload"]["event_id"].replace("evt_", "missing_")
-    ) if False else None
-    due_or_all = store.list_due_webhook_deliveries(now=10_000, limit=10)
-    assert due_or_all == []
+    assert store.list_due_webhook_deliveries(now=10_000, limit=10) == []
 
-    with store._connect() as connection:
-        row = connection.execute(
-            "SELECT delivery_id FROM webhook_deliveries LIMIT 1"
-        ).fetchone()
-    result = store.get_webhook_delivery(row["delivery_id"])
+    log = store.list_webhook_deliveries(limit=10)
+    assert len(log) == 1
+    result = store.get_webhook_delivery(log[0]["delivery_id"])
     assert result["status"] == "dead"
     assert result["http_status"] == 400
     assert result["attempt_count"] == 1
@@ -175,11 +175,9 @@ def test_worker_blocks_unsafe_target_without_sending(tmp_path, monkeypatch):
 
     asyncio.run(worker.run_once())
 
-    with store._connect() as connection:
-        row = connection.execute(
-            "SELECT delivery_id FROM webhook_deliveries LIMIT 1"
-        ).fetchone()
-    result = store.get_webhook_delivery(row["delivery_id"])
+    log = store.list_webhook_deliveries(limit=10)
+    assert len(log) == 1
+    result = store.get_webhook_delivery(log[0]["delivery_id"])
     assert sent["count"] == 0
     assert result["status"] == "dead"
     assert result["error_code"] == "unsafe_webhook_target"
@@ -200,10 +198,20 @@ def test_worker_marks_retryable_error_dead_at_max_attempts(tmp_path, monkeypatch
 
     asyncio.run(worker.run_once())
 
-    with store._connect() as connection:
-        row = connection.execute(
-            "SELECT delivery_id FROM webhook_deliveries LIMIT 1"
-        ).fetchone()
-    result = store.get_webhook_delivery(row["delivery_id"])
+    log = store.list_webhook_deliveries(limit=10)
+    assert len(log) == 1
+    result = store.get_webhook_delivery(log[0]["delivery_id"])
     assert result["status"] == "dead"
     assert result["attempt_count"] == 1
+
+
+def test_worker_fails_closed_when_master_key_missing(tmp_path):
+    settings, _store = _setup(tmp_path)
+    settings = settings.model_copy(update={"payment_webhook_master_key": None})
+    worker = WebhookWorker(settings)
+
+    async def run():
+        with pytest.raises(WebhookSigningError):
+            await worker.start()
+
+    asyncio.run(run())
