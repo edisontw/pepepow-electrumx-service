@@ -19,6 +19,13 @@ ERROR_MESSAGES = {
     "payment_store_error": "Payment state could not be stored.",
     "payment_auth_required": "Valid merchant authorization is required.",
     "payment_auth_unconfigured": "Payment creation authentication is not configured.",
+    "webhook_disabled": "Webhook delivery is not enabled.",
+    "webhook_signing_unconfigured": "Webhook signing is not configured.",
+    "invalid_webhook_url": "Webhook URL is invalid.",
+    "unsafe_webhook_target": "Webhook target is not allowed.",
+    "webhook_dns_error": "Webhook hostname could not be resolved safely.",
+    "invalid_webhook_event": "Webhook event filter is invalid.",
+    "webhook_endpoint_not_found": "Webhook endpoint was not found.",
 }
 
 
