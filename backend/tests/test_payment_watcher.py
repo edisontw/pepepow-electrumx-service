@@ -39,7 +39,7 @@ def make_store(path):
         confirmations_required=3,
         created_at=1000,
         created_height=500,
-        expires_at=5000,
+        expires_at=4_000_000_000,
         baseline_txids=(OLD_TX,),
     )
     return store
