@@ -13,6 +13,8 @@ GitHub `main` remains the implementation source of truth. Do not execute the
 cutover until the new host has been inspected and the private ElectrumX network
 path has been selected.
 
+Detailed final cutover runbook: [PHASE_F_CUTOVER_RUNBOOK.md](PHASE_F_CUTOVER_RUNBOOK.md)
+
 ## 1. Why split
 
 The current production rollout is functionally verified on the existing
