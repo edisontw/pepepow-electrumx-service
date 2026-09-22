@@ -236,6 +236,33 @@ Before installing the Payment Platform on VM-B, record:
 
 No production secret should be printed during the audit.
 
+## 6.1 VM-B bootstrap verification (2026-09-22)
+
+VM-B bootstrap prerequisites passed:
+
+```text
+Git 2.34.1
+Nginx 1.18.0
+Python 3.10.12
+backend pytest: 184 passed, 2 dependency deprecation warnings
+pepew-electrumx-tunnel.service: active
+ElectrumX through tunnel: ElectrumX 1.19.0 / protocol 1.4
+```
+
+Repository bootstrap templates:
+
+```text
+deploy/env/pepew-pay.bootstrap.env.example
+deploy/systemd/pepew-pay.service
+deploy/nginx/pepew-pay-bootstrap
+deploy/systemd/pepew-electrumx-tunnel.service.example
+```
+
+The bootstrap environment intentionally keeps Payment API, watcher, and webhook
+disabled and uses a staging SQLite path. The bootstrap Nginx virtual host exposes
+only `/api/health` and `/api/status`; other paths return 404 until the
+authoritative cutover.
+
 ## 7. VM-B deployment shape
 
 Use the existing repository and Python 3.10-compatible backend.
