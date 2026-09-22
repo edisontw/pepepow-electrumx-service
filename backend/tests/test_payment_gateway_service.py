@@ -101,8 +101,12 @@ def test_persisted_gateway_reflects_transaction_observation(tmp_path, monkeypatc
     loaded = asyncio.run(payment_gateway_service.get_persisted_payment(created["payment_id"]))
 
     assert loaded["status"] == "paid_confirmed"
+    assert loaded["received"] == "0.000001"
     assert loaded["received_sats"] == 100
+    assert loaded["confirmed"] == "0.000001"
+    assert loaded["policy_confirmed"] == "0.000001"
     assert loaded["policy_confirmed_sats"] == 100
+    assert loaded["overpaid_by"] == "0"
     assert loaded["version"] == 2
 
 
