@@ -470,10 +470,27 @@ The rehearsal snapshot path on VM-A was:
 ```
 
 This rehearsal snapshot is non-authoritative test material only. VM-A resumed as
-the single authoritative writer immediately after the snapshot. The next gate is
-encrypted transfer of this rehearsal snapshot to VM-B followed by SHA-256,
-SQLite integrity, and row-count verification. Do not enable VM-B writers during
-that rehearsal.
+the single authoritative writer immediately after the snapshot.
+
+The rehearsal snapshot was then transferred to VM-B through the administrator's
+encrypted SSH/SCP path and verified successfully on 2026-09-23:
+
+```text
+integrity_check=ok
+payments=3
+payment_transactions=3
+events=8
+webhook_endpoints=1
+webhook_deliveries=1
+enabled_webhook_endpoints=0
+sha256=553cd97ce39b65117f736819684e4990a6e4733adbf1e160082a5e28ba7c1d38
+VERIFY: PASS
+```
+
+VM-B writers remained disabled during this rehearsal. The complete
+freeze/snapshot/transfer/destination-verification path is therefore validated.
+The next gate is the final authority cutover using a newly created final
+snapshot; do not promote the rehearsal snapshot to production.
 
 ## 10. SQLite migration
 
