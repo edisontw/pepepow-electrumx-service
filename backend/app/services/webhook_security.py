@@ -57,6 +57,7 @@ async def resolve_webhook_target(
     url: str,
     *,
     resolver=None,
+    timeout_seconds: float = 5.0,
 ) -> ResolvedWebhookTarget:
     if not isinstance(url, str) or len(url) > 2048:
         raise WebhookUrlError("invalid_webhook_url", "Webhook URL is invalid.")
@@ -96,13 +97,16 @@ async def resolve_webhook_target(
         loop = asyncio.get_running_loop()
         resolve = resolver or loop.getaddrinfo
         try:
-            result = await resolve(
-                hostname,
-                port,
-                family=socket.AF_UNSPEC,
-                type=socket.SOCK_STREAM,
+            result = await asyncio.wait_for(
+                resolve(
+                    hostname,
+                    port,
+                    family=socket.AF_UNSPEC,
+                    type=socket.SOCK_STREAM,
+                ),
+                timeout=max(0.1, float(timeout_seconds)),
             )
-        except OSError as exc:
+        except (OSError, asyncio.TimeoutError) as exc:
             raise WebhookResolutionError("Webhook hostname could not be resolved.") from exc
 
         for entry in result:
