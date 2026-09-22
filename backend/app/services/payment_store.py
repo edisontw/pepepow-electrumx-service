@@ -1,3 +1,5 @@
+import hashlib
+import json
 import sqlite3
 import threading
 from pathlib import Path
@@ -16,6 +18,73 @@ class PaymentStoreError(RuntimeError):
 
 class PaymentNotFoundError(PaymentStoreError):
     pass
+
+
+def _event_id(payment_id: str, payment_version: int, event_type: str) -> str:
+    material = f"pepew-event-v1:{payment_id}:{int(payment_version)}:{event_type}".encode("utf-8")
+    return "evt_" + hashlib.sha256(material).hexdigest()
+
+
+def _event_payload(
+    payment: dict[str, Any],
+    *,
+    event_id: str,
+    event_type: str,
+    created_at: int,
+) -> str:
+    payload = {
+        "schema_version": 1,
+        "event_id": event_id,
+        "event_type": event_type,
+        "payment_id": str(payment["payment_id"]),
+        "payment_version": int(payment["version"]),
+        "created_at": int(created_at),
+        "data": {
+            "status": str(payment["status"]),
+            "amount_sats": int(payment["amount_sats"]),
+            "received_sats": int(payment["received_sats"]),
+            "confirmed_sats": int(payment["confirmed_sats"]),
+            "policy_confirmed_sats": int(payment["policy_confirmed_sats"]),
+            "confirmations_required": int(payment["confirmations_required"]),
+            "expires_at": int(payment["expires_at"]),
+        },
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _insert_event(
+    connection: sqlite3.Connection,
+    payment: dict[str, Any],
+    *,
+    event_type: str,
+    created_at: int,
+) -> str:
+    event_id = _event_id(
+        str(payment["payment_id"]),
+        int(payment["version"]),
+        event_type,
+    )
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO events (
+            event_id, payment_id, event_type, payment_version, created_at, payload_json
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            event_id,
+            str(payment["payment_id"]),
+            event_type,
+            int(payment["version"]),
+            int(created_at),
+            _event_payload(
+                payment,
+                event_id=event_id,
+                event_type=event_type,
+                created_at=int(created_at),
+            ),
+        ),
+    )
+    return event_id
 
 
 class PaymentStore:
@@ -160,6 +229,18 @@ class PaymentStore:
                 """,
                 [(payment_id, txid.lower()) for txid in baseline_txids],
             )
+            created_payment = connection.execute(
+                "SELECT * FROM payments WHERE payment_id = ?",
+                (payment_id,),
+            ).fetchone()
+            if created_payment is None:
+                raise PaymentStoreError("Created payment could not be reloaded.")
+            _insert_event(
+                connection,
+                dict(created_payment),
+                event_type="payment.created",
+                created_at=int(created_at),
+            )
         return self.get_payment(payment_id)
 
     def get_payment(self, payment_id: str) -> dict[str, Any]:
@@ -172,6 +253,55 @@ class PaymentStore:
         if row is None:
             raise PaymentNotFoundError(payment_id)
         return dict(row)
+
+    def list_events(
+        self,
+        *,
+        payment_id: str | None = None,
+        after_sequence: int = 0,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        self.initialize()
+        bounded_limit = min(1000, max(1, int(limit)))
+        params: list[Any] = [max(0, int(after_sequence))]
+        where = "rowid > ?"
+        if payment_id is not None:
+            where += " AND payment_id = ?"
+            params.append(payment_id)
+        params.append(bounded_limit)
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    rowid AS sequence,
+                    event_id,
+                    payment_id,
+                    event_type,
+                    payment_version,
+                    created_at,
+                    payload_json
+                FROM events
+                WHERE {where}
+                ORDER BY rowid ASC
+                LIMIT ?
+                """,
+                tuple(params),
+            ).fetchall()
+
+        events: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            payload_json = item.pop("payload_json", None)
+            if isinstance(payload_json, str):
+                try:
+                    item["payload"] = json.loads(payload_json)
+                except json.JSONDecodeError:
+                    item["payload"] = None
+            else:
+                item["payload"] = None
+            events.append(item)
+        return events
 
 
     def get_payments_by_scripthash(self, scripthash: str) -> list[dict[str, Any]]:
@@ -458,4 +588,13 @@ class PaymentStore:
             ).fetchone()
             if refreshed is None:
                 raise PaymentNotFoundError(payment_id)
-            return dict(refreshed)
+
+            refreshed_dict = dict(refreshed)
+            if changed:
+                _insert_event(
+                    connection,
+                    refreshed_dict,
+                    event_type=f"payment.{evaluation.status}",
+                    created_at=int(now),
+                )
+            return refreshed_dict
