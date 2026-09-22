@@ -1,6 +1,6 @@
 # PEPEW Payment Webhooks
 
-Status: **Phase E implementation**
+Status: **Phase E complete — production E2E verified 2026-09-22**
 
 PEPEW Payment Webhooks deliver durable Payment Event Envelope v1 records to merchant HTTPS endpoints.
 
@@ -359,8 +359,19 @@ from `backend/.env` and never prints their values.
 
 ## Production state
 
-The implementation is complete in GitHub but production rollout remains gated.
+The implementation and production E2E are complete. Repository defaults remain disabled, but the current production host has webhook delivery explicitly enabled with a protected master key after successful validation.
 
-The repository defaults remain disabled, while the current production rollout has already enabled the Payment API and watcher. Webhook delivery remains the final gated production E2E step.
+Verified on 2026-09-22:
 
-Production enablement must remain explicit: keep the environment file protected, configure a webhook master key without logging it, restart the service, run the production E2E helper, and review the resulting delivery metadata before considering webhook rollout verified.
+- loopback webhook target rejected as `unsafe_webhook_target`
+- endpoint creation/listing preserved the one-time signing-secret boundary
+- `payment.created` produced a real outbound delivery
+- HTTP 503 persisted as `retry`
+- the captured exact raw body verified successfully with HMAC-SHA256
+- retry to HTTP 204 reached `delivered`
+- retry reused the same event ID, delivery ID, and body
+- authenticated delivery log returned operational metadata without secrets
+- temporary endpoint/receiver cleanup completed
+- no merchant API key, webhook master key, or signing secret was printed by the helper
+
+Future deployments should rerun the same production E2E after changing the webhook master key, network path, host, or worker runtime.
