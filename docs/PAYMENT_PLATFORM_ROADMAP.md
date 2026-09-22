@@ -290,7 +290,8 @@ Repository: `pepepow-devkit`
 - [x] Keep merchant create API key entirely server-side; PepewPay performs status GET only
 - [x] Keep Payment API requests out of the PWA app-shell fallback cache
 - [x] Add PepewPay status/unit tests and static production build to devkit CI (run 35726364293: success; 10 app tests passed)
-- [ ] Production E2E: merchant create -> PepewPay capability link -> wallet handoff -> watcher status transition
+- [x] Production backend E2E on 2026-09-22: unauthenticated create rejected -> authenticated create -> wallet broadcast -> watcher persisted state -> `paid_confirmed` (1 PEPEW, 1 confirmation)
+- [ ] Production PepewPay E2E: capability link -> QR/wallet handoff -> live persisted status display
 
 Exit criteria:
 
@@ -349,7 +350,7 @@ Exit criteria:
 
 ### Phase F — Production rollout / deployment split
 
-Status: **NEXT — first production E2E can use the current host; VM split remains optional until load justifies it**
+Status: **IN PROGRESS — backend payment E2E passed on the current host; PepewPay static deployment and webhook production E2E remain**
 
 Preferred direction when the event/webhook workload becomes active:
 
@@ -369,6 +370,18 @@ VM-B
 ```
 
 The reason to split is primarily CPU/failure/security isolation, not current RAM pressure.
+
+Current production rollout status (2026-09-22):
+
+- PEPEW Light baseline deploy passed 184 backend tests on production Python 3.10
+- Payment API authorization boundary verified (unauthenticated POST -> 401)
+- persisted payment creation verified (authenticated POST -> 201)
+- public read-only payment status verified through Nginx
+- existing client-side wallet broadcast verified
+- persistent watcher advanced a real 1 PEPEW payment to `paid_confirmed`
+- Payment API and watcher are now enabled on the current host for rollout validation
+- webhook worker remains disabled pending its own production E2E
+- PepewPay static UI is not yet deployed on the production domain
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
