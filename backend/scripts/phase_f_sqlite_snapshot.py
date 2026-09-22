@@ -6,6 +6,7 @@ import hashlib
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
 import sys
 
 
@@ -78,7 +79,29 @@ def main() -> int:
         action="store_true",
         help="Fail if the source contains any enabled webhook endpoint.",
     )
+    parser.add_argument(
+        "--service-name",
+        default="pepew-light.service",
+        help="Authoritative VM-A service that must be stopped before snapshot.",
+    )
     args = parser.parse_args()
+
+    try:
+        service_check = subprocess.run(
+            ["systemctl", "is-active", "--quiet", args.service_name],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        print("SNAPSHOT: FAIL: cannot verify authoritative service state", file=sys.stderr)
+        return 1
+    if service_check.returncode == 0:
+        print(
+            "SNAPSHOT: FAIL: authoritative service is still active; stop writers first",
+            file=sys.stderr,
+        )
+        return 4
 
     if not ENV_PATH.exists():
         print("SNAPSHOT: FAIL: backend/.env not found", file=sys.stderr)
