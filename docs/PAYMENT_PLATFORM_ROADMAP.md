@@ -391,6 +391,8 @@ Current production rollout status (2026-09-22):
 - Live PepewPay production E2E is verified with a new 0.1 PEPEW payment through web-wallet handoff, broadcast, `paid_unconfirmed`, and `paid_confirmed`
 - Production retrieval of the private `pepepow-devkit` static artifact uses a dedicated repository-scoped read-only SSH deploy key; do not store a long-lived GitHub PAT in shell history or the repository
 - VM-B staging backend is running with Payment API/watcher/webhook disabled; `/api/health` and `/api/status` pass through Nginx and the SSH ElectrumX tunnel while `/api/v1/payments` remains blocked with 404
+- `pay.pepepow.net` DNS and Let's Encrypt HTTPS are verified; the bootstrap host still exposes only health/status
+- Phase F cutover preflight tooling is available to verify SQLite integrity/counts and ensure no enabled webhook endpoint would be silently invalidated by key rotation
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
