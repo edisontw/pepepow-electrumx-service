@@ -1,3 +1,4 @@
+from app.services.payment_state import PaymentTransactionObservation
 from app.services.payment_store import PaymentStore
 
 
@@ -110,3 +111,36 @@ def test_disabled_endpoint_is_not_selected_for_delivery(tmp_path):
     _payment(store, "pay_test")
 
     assert store.list_due_webhook_deliveries(now=1000, limit=10) == []
+
+
+def test_selected_state_event_enqueues_delivery(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.create_webhook_endpoint(
+        endpoint_id="wh_confirmed_only",
+        url="https://merchant.example/hook",
+        event_types=("payment.paid_confirmed",),
+        created_at=900,
+    )
+    _payment(store, "pay_test")
+    assert store.list_due_webhook_deliveries(now=1000, limit=10) == []
+
+    store.upsert_transaction(
+        "pay_test",
+        PaymentTransactionObservation(
+            txid="a" * 64,
+            vout=0,
+            value_sats=100,
+            height=501,
+            first_seen_at=1001,
+        ),
+        updated_at=1001,
+    )
+    store.set_chain_tip(503, tip_hash="tip3", updated_at=1002)
+    store.refresh_payment("pay_test", now=1002)
+
+    due = store.list_due_webhook_deliveries(now=1002, limit=10)
+    assert len(due) == 1
+    assert due[0]["endpoint_id"] == "wh_confirmed_only"
+    events = store.list_events(payment_id="pay_test")
+    assert events[-1]["event_type"] == "payment.paid_confirmed"
+    assert due[0]["event_id"] == events[-1]["event_id"]
