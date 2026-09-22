@@ -445,6 +445,36 @@ python3 scripts/phase_f_verify_snapshot.py \
 
 Do not paste the database itself into chat or expose it over HTTP.
 
+A full VM-A rehearsal completed successfully on 2026-09-23. The authoritative
+service was stopped, a consistent snapshot was created, and the service was
+started again immediately afterward:
+
+```text
+integrity_check=ok
+payments=3
+payment_transactions=3
+events=8
+webhook_endpoints=1
+webhook_deliveries=1
+enabled_webhook_endpoints=0
+sha256=553cd97ce39b65117f736819684e4990a6e4733adbf1e160082a5e28ba7c1d38
+SNAPSHOT: PASS
+snapshot_exit=0
+pepew-light.service=active
+```
+
+The rehearsal snapshot path on VM-A was:
+
+```text
+/home/ubuntu/phase-f-rehearsal-20260922T171738Z.sqlite3
+```
+
+This rehearsal snapshot is non-authoritative test material only. VM-A resumed as
+the single authoritative writer immediately after the snapshot. The next gate is
+encrypted transfer of this rehearsal snapshot to VM-B followed by SHA-256,
+SQLite integrity, and row-count verification. Do not enable VM-B writers during
+that rehearsal.
+
 ## 10. SQLite migration
 
 The existing SQLite database contains authoritative payment/event history and
