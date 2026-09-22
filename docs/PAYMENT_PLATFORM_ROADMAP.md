@@ -353,6 +353,8 @@ Exit criteria:
 
 ### Phase F — Production rollout / deployment split
 
+Detailed migration plan: [PHASE_F_DEPLOYMENT_SPLIT.md](PHASE_F_DEPLOYMENT_SPLIT.md)
+
 Status: **IN PROGRESS — current-host production rollout verified; deployment split to a dedicated Payment Platform host remains**
 
 Preferred direction when the event/webhook workload becomes active:
