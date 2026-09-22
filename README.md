@@ -265,3 +265,31 @@ Production SQLite state is planned at:
 The committed systemd unit creates that writable state directory while keeping `ProtectHome=read-only`.
 
 See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the request/response contract and current deployment status. Do not enable the public create route until the intended merchant access policy has been selected and end-to-end watcher tests are complete.
+
+
+---
+
+## 8. Payment Webhooks
+
+Phase E adds a feature-gated SQLite webhook queue and worker.
+
+Management routes:
+
+```text
+POST   /api/v1/webhook-endpoints
+GET    /api/v1/webhook-endpoints
+DELETE /api/v1/webhook-endpoints/{endpoint_id}
+GET    /api/v1/webhook-deliveries
+```
+
+All management routes require the merchant Bearer API key. Endpoint signing secrets are derived from a server-side webhook master key and are returned on endpoint creation only.
+
+Webhook delivery is HTTPS-only, HMAC-SHA256 signed, at-least-once, retryable with bounded exponential backoff, and protected against private-network/metadata/DNS-rebinding targets.
+
+The worker remains disabled by default:
+
+```text
+PAYMENT_WEBHOOK_ENABLED=false
+```
+
+See [docs/WEBHOOKS.md](docs/WEBHOOKS.md) before production enablement.
