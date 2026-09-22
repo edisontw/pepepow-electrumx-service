@@ -177,8 +177,18 @@ def test_duplicate_reconciliation_does_not_increment_version(tmp_path):
 
     asyncio.run(watcher._reconcile_scripthash(client, SCRIPTHASH))
     first = watcher.store.get_payment("pay_test")
+    first_events = watcher.store.list_events(payment_id="pay_test")
+
     asyncio.run(watcher._reconcile_scripthash(client, SCRIPTHASH))
     second = watcher.store.get_payment("pay_test")
+    second_events = watcher.store.list_events(payment_id="pay_test")
 
     assert first["status"] == "paid_confirmed"
     assert second["version"] == first["version"]
+    assert [event["event_id"] for event in second_events] == [
+        event["event_id"] for event in first_events
+    ]
+    assert [event["event_type"] for event in second_events] == [
+        "payment.created",
+        "payment.paid_confirmed",
+    ]
