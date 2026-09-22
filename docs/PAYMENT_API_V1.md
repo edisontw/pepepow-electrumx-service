@@ -14,8 +14,11 @@ and remains disabled by default until deployment configuration and end-to-end te
 
 ## Create payment
 
+Payment creation is a merchant server-to-server action and requires the configured Bearer key:
+
 ```http
 POST /api/v1/payments
+Authorization: Bearer <PAYMENT_CREATE_API_KEY>
 Content-Type: application/json
 ```
 
@@ -45,6 +48,8 @@ GET /api/v1/payments/{payment_id}
 ```
 
 This endpoint reads persisted SQLite state. It does **not** perform an ElectrumX request per browser refresh.
+
+The status GET is a read-only capability URL and does not require the merchant Bearer key. The high-entropy `payment_id` may be shared with PepewPay/customer browsers. Do not put secrets or sensitive records in payment `label` or `message`.
 
 Current response fields include:
 
@@ -96,4 +101,6 @@ SQLite uses WAL mode, foreign keys, a bounded busy timeout, and short transactio
 - public errors do not expose database paths or SQLite exception details
 - authoritative state remains transaction-output based, not current address balance
 
-Merchant authentication is not defined in this first Phase D slice. Keep the feature disabled on public production until the intended access policy is selected.
+Merchant authentication is defined in [PAYMENT_API_AUTH.md](PAYMENT_API_AUTH.md): payment creation requires a server-side Bearer API key, while status GET uses the high-entropy payment ID as a read-only capability. The create endpoint fails closed if the key is missing or shorter than 32 characters.
+
+Durable state-change events are defined in [PAYMENT_EVENTS.md](PAYMENT_EVENTS.md) and are persisted atomically with payment version updates.
