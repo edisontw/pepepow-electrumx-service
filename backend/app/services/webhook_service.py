@@ -95,3 +95,18 @@ async def disable_webhook_endpoint(endpoint_id: str) -> None:
         endpoint_id,
         updated_at=int(time.time()),
     )
+
+
+async def list_webhook_deliveries(
+    *,
+    endpoint_id: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    settings = get_settings()
+    _require_enabled(settings)
+    store = _store_for_path(settings.payment_db_path)
+    return await asyncio.to_thread(
+        store.list_webhook_deliveries,
+        endpoint_id=endpoint_id,
+        limit=limit,
+    )
