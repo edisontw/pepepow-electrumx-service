@@ -24,6 +24,23 @@ class Settings(BaseSettings):
     payment_db_path: str = Field(default="./data/pepew-payments.sqlite3", alias="PAYMENT_DB_PATH")
     payment_default_expiry_seconds: int = Field(default=900, alias="PAYMENT_DEFAULT_EXPIRY_SECONDS")
     payment_max_expiry_seconds: int = Field(default=86400, alias="PAYMENT_MAX_EXPIRY_SECONDS")
+    payment_watcher_enabled: bool = Field(default=False, alias="PAYMENT_WATCHER_ENABLED")
+    payment_watcher_subscription_refresh_seconds: float = Field(
+        default=5.0,
+        alias="PAYMENT_WATCHER_SUBSCRIPTION_REFRESH_SECONDS",
+    )
+    payment_watcher_reconnect_min_seconds: float = Field(
+        default=1.0,
+        alias="PAYMENT_WATCHER_RECONNECT_MIN_SECONDS",
+    )
+    payment_watcher_reconnect_max_seconds: float = Field(
+        default=30.0,
+        alias="PAYMENT_WATCHER_RECONNECT_MAX_SECONDS",
+    )
+    payment_watcher_max_subscriptions: int = Field(
+        default=2000,
+        alias="PAYMENT_WATCHER_MAX_SUBSCRIPTIONS",
+    )
 
     cache_status_seconds: int = Field(default=10, alias="CACHE_STATUS_SECONDS")
     cache_balance_seconds: int = Field(default=15, alias="CACHE_BALANCE_SECONDS")
