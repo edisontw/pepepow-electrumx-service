@@ -32,9 +32,11 @@ Example request:
 }
 ```
 
-The server validates the PEPEW address and exact decimal amount, snapshots the current chain height, and persists the payment in SQLite.
+The server validates the PEPEW address and exact decimal amount, then uses one short-lived ElectrumX session to snapshot both the current chain height and the address's existing confirmed/mempool history before persisting the payment in SQLite.
 
-A payment is not created if the current ElectrumX chain tip cannot be established. This fail-closed behavior prevents an ambiguous creation-height boundary.
+The existing history txids are stored as the payment creation baseline. This prevents a transaction already present in mempool before payment creation from later becoming a false new payment when it confirms.
+
+A payment is not created if the chain-tip/history snapshot cannot be established. This fail-closed behavior prevents an ambiguous creation boundary.
 
 ## Read payment status
 
@@ -60,7 +62,7 @@ Current response fields include:
 - `overpaid_by_sats`
 - optional `label` / `message`
 
-Until the ElectrumX watcher is connected, newly created payments remain `waiting` (or become `expired`) because no transaction observations are being ingested.
+When `PAYMENT_WATCHER_ENABLED=true`, the persistent ElectrumX watcher subscribes to tracked scripthashes and chain headers, reconciles transaction outputs into SQLite, and advances confirmations without browser polling. Both Payment API and watcher remain disabled by default until production access policy and end-to-end validation are complete.
 
 ## SQLite
 
