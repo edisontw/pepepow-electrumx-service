@@ -30,6 +30,7 @@ def test_create_payment_v1_returns_201(monkeypatch):
         }
 
     monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
     client = TestClient(app)
     response = client.post(
         "/api/v1/payments",
@@ -87,3 +88,35 @@ def test_get_payment_v1_not_found(monkeypatch):
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "payment_not_found"
+
+
+def test_create_payment_v1_requires_bearer_auth(monkeypatch):
+    def reject(_authorization):
+        raise payment_v1.PaymentAuthError("missing")
+
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", reject)
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/payments",
+        json={"address": ADDRESS, "amount": "1"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "payment_auth_required"
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_create_payment_v1_fails_closed_when_auth_unconfigured(monkeypatch):
+    def reject(_authorization):
+        raise payment_v1.PaymentAuthUnconfiguredError("unconfigured")
+
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", reject)
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/payments",
+        headers={"Authorization": "Bearer test"},
+        json={"address": ADDRESS, "amount": "1"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "payment_auth_unconfigured"
