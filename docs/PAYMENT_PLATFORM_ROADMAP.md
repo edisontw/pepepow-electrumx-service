@@ -382,6 +382,7 @@ Current production rollout status (2026-09-22):
 - Payment API and watcher are now enabled on the current host for rollout validation
 - webhook worker remains disabled pending its own production E2E
 - PepewPay static UI is not yet deployed on the production domain
+- Production retrieval of the private `pepepow-devkit` static artifact uses a dedicated repository-scoped read-only SSH deploy key; do not store a long-lived GitHub PAT in shell history or the repository
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
