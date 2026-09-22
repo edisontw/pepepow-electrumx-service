@@ -109,16 +109,8 @@ The stable `event_id` remains the merchant-facing idempotency key. The internal 
 
 ## Delivery semantics
 
-Phase D persists events but does not deliver them externally.
+Phase E now consumes these persisted events through the durable webhook queue.
 
-Phase E will add:
+For each event, currently enabled matching webhook endpoints receive at most one logical delivery row identified by `(event_id, endpoint_id)`. Delivery is at least once: HTTP retries reuse the original event ID, delivery ID, and exact persisted payload rather than generating a new payment event.
 
-- webhook endpoints
-- delivery rows
-- HMAC signatures
-- retries/backoff
-- at-least-once delivery
-- merchant deduplication by `event_id`
-- SSRF protection
-
-Webhook retries must reuse the original event ID and payload rather than generating a new payment event.
+See [WEBHOOKS.md](WEBHOOKS.md) for endpoint management, HMAC signing, retry policy, delivery logs, and SSRF protections.
