@@ -84,3 +84,31 @@ def test_disable_webhook_endpoint(monkeypatch):
         "endpoint_id": "wh_example",
         "enabled": False,
     }
+
+
+def test_list_webhook_delivery_log(monkeypatch):
+    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: None)
+
+    async def fake_list_deliveries(**kwargs):
+        assert kwargs == {"endpoint_id": "wh_example", "limit": 20}
+        return [{
+            "delivery_id": "dlv_example",
+            "event_id": "evt_example",
+            "endpoint_id": "wh_example",
+            "status": "retry",
+            "attempt_count": 1,
+            "http_status": 503,
+            "error_code": "webhook_http_error",
+        }]
+
+    monkeypatch.setattr(webhook_v1, "list_webhook_deliveries", fake_list_deliveries)
+    client = TestClient(app)
+    response = client.get(
+        "/api/v1/webhook-deliveries?endpoint_id=wh_example&limit=20"
+    )
+
+    assert response.status_code == 200
+    delivery = response.json()["deliveries"][0]
+    assert delivery["status"] == "retry"
+    assert delivery["attempt_count"] == 1
+    assert "signing_secret" not in delivery
