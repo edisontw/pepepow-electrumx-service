@@ -173,13 +173,9 @@ Nginx is not installed. Git and Node.js were not reported by the audit command;
 confirm Git explicitly before repository deployment. Node.js is not required on
 this host for PepewPay because static assets are built in CI.
 
-The host currently runs PEPEPOWd. Keep it unchanged during connectivity and
-bootstrap validation. Before the final Payment Platform cutover, decide whether
-to remove that node so the dedicated host actually provides CPU/failure
-isolation.
+The host currently runs PEPEPOWd. For the initial low-traffic rollout, keep this node running rather than removing it. This means VM-B is a separate Payment Platform host from the ElectrumX/Light host, but is not a payment-only machine. Revisit removal only if CPU/failure isolation becomes operationally necessary.
 
-The next gate is to identify VM-A's private address/subnet and prove VM-B can
-reach it through an approved private path. Do not expose ElectrumX publicly.
+VM-A was subsequently confirmed at `10.0.0.132/24`, while VM-B is `10.0.0.95/24`; both are directly attached to `10.0.0.0/24`. The preferred path is therefore OCI private VCN connectivity. The next gate is to prove private reachability and expose ElectrumX only on localhost plus VM-A's private address, with OCI ingress restricted to VM-B `10.0.0.95/32`. Do not expose ElectrumX publicly.
 
 ## 6. New-host inspection before deployment
 
