@@ -346,10 +346,11 @@ https://pay.pepepow.net/
 
 https://light.pepepow.net/pay/
   -> /api/v1/payments/...
-  -> VM-A
+  -> VM-A Nginx compatibility proxy
+  -> VM-B authoritative Payment API
 ```
 
-This change is implemented and covered by devkit tests. After SQLite authority moves to VM-B, the primary `pay.pepepow.net` deployment therefore follows VM-B automatically without a host-specific API URL baked into the frontend.
+This change is implemented and covered by devkit tests. After the completed cutover, `pay.pepepow.net` resolves directly to VM-B authority without a host-specific API URL baked into the frontend, while the Light-host compatibility proxy preserves existing capability links.
 
 The native/web-wallet handoff remains on the existing PEPEW Light wallet and does not move mnemonic, private-key, or signing logic server-side.
 
