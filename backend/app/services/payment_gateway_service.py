@@ -1,4 +1,7 @@
 import asyncio
+import hashlib
+import json
+import re
 import secrets
 import time
 from functools import lru_cache
@@ -15,7 +18,12 @@ from .payment_service import (
     format_pepew_amount_from_sats,
     parse_pepew_amount,
 )
-from .payment_store import PaymentNotFoundError, PaymentStore, PaymentStoreError
+from .payment_store import (
+    PaymentIdempotencyConflictError,
+    PaymentNotFoundError,
+    PaymentStore,
+    PaymentStoreError,
+)
 
 
 class PaymentGatewayDisabledError(RuntimeError):
@@ -24,6 +32,41 @@ class PaymentGatewayDisabledError(RuntimeError):
 
 class PaymentTipUnavailableError(RuntimeError):
     pass
+
+
+_IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+
+
+def _normalize_idempotency_key(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not _IDEMPOTENCY_KEY_RE.fullmatch(value):
+        raise InvalidPaymentParameterError(
+            "invalid_idempotency_key",
+            "Idempotency-Key must be 1-128 characters using letters, digits, '.', '_', ':', or '-'.",
+        )
+    return value
+
+
+def _payment_create_request_hash(
+    *,
+    address: str,
+    amount_sats: int,
+    confirmations_required: int,
+    expiry_seconds: int,
+    label: str | None,
+    message: str | None,
+) -> str:
+    payload = {
+        "address": address,
+        "amount_sats": int(amount_sats),
+        "confirmations_required": int(confirmations_required),
+        "expiry_seconds": int(expiry_seconds),
+        "label": label or None,
+        "message": message or None,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 @lru_cache(maxsize=8)
@@ -114,6 +157,7 @@ async def create_persisted_payment(
     expires_in: int | None = None,
     label: str | None = None,
     message: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     settings = get_settings()
     _require_enabled(settings)
@@ -139,10 +183,29 @@ async def create_persisted_payment(
             f"Expiry seconds must be between 60 and {settings.payment_max_expiry_seconds}.",
         )
 
+    normalized_idempotency_key = _normalize_idempotency_key(idempotency_key)
+    request_hash = _payment_create_request_hash(
+        address=normalized_address,
+        amount_sats=amount_sats,
+        confirmations_required=confirmations_required,
+        expiry_seconds=expiry_seconds,
+        label=label,
+        message=message,
+    )
+    store = _store_for_path(settings.payment_db_path)
+
+    if normalized_idempotency_key is not None:
+        replay = await asyncio.to_thread(
+            store.get_payment_by_idempotency_key,
+            normalized_idempotency_key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return _payment_response(replay, decimals=settings.pepew_decimals)
+
     now = int(time.time())
     height, tip_hash, baseline_txids = await _snapshot_creation_state(settings, scripthash)
     payment_id = f"pay_{secrets.token_urlsafe(18)}"
-    store = _store_for_path(settings.payment_db_path)
 
     await asyncio.to_thread(
         store.set_chain_tip,
@@ -163,6 +226,8 @@ async def create_persisted_payment(
         label=label or None,
         message=message or None,
         baseline_txids=baseline_txids,
+        idempotency_key=normalized_idempotency_key,
+        request_hash=request_hash if normalized_idempotency_key is not None else None,
     )
     return _payment_response(payment, decimals=settings.pepew_decimals)
 
