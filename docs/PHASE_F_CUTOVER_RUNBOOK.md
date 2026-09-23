@@ -237,55 +237,9 @@ PAYMENT_WEBHOOK_ENABLED=true
 PAYMENT_DB_PATH=/var/lib/pepew-pay/payments.sqlite3
 ```
 
-At this stage VM-B is the only authoritative writer because VM-A remains stopped. The next step is to convert VM-A back to Light-only mode before restarting it.
+At this stage VM-B is the only authoritative writer because VM-A remains stopped.
 
-## 7. Return VM-A to Light-only mode
-
-After VM-B Payment API/watcher/webhook are running and local validation passes,
-keep VM-A's old SQLite and secrets intact for rollback, but disable all
-authoritative Payment Platform feature gates before restarting the shared Light
-service.
-
-On VM-A, while `pepew-light.service` is still stopped:
-
-```bash
-cd /home/ubuntu/pepepow-electrumx-service
-git pull --ff-only
-cd backend
-
-python3 scripts/configure_light_post_cutover.py
-
-sudo systemctl start pepew-light.service
-sudo systemctl --no-pager --full status pepew-light.service
-```
-
-Confirm only the Payment Platform gates are disabled:
-
-```bash
-grep -E '^(PAYMENT_API_ENABLED|PAYMENT_WATCHER_ENABLED|PAYMENT_WEBHOOK_ENABLED)=' .env
-```
-
-Expected:
-
-```text
-PAYMENT_API_ENABLED=false
-PAYMENT_WATCHER_ENABLED=false
-PAYMENT_WEBHOOK_ENABLED=false
-```
-
-Then verify the existing Light service is healthy:
-
-```bash
-curl -fsS https://light.pepepow.net/api/health
-curl -fsS https://light.pepepow.net/api/status
-```
-
-The legacy stateless `/api/payment/check` route remains part of PEPEW Light.
-Persisted `/api/v1/payments` on VM-A should now fail closed because the Payment
-API gate is disabled. VM-A must not run the watcher or webhook worker after this
-point.
-
-## 8. Switch VM-B Nginx from bootstrap to production
+## 7. Switch VM-B Nginx from bootstrap to production
 
 Only after local backend validation and static artifact readiness:
 
@@ -307,6 +261,67 @@ curl -fsS https://pay.pepepow.net/api/health
 curl -fsS https://pay.pepepow.net/api/status
 curl -I https://pay.pepepow.net/
 ```
+
+Only after `pay.pepepow.net` is publicly healthy should VM-A be returned to
+Light-only mode.
+
+## 8. Return VM-A to Light-only mode with Payment compatibility proxy
+
+Keep VM-A's old SQLite and secrets intact for rollback, but disable all
+authoritative Payment Platform feature gates before restarting the shared Light
+service. Existing `light.pepepow.net/pay/?payment_id=...` links must continue
+working, so the post-cutover Light Nginx configuration proxies only authoritative
+Payment Platform v1/webhook routes to `pay.pepepow.net`; legacy Light APIs,
+wallet routes, and `/api/payment/check` stay local.
+
+On VM-A, while `pepew-light.service` is still stopped:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service
+git pull --ff-only
+cd backend
+
+python3 scripts/configure_light_post_cutover.py
+
+sudo cp -a /etc/nginx/sites-available/pepew-light \
+  /etc/nginx/sites-available/pepew-light.pre-phase-f
+
+sudo cp /home/ubuntu/pepepow-electrumx-service/deploy/nginx/pepew-light-post-cutover \
+  /etc/nginx/sites-available/pepew-light
+
+sudo nginx -t
+sudo systemctl reload nginx
+
+sudo systemctl start pepew-light.service
+sudo systemctl --no-pager --full status pepew-light.service
+```
+
+Confirm only the Payment Platform gates are disabled:
+
+```bash
+grep -E '^(PAYMENT_API_ENABLED|PAYMENT_WATCHER_ENABLED|PAYMENT_WEBHOOK_ENABLED)=' .env
+```
+
+Expected:
+
+```text
+PAYMENT_API_ENABLED=false
+PAYMENT_WATCHER_ENABLED=false
+PAYMENT_WEBHOOK_ENABLED=false
+```
+
+Verify local Light service health and compatibility:
+
+```bash
+curl -fsS https://light.pepepow.net/api/health
+curl -fsS https://light.pepepow.net/api/status
+curl -I https://light.pepepow.net/pay/
+```
+
+A migrated persisted payment capability should return the same status through
+both `light.pepepow.net/api/v1/payments/<id>` and
+`pay.pepepow.net/api/v1/payments/<id>`. VM-A itself must not run the payment
+watcher or webhook worker after this point.
 
 Confirm ElectrumX remains local-only on VM-A and is not publicly reachable.
 
