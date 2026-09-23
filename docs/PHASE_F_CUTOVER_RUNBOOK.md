@@ -68,6 +68,12 @@ deploy/nginx/pepew-pay
 Do not switch from the bootstrap virtual host until the backend authority has
 moved and local validation has passed.
 
+PepewPay static staging on VM-B passed on 2026-09-23. The verified
+GitHub Actions artifact for devkit source commit
+`3d38810fedce470be5ad3a412815b40c609eb258` is present under
+`/var/www/pepewpay`, and Nginx configuration validation passed. VM-A remained
+authoritative during this staging step.
+
 ## 2. VM-A final preflight and freeze
 
 On VM-A:
