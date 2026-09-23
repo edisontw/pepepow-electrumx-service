@@ -65,6 +65,14 @@ def error_code(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def header_value(headers: dict[str, str], name: str) -> str | None:
+    wanted = name.lower()
+    for key, value in headers.items():
+        if key.lower() == wanted:
+            return value
+    return None
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AcceptanceError(message)
@@ -121,7 +129,7 @@ def main() -> int:
     payload = json_payload(raw, "unauthenticated create")
     require(status == 401 and error_code(payload) == "payment_auth_required",
             f"unauthenticated create: expected 401 payment_auth_required, got HTTP {status} {error_code(payload)}")
-    require(headers.get("WWW-Authenticate", "").lower() == "bearer",
+    require((header_value(headers, "WWW-Authenticate") or "").lower() == "bearer",
             "unauthenticated create: missing WWW-Authenticate: Bearer")
     print("6/8 unauthenticated create boundary: PASS")
 
