@@ -363,6 +363,29 @@ proxy, unauthenticated create rejection, preservation of the legacy Light
 `/api/payment/check` route, and exclusion of legacy Light APIs from the pay
 domain.
 
+### Post-cutover Nginx route-precedence correction
+
+The first public acceptance run on 2026-09-23 passed health/status/static checks
+but failed on the nested persisted-payment status route because
+`pay.pepepow.net/api/v1/payments/<id>` returned Nginx's HTML 404 instead of the
+FastAPI JSON `payment_not_found` response.
+
+Root cause: the production virtual host used regex locations for nested Payment
+API routes while a later `location ^~ /api/` legacy-API catch-all suppressed
+regex evaluation.
+
+The production configuration was corrected by making the nested authoritative
+routes explicit more-specific `^~` prefixes:
+
+```text
+location ^~ /api/v1/payments/
+location ^~ /api/v1/webhook-endpoints/
+```
+
+The generic `location ^~ /api/` 404 boundary remains in place so legacy Light
+APIs are still not exposed on `pay.pepepow.net`. A regression test now guards
+this route precedence.
+
 ## 9. Production E2E
 
 Use an existing migrated payment ID as the reference for webhook E2E so no
