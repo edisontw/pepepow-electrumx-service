@@ -1,6 +1,6 @@
 # PEPEW Payment Platform Roadmap
 
-Last updated: 2026-09-22
+Last updated: 2026-09-24
 
 This document is the canonical cross-repository roadmap for the PEPEW Payment Platform. GitHub `main` remains the source of truth for implementation state. Update this file when architecture, phase status, API boundaries, deployment assumptions, or major decisions change.
 
@@ -31,34 +31,43 @@ Mnemonic, private-key derivation, and signing logic must never move into the ser
 
 ## 3. Current production baseline
 
-Production endpoint:
+Production endpoints:
 
 ```text
-https://light.pepepow.net
+https://light.pepepow.net   # PEPEW Light + web wallet + compatibility checkout
+https://pay.pepepow.net     # authoritative Payment Platform + PepewPay
 ```
 
-Current host baseline from the 2026-09-21 read-only audit:
-
-```text
-Oracle Cloud Ubuntu 22.04
-ARM64 / aarch64
-1 CPU core
-5.8 GiB RAM
-Python 3.10.12
-Node.js not installed
-```
+Production is split across two Oracle Cloud ARM64 Ubuntu 22.04 hosts, each with
+approximately 1 CPU core and 5.8 GiB RAM. Python 3.10 remains the production
+runtime; Node.js is not required on either host for serving PepewPay.
 
 Current runtime:
 
 ```text
 Internet
-  -> Nginx :80/:443
-  -> PEPEW Light FastAPI 127.0.0.1:8088
-  -> ElectrumX 127.0.0.1:50001
-  -> PEPEPOWd RPC 127.0.0.1:8834
+  |
+  +-- light.pepepow.net
+  |     VM-A
+  |     -> Nginx
+  |     -> PEPEW Light FastAPI 127.0.0.1:8088
+  |     -> ElectrumX 127.0.0.1:50001
+  |     -> PEPEPOWd RPC 127.0.0.1:8834
+  |     -> Payment API/watcher/webhook feature gates disabled
+  |
+  +-- pay.pepepow.net
+        VM-B
+        -> Nginx + PepewPay static
+        -> Payment FastAPI 127.0.0.1:8088
+        -> authoritative SQLite /var/lib/pepew-pay/payments.sqlite3
+        -> payment watcher + webhook worker
+        -> localhost SSH tunnel 127.0.0.1:50001
+        -> VM-A ElectrumX 127.0.0.1:50001
 ```
 
-PEPEPOWd, ElectrumX, PEPEW Light, and Nginx are already running. ElectrumX and PEPEPOWd RPC remain non-public.
+ElectrumX and PEPEPOWd RPC remain non-public. VM-A compatibility-proxies only
+the authoritative Payment Platform v1/webhook routes to VM-B so existing
+`light.pepepow.net/pay/` capability links continue to work.
 
 The production host is resource-constrained primarily by its single CPU core. Prefer low background CPU, bounded I/O, short caches, rate limits, minimal dependencies, and fault isolation.
 
@@ -355,9 +364,9 @@ Exit criteria:
 
 Detailed migration plan: [PHASE_F_DEPLOYMENT_SPLIT.md](PHASE_F_DEPLOYMENT_SPLIT.md)
 
-Status: **IN PROGRESS — current-host production rollout verified; deployment split to a dedicated Payment Platform host remains**
+Status: **COMPLETE — dedicated Payment Platform host cutover and production E2E verified 2026-09-24**
 
-Preferred direction when the event/webhook workload becomes active:
+Final production architecture:
 
 ```text
 VM-A
@@ -404,7 +413,9 @@ Current production rollout status (2026-09-22):
 - Post-cutover API-boundary acceptance tooling is available at `backend/scripts/phase_f_post_cutover_acceptance.py`; the first run exposed an Nginx nested-route precedence issue that was fixed and regression-tested
 - VM-B production webhook E2E passed on 2026-09-24: SSRF rejection, endpoint secret boundary, `payment.created`, persisted HTTP 503 retry, exact-body HMAC verification, retry to HTTP 204 with stable event/delivery IDs and body, authenticated delivery log, cleanup, and no printed secrets
 - Corrected 8/8 public post-cutover acceptance passed on 2026-09-24, covering pay health/ElectrumX/static UI, authoritative persisted-payment routing, Light compatibility proxy, unauthenticated create rejection, legacy Light payment/check preservation, and exclusion of legacy Light APIs from the pay domain
-- Remaining Phase F completion gate: complete one real small-payment watcher transition from `paid_unconfirmed` to `paid_confirmed` on VM-B
+- Final real-payment acceptance passed on 2026-09-24: a new 0.01 PEPEW invoice created on VM-B progressed through the watcher to `paid_confirmed` with exact requested/received/confirmed/policy-confirmed amount equality and one required confirmation
+- Phase F is complete: VM-B is the sole authoritative Payment Platform writer; VM-A remains Light-only; ElectrumX stays private behind the controlled localhost SSH tunnel
+- Backup/snapshot/transfer recovery mechanics were rehearsed and verified. A destructive post-write rollback was intentionally not exercised; if VM-B has accepted newer rows, rollback requires reconciliation before VM-A can become authoritative again
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
