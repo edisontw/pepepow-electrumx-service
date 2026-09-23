@@ -397,6 +397,7 @@ Current production rollout status (2026-09-22):
 - Phase F snapshot/verification helpers are now available; the snapshot helper refuses to run while the authoritative VM-A `pepew-light.service` remains active and emits a SHA-256 for destination verification
 - VM-A snapshot rehearsal passed on 2026-09-23: consistent row counts, SHA-256 generated, and `pepew-light.service` restored active immediately afterward; VM-A remains the sole authoritative writer
 - Rehearsal snapshot transfer to VM-B passed SHA-256, SQLite integrity, row-count, and zero-enabled-webhook verification; final authority cutover runbook is now tracked in `docs/PHASE_F_CUTOVER_RUNBOOK.md`
+- VM-B PepewPay static staging passed on 2026-09-23 using the verified GitHub Actions artifact for devkit source commit `3d38810fedce470be5ad3a412815b40c609eb258`; final authority cutover is ready to begin
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
