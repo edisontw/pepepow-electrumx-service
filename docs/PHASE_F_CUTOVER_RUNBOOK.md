@@ -112,6 +112,27 @@ Require `SNAPSHOT: PASS`. Record the printed SHA-256.
 
 **Do not restart `pepew-light.service` yet.** Keep it stopped until VM-B authority is running and locally validated. Then disable VM-A Payment Platform gates before restarting the Light service.
 
+Final VM-A freeze and authoritative snapshot completed successfully on 2026-09-23:
+
+```text
+feature_gates=api:true,watcher:true,webhook:true
+integrity_check=ok
+payments=3
+payment_transactions=3
+events=8
+webhook_endpoints=1
+webhook_deliveries=1
+enabled_webhook_endpoints=0
+webhook_delivery_statuses=delivered:1
+PRECHECK: PASS
+sha256=25a73150da504e9eba07f7fe71f28aeefb1bc581f50d159ea25370cff2326942
+SNAPSHOT: PASS
+final_snapshot=/home/ubuntu/phase-f-final-20260923T155346Z.sqlite3
+pepew-light.service=inactive
+```
+
+VM-A must remain stopped until VM-B authority is running and validated locally.
+
 ## 3. Transfer the final snapshot
 
 Transfer the final snapshot through the administrator's authenticated encrypted
