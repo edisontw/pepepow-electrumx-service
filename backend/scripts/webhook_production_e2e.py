@@ -27,6 +27,7 @@ import hashlib
 import hmac
 import json
 from pathlib import Path
+import sqlite3
 import sys
 import time
 from typing import Any
@@ -241,9 +242,35 @@ def resolve_address(
     *,
     address: str | None,
     reference_payment_id: str | None,
+    latest_payment: bool,
+    env: dict[str, str],
 ) -> str:
     if address:
         return address
+    if latest_payment:
+        db_path_raw = env.get("PAYMENT_DB_PATH")
+        if not db_path_raw:
+            raise E2EError("PAYMENT_DB_PATH is not configured")
+        db_path = Path(db_path_raw).expanduser()
+        if not db_path.exists():
+            raise E2EError("Configured payment database does not exist")
+        uri = f"file:{db_path.resolve()}?mode=ro"
+        connection = sqlite3.connect(uri, uri=True, timeout=5.0)
+        try:
+            row = connection.execute(
+                """
+                SELECT address
+                FROM payments
+                ORDER BY created_at DESC, payment_id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+        finally:
+            connection.close()
+        if not row or not isinstance(row[0], str) or not row[0]:
+            raise E2EError("No existing payment is available for E2E address reuse")
+        return row[0]
+
     assert reference_payment_id
     status, payload = json_request(
         "GET",
@@ -261,6 +288,11 @@ def main() -> int:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--address")
     source.add_argument("--reference-payment-id")
+    source.add_argument(
+        "--latest-payment",
+        action="store_true",
+        help="Reuse the address from the latest authoritative SQLite payment without printing its capability ID.",
+    )
     parser.add_argument("--api-base", default="http://127.0.0.1:8088")
     parser.add_argument("--amount", default="0.00000001")
     parser.add_argument("--timeout-seconds", type=int, default=100)
@@ -360,6 +392,8 @@ def main() -> int:
             api_base,
             address=args.address,
             reference_payment_id=args.reference_payment_id,
+            latest_payment=args.latest_payment,
+            env=env,
         )
         status, payment = json_request(
             "POST",
