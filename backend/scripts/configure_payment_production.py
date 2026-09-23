@@ -22,6 +22,7 @@ import tempfile
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 EXPECTED_TABLES = (
     "payments",
+    "payment_idempotency_keys",
     "payment_transactions",
     "events",
     "webhook_endpoints",
