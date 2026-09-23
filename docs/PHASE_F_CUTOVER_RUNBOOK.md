@@ -429,6 +429,20 @@ The test completed without printing the merchant API key, webhook master key, or
 derived endpoint signing secret. The temporary webhook endpoint/receiver cleanup
 path ran as part of the helper.
 
+Corrected public post-cutover acceptance completed successfully on 2026-09-24:
+
+```text
+1/8 pay health: PASS
+2/8 pay ElectrumX status: PASS
+3/8 PepewPay static root: PASS
+4/8 pay authoritative payment API: PASS
+5/8 light -> pay payment compatibility proxy: PASS
+6/8 unauthenticated create boundary: PASS
+7/8 Light legacy payment/check remains local: PASS
+8/8 pay domain excludes legacy Light API: PASS
+PHASE F POST-CUTOVER ACCEPTANCE: PASS
+```
+
 ## 10. Rollback
 
 If VM-B validation fails before accepting real new merchant writes:
