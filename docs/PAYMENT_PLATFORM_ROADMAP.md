@@ -398,7 +398,10 @@ Current production rollout status (2026-09-22):
 - VM-A snapshot rehearsal passed on 2026-09-23: consistent row counts, SHA-256 generated, and `pepew-light.service` restored active immediately afterward; VM-A remains the sole authoritative writer
 - Rehearsal snapshot transfer to VM-B passed SHA-256, SQLite integrity, row-count, and zero-enabled-webhook verification; final authority cutover runbook is now tracked in `docs/PHASE_F_CUTOVER_RUNBOOK.md`
 - VM-B PepewPay static staging passed on 2026-09-23 using the verified GitHub Actions artifact for devkit source commit `3d38810fedce470be5ad3a412815b40c609eb258`; final authority cutover is ready to begin
-- Final VM-A freeze/snapshot passed on 2026-09-23; authoritative snapshot `phase-f-final-20260923T155346Z.sqlite3` has SHA-256 `25a73150da504e9eba07f7fe71f28aeefb1bc581f50d159ea25370cff2326942`, and VM-A Light service is intentionally stopped pending VM-B activation
+- Final VM-A freeze/snapshot passed on 2026-09-23; authoritative snapshot `phase-f-final-20260923T155346Z.sqlite3` has SHA-256 `25a73150da504e9eba07f7fe71f28aeefb1bc581f50d159ea25370cff2326942`
+- VM-B public cutover passed on 2026-09-23: `pay.pepepow.net` health/status and PepewPay static root are live, with ElectrumX connected through the localhost SSH tunnel
+- VM-A has returned to Light-only mode with Payment API/watcher/webhook gates disabled; Light health/status and `/pay/` remain live
+- Post-cutover API-boundary acceptance tooling is available at `backend/scripts/phase_f_post_cutover_acceptance.py`; production payment/webhook E2E remains the final Phase F gate
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
