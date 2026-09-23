@@ -1,6 +1,6 @@
 # Payment API v1
 
-Status: **Phase D foundation**
+Status: **production; Phase G merchant-integration hardening in progress**
 
 This API is the persisted transaction-level payment path. It is separate from the legacy stateless `GET /api/payment/check` address monitor.
 
@@ -19,6 +19,7 @@ Payment creation is a merchant server-to-server action and requires the configur
 ```http
 POST /api/v1/payments
 Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+Idempotency-Key: <merchant retry key>   # optional but recommended
 Content-Type: application/json
 ```
 
@@ -40,6 +41,23 @@ The server validates the PEPEW address and exact decimal amount, then uses one s
 The existing history txids are stored as the payment creation baseline. This prevents a transaction already present in mempool before payment creation from later becoming a false new payment when it confirms.
 
 A payment is not created if the chain-tip/history snapshot cannot be established. This fail-closed behavior prevents an ambiguous creation boundary.
+
+### Idempotent creation retries
+
+Merchant integrations should send an `Idempotency-Key` on payment creation. The key is scoped to the current single-merchant API credential boundary and is persisted in SQLite.
+
+Accepted keys are 1-128 characters using ASCII letters, digits, `.`, `_`, `:`, or `-`.
+
+Behavior:
+
+- first use creates the payment normally and durably binds the key to that payment plus a hash of the normalized request
+- repeating the same key with the same request returns the original payment and does not create a second `payment.created` event
+- a known idempotency mapping is checked before the ElectrumX creation snapshot, so ordinary HTTP retries do not add upstream work
+- repeating the same key with different payment parameters returns HTTP `409` with `payment_idempotency_conflict`
+- the mapping survives process restart because it is stored in the same SQLite database
+- omitting `Idempotency-Key` preserves the original create-new-payment behavior
+
+The request hash follows the merchant-supplied create parameters. Omitted defaulted fields remain distinguishable from explicitly supplied fields, so a retry stays stable even if server defaults are changed later.
 
 ## Read payment status
 
@@ -65,24 +83,25 @@ Current response fields include:
 - compatibility integer fields: `received_sats`, `confirmed_sats`, `policy_confirmed_sats`, `overpaid_by_sats`
 - optional `label` / `message`
 
-When `PAYMENT_WATCHER_ENABLED=true`, the persistent ElectrumX watcher subscribes to tracked scripthashes and chain headers, reconciles transaction outputs into SQLite, and advances confirmations without browser polling. Both Payment API and watcher remain disabled by default until production access policy and end-to-end validation are complete.
+When `PAYMENT_WATCHER_ENABLED=true`, the persistent ElectrumX watcher subscribes to tracked scripthashes and chain headers, reconciles transaction outputs into SQLite, and advances confirmations without browser polling. Repository defaults remain disabled; production VM-B enables the authoritative Payment API and watcher explicitly, while VM-A keeps them disabled.
 
 ## SQLite
 
 Initial storage uses Python's standard-library `sqlite3`; no external database service is required.
 
-Production path:
+Authoritative production path on VM-B:
 
 ```text
-/var/lib/pepew-light/payments.sqlite3
+/var/lib/pepew-pay/payments.sqlite3
 ```
 
-The systemd unit uses `StateDirectory=pepew-light` so the database remains writable while `ProtectHome=read-only` stays enabled.
+VM-B is the sole Payment Platform writer after the completed Phase F cutover. VM-A keeps Payment API/watcher/webhook feature gates disabled.
 
 Schema domains created now:
 
 ```text
 payments
+payment_idempotency_keys
 payment_transactions
 events
 chain_state
@@ -94,7 +113,7 @@ SQLite uses WAL mode, foreign keys, a bounded busy timeout, and short transactio
 
 - payment IDs are generated from cryptographically secure random bytes
 - no mnemonic/private key/signing material is accepted
-- creation is feature-gated and rate-limited at Nginx when deployed
+- creation is feature-gated, authenticated, rate-limited at Nginx, and supports durable idempotent retries
 - request body size should remain small
 - public errors do not expose database paths or SQLite exception details
 - authoritative state remains transaction-output based, not current address balance

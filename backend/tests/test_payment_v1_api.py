@@ -8,6 +8,7 @@ ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 
 def test_create_payment_v1_returns_201(monkeypatch):
     async def fake_create(**kwargs):
+        assert kwargs["idempotency_key"] == "order-1-attempt-1"
         return {
             "ok": True,
             "payment_id": "pay_example",
@@ -34,6 +35,7 @@ def test_create_payment_v1_returns_201(monkeypatch):
     client = TestClient(app)
     response = client.post(
         "/api/v1/payments",
+        headers={"Idempotency-Key": "order-1-attempt-1"},
         json={
             "address": ADDRESS,
             "amount": "1",
@@ -120,3 +122,42 @@ def test_create_payment_v1_fails_closed_when_auth_unconfigured(monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "payment_auth_unconfigured"
+
+
+def test_create_payment_v1_returns_conflict_for_reused_idempotency_key(monkeypatch):
+    async def fake_create(**_kwargs):
+        raise payment_v1.PaymentIdempotencyConflictError("order-1-attempt-1")
+
+    monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/payments",
+        headers={"Idempotency-Key": "order-1-attempt-1"},
+        json={"address": ADDRESS, "amount": "2"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "payment_idempotency_conflict"
+
+
+def test_create_payment_v1_rejects_invalid_idempotency_key(monkeypatch):
+    async def fake_create(**_kwargs):
+        raise payment_v1.InvalidPaymentParameterError(
+            "invalid_idempotency_key",
+            "invalid",
+        )
+
+    monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/payments",
+        headers={"Idempotency-Key": "order 1"},
+        json={"address": ADDRESS, "amount": "1"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_idempotency_key"

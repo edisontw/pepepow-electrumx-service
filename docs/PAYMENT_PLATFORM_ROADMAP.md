@@ -419,6 +419,31 @@ Phase F rollout record (2026-09-22 through 2026-09-24):
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
+### Phase G — Merchant integration hardening
+
+Status: **IN PROGRESS**
+
+Repository: `pepepow-electrumx-service`
+
+Priority after the completed production cutover is merchant-facing API correctness and recoverability, not additional migration work.
+
+- [x] Add durable `Idempotency-Key` handling to `POST /api/v1/payments`
+- [x] Persist idempotency key -> normalized request hash -> payment mapping in SQLite
+- [x] Return the original payment for same-key/same-request retries without creating a second `payment.created` event
+- [x] Reject same-key/different-request reuse with HTTP 409
+- [x] Avoid a second ElectrumX creation snapshot for an already-known idempotent retry
+- [x] Add restart/storage/service/API regression tests for idempotency
+- [ ] Add authenticated merchant-side payment recovery/listing without weakening public capability-link privacy
+- [ ] Define an optional merchant-owned order/reference field and uniqueness semantics before adding it to the API
+- [ ] Re-run production acceptance for idempotent create/retry behavior on VM-B after deployment
+
+Exit criteria:
+
+- retrying payment creation after client/proxy timeout cannot create duplicate invoices or duplicate `payment.created` events
+- merchant operational recovery does not require exposing or enumerating public payment capability IDs
+- VM-A remains Light-only and no new authoritative writer is introduced
+- changes remain SQLite-based and bounded for the current single-core production footprint
+
 ## 11. Testing policy
 
 Authoritative payment logic must be unit-testable without requiring the production ElectrumX instance.

@@ -10,6 +10,7 @@ import sys
 
 EXPECTED_TABLES = (
     "payments",
+    "payment_idempotency_keys",
     "payment_transactions",
     "events",
     "webhook_endpoints",

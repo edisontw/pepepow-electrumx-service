@@ -3,7 +3,11 @@ import time
 import pytest
 
 from app.services.payment_state import PaymentTransactionObservation
-from app.services.payment_store import PaymentNotFoundError, PaymentStore
+from app.services.payment_store import (
+    PaymentIdempotencyConflictError,
+    PaymentNotFoundError,
+    PaymentStore,
+)
 
 
 def create(store: PaymentStore, now: int = 1000):
@@ -231,3 +235,85 @@ def test_event_sequence_supports_incremental_consumers(tmp_path):
     assert len(later) == 1
     assert later[0]["event_type"] == "payment.partial"
     assert later[0]["sequence"] > first[0]["sequence"]
+
+
+def test_payment_creation_idempotency_replays_existing_payment_and_event(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    first = PaymentStore(str(path))
+    first.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    created = first.create_payment(
+        payment_id="pay_first",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+        label="Demo",
+        message="Order 1",
+        idempotency_key="order-123-attempt-1",
+        request_hash="hash-a",
+    )
+
+    restarted = PaymentStore(str(path))
+    replayed = restarted.create_payment(
+        payment_id="pay_should_not_be_created",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1010,
+        created_height=501,
+        expires_at=1910,
+        label="Demo",
+        message="Order 1",
+        idempotency_key="order-123-attempt-1",
+        request_hash="hash-a",
+    )
+
+    assert created["payment_id"] == "pay_first"
+    assert replayed["payment_id"] == "pay_first"
+    assert restarted.get_payment_by_idempotency_key(
+        "order-123-attempt-1",
+        request_hash="hash-a",
+    )["payment_id"] == "pay_first"
+    assert [event["event_type"] for event in restarted.list_events()] == [
+        "payment.created"
+    ]
+
+
+def test_payment_creation_idempotency_rejects_changed_request(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+    store.create_payment(
+        payment_id="pay_first",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+        idempotency_key="order-123-attempt-1",
+        request_hash="hash-a",
+    )
+
+    with pytest.raises(PaymentIdempotencyConflictError):
+        store.create_payment(
+            payment_id="pay_second",
+            address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+            scripthash="11" * 32,
+            amount_sats=200,
+            confirmations_required=3,
+            created_at=1001,
+            created_height=500,
+            expires_at=1901,
+            idempotency_key="order-123-attempt-1",
+            request_hash="hash-b",
+        )
+
+    assert store.get_payment("pay_first")["amount_sats"] == 100
+    with pytest.raises(PaymentNotFoundError):
+        store.get_payment("pay_second")

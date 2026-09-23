@@ -77,6 +77,7 @@ def main() -> int:
 
         expected = [
             "payments",
+    "payment_idempotency_keys",
             "payment_transactions",
             "events",
             "webhook_endpoints",

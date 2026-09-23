@@ -241,7 +241,7 @@ Configuration features like `PEPEW_MIN_CONFIRMATIONS` define the requested confi
 
 ## 7. Persisted Payment API v1
 
-Phase D introduces a separate transaction-level persisted payment path:
+The authoritative Payment Platform exposes a separate transaction-level persisted payment path:
 
 ```text
 POST /api/v1/payments
@@ -250,28 +250,30 @@ GET  /api/v1/payments/{payment_id}
 
 This path uses SQLite and the transaction-level invariants in [docs/PAYMENT_STATE.md](docs/PAYMENT_STATE.md). Browser status reads are served from persisted state and do not trigger an equivalent ElectrumX request.
 
-The API is intentionally disabled by default:
+Merchant create requests may include an `Idempotency-Key`. Same-key/same-request retries return the original payment without creating a duplicate invoice/event; same-key/different-request reuse returns HTTP 409. See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md).
+
+Repository defaults remain disabled:
 
 ```text
 PAYMENT_API_ENABLED=false
 ```
 
-Production SQLite state is planned at:
+Authoritative production SQLite state on VM-B is:
 
 ```text
-/var/lib/pepew-light/payments.sqlite3
+/var/lib/pepew-pay/payments.sqlite3
 ```
 
-The committed systemd unit creates that writable state directory while keeping `ProtectHome=read-only`.
+VM-B enables Payment API/watcher/webhook explicitly. VM-A remains Light-only with all authoritative Payment Platform writer gates disabled.
 
-See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the request/response contract and current deployment status. Do not enable the public create route until the intended merchant access policy has been selected and end-to-end watcher tests are complete.
+See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the request/response and idempotency contract.
 
 
 ---
 
 ## 8. Payment Webhooks
 
-Phase E adds a feature-gated SQLite webhook queue and worker.
+The production Payment Platform includes a feature-gated SQLite webhook queue and worker.
 
 Management routes:
 
@@ -286,10 +288,10 @@ All management routes require the merchant Bearer API key. Endpoint signing secr
 
 Webhook delivery is HTTPS-only, HMAC-SHA256 signed, at-least-once, retryable with bounded exponential backoff, and protected against private-network/metadata/DNS-rebinding targets.
 
-The worker remains disabled by default:
+Repository defaults keep the worker disabled; production VM-B enables it explicitly:
 
 ```text
 PAYMENT_WEBHOOK_ENABLED=false
 ```
 
-See [docs/WEBHOOKS.md](docs/WEBHOOKS.md) before production enablement.
+See [docs/WEBHOOKS.md](docs/WEBHOOKS.md) for the production contract and revalidation procedure.

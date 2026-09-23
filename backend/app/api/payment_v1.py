@@ -10,6 +10,7 @@ from ..services.payment_auth import (
 )
 from ..services.payment_gateway_service import (
     PaymentGatewayDisabledError,
+    PaymentIdempotencyConflictError,
     PaymentNotFoundError,
     PaymentStoreError,
     PaymentTipUnavailableError,
@@ -34,6 +35,7 @@ class CreatePaymentRequest(BaseModel):
 async def create_payment(
     request: CreatePaymentRequest,
     authorization: str | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     try:
         require_payment_create_auth(authorization)
@@ -44,6 +46,7 @@ async def create_payment(
             expires_in=request.expires_in,
             label=request.label,
             message=request.message,
+            idempotency_key=idempotency_key,
         )
     except PaymentAuthUnconfiguredError:
         return api_error_response(
@@ -66,6 +69,12 @@ async def create_payment(
         return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "payment_api_disabled")
     except PaymentTipUnavailableError:
         return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "payment_tip_unavailable")
+    except PaymentIdempotencyConflictError:
+        return api_error_response(
+            status.HTTP_409_CONFLICT,
+            "payment_idempotency_conflict",
+            "Idempotency-Key was already used with different payment parameters.",
+        )
     except PaymentStoreError:
         return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "payment_store_error")
     except Exception:
