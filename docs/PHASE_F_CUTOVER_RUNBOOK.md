@@ -411,6 +411,24 @@ Also verify:
 - PepewPay at `https://pay.pepepow.net/` shows the same transition
 - VM-A `pepew-light.service` is running in Light-only mode with Payment API/watcher/webhook gates disabled
 
+Production webhook E2E on VM-B completed successfully on 2026-09-24:
+
+```text
+1/8 production webhook configuration: PASS
+2/8 SSRF loopback rejection: PASS
+3/8 endpoint create/list secret boundary: PASS
+4/8 payment.created event trigger: PASS
+5/8 persisted 503 -> retry transition: PASS
+6/8 first real receiver HMAC verification: PASS
+7/8 retry -> 204 delivered; stable IDs/body + HMAC: PASS
+8/8 authenticated delivery log: PASS
+WEBHOOK PRODUCTION E2E: PASS
+```
+
+The test completed without printing the merchant API key, webhook master key, or
+derived endpoint signing secret. The temporary webhook endpoint/receiver cleanup
+path ran as part of the helper.
+
 ## 10. Rollback
 
 If VM-B validation fails before accepting real new merchant writes:
