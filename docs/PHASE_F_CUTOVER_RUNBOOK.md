@@ -49,6 +49,16 @@ Use the repository-scoped read-only deploy key or transfer a CI-built artifact
 through the administrator's encrypted path. Do not install Node.js merely to
 build on VM-B.
 
+The artifact verified on 2026-09-23 reports:
+
+```text
+source_commit=3d38810fedce470be5ad3a412815b40c609eb258
+built_by=GitHub Actions
+```
+
+At verification time, that source commit is identical to devkit `main` and
+includes the same-origin `/api` status configuration.
+
 The production Nginx configuration is already tracked at:
 
 ```text
