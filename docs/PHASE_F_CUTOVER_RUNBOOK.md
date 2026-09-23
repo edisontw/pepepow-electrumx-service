@@ -12,8 +12,7 @@ truth.
 - Do not expose ElectrumX publicly.
 - Do not copy secrets into chat, shell history, GitHub, or logs.
 - Do not promote the rehearsal snapshot to production.
-- Do not restart VM-A `pepew-light.service` after the final snapshot unless
-  performing rollback.
+- Do not restart VM-A `pepew-light.service` with Payment Platform feature gates still enabled after the final snapshot. After VM-B authority is validated, disable the three Payment Platform gates on VM-A and restart the Light service so legacy Light API/wallet routes remain available without creating a second writer.
 - Do not enable VM-B writers until the final snapshot has passed destination
   verification and is installed at the production DB path.
 - Keep mnemonic/private-key/signing code client-side.
@@ -111,7 +110,7 @@ echo "final_snapshot=$FINAL"
 
 Require `SNAPSHOT: PASS`. Record the printed SHA-256.
 
-**Do not restart `pepew-light.service` after this point unless rolling back.**
+**Do not restart `pepew-light.service` yet.** Keep it stopped until VM-B authority is running and locally validated. Then disable VM-A Payment Platform gates before restarting the Light service.
 
 ## 3. Transfer the final snapshot
 
@@ -217,10 +216,55 @@ PAYMENT_WEBHOOK_ENABLED=true
 PAYMENT_DB_PATH=/var/lib/pepew-pay/payments.sqlite3
 ```
 
-At this stage VM-B is the only authoritative writer because VM-A remains
-stopped.
+At this stage VM-B is the only authoritative writer because VM-A remains stopped. The next step is to convert VM-A back to Light-only mode before restarting it.
 
-## 7. Switch VM-B Nginx from bootstrap to production
+## 7. Return VM-A to Light-only mode
+
+After VM-B Payment API/watcher/webhook are running and local validation passes,
+keep VM-A's old SQLite and secrets intact for rollback, but disable all
+authoritative Payment Platform feature gates before restarting the shared Light
+service.
+
+On VM-A, while `pepew-light.service` is still stopped:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service
+git pull --ff-only
+cd backend
+
+python3 scripts/configure_light_post_cutover.py
+
+sudo systemctl start pepew-light.service
+sudo systemctl --no-pager --full status pepew-light.service
+```
+
+Confirm only the Payment Platform gates are disabled:
+
+```bash
+grep -E '^(PAYMENT_API_ENABLED|PAYMENT_WATCHER_ENABLED|PAYMENT_WEBHOOK_ENABLED)=' .env
+```
+
+Expected:
+
+```text
+PAYMENT_API_ENABLED=false
+PAYMENT_WATCHER_ENABLED=false
+PAYMENT_WEBHOOK_ENABLED=false
+```
+
+Then verify the existing Light service is healthy:
+
+```bash
+curl -fsS https://light.pepepow.net/api/health
+curl -fsS https://light.pepepow.net/api/status
+```
+
+The legacy stateless `/api/payment/check` route remains part of PEPEW Light.
+Persisted `/api/v1/payments` on VM-A should now fail closed because the Payment
+API gate is disabled. VM-A must not run the watcher or webhook worker after this
+point.
+
+## 8. Switch VM-B Nginx from bootstrap to production
 
 Only after local backend validation and static artifact readiness:
 
@@ -245,7 +289,7 @@ curl -I https://pay.pepepow.net/
 
 Confirm ElectrumX remains local-only on VM-A and is not publicly reachable.
 
-## 8. Production E2E
+## 9. Production E2E
 
 Use an existing migrated payment ID as the reference for webhook E2E so no
 address has to be copied into chat:
@@ -268,9 +312,9 @@ Also verify:
 - watcher remains connected through the localhost SSH tunnel
 - a new small real payment reaches `paid_unconfirmed` then `paid_confirmed`
 - PepewPay at `https://pay.pepepow.net/` shows the same transition
-- VM-A `pepew-light.service` remains stopped during acceptance
+- VM-A `pepew-light.service` is running in Light-only mode with Payment API/watcher/webhook gates disabled
 
-## 9. Rollback
+## 10. Rollback
 
 If VM-B validation fails before accepting real new merchant writes:
 
@@ -279,7 +323,11 @@ If VM-B validation fails before accepting real new merchant writes:
 sudo systemctl stop pepew-pay.service
 ```
 
-Then on VM-A:
+Then on VM-A, restore the previous Payment Platform feature-gate settings from
+the protected pre-cutover environment/configuration before starting the service.
+Do not simply start VM-A while its gates remain disabled if rollback is intended.
+
+After restoring the previous gates:
 
 ```bash
 sudo systemctl start pepew-light.service
@@ -292,7 +340,7 @@ If VM-B has already accepted new payments/events after activation, do not simply
 restart the old VM-A database. Reconcile the new VM-B rows first so the
 single-writer ledger does not lose accepted state.
 
-## 10. Completion
+## 11. Completion
 
 Phase F is complete only after:
 
