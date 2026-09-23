@@ -1,17 +1,16 @@
 # Phase F — Dedicated Payment Platform Host
 
-Status: **IN PROGRESS — VM-A cutover preflight passed; authoritative SQLite transfer pending**
+Status: **COMPLETE — dedicated Payment Platform cutover verified in production 2026-09-24**
 
-This document defines the staged migration from the verified single-host rollout on
-`light.pepepow.net` to a dedicated Payment Platform host, expected to use:
+This document records the completed staged migration from the original single-host rollout on
+`light.pepepow.net` to the dedicated authoritative Payment Platform host:
 
 ```text
 https://pay.pepepow.net
 ```
 
-GitHub `main` remains the implementation source of truth. Do not execute the
-cutover until the new host has been inspected and the private ElectrumX network
-path has been selected.
+GitHub `main` remains the implementation source of truth. The production cutover
+completed on 2026-09-24 using the controlled SSH tunnel path documented below.
 
 Detailed final cutover runbook: [PHASE_F_CUTOVER_RUNBOOK.md](PHASE_F_CUTOVER_RUNBOOK.md)
 
@@ -31,38 +30,44 @@ Redis, PostgreSQL, RabbitMQ, Kafka, or similar infrastructure.
 
 ## 2. Current verified production state
 
-Current host:
+Production authority after Phase F:
 
 ```text
-light.pepepow.net
+light.pepepow.net   -> VM-A PEPEW Light + wallet + compatibility routes
+pay.pepepow.net     -> VM-B authoritative Payment Platform + PepewPay
 ```
 
-Verified on 2026-09-22:
+Verified through the completed cutover on 2026-09-24:
 
-- Payment API authorization and persisted payment creation
-- SQLite payment/event state
-- persistent ElectrumX watcher
-- real wallet broadcast and transaction detection
-- true confirmation tracking
-- PepewPay static production UI
-- live 0.1 PEPEW checkout through `paid_unconfirmed` -> `paid_confirmed`
-- webhook SSRF rejection
-- real webhook HMAC verification
-- persisted HTTP 503 retry -> HTTP 204 delivered
-- stable event ID, delivery ID, and event body across retry
-- authenticated delivery log without secret exposure
+- final VM-A SQLite freeze/snapshot passed integrity and row-count checks
+- encrypted transfer and SHA-256 destination verification passed on VM-B
+- VM-B authoritative SQLite installed at `/var/lib/pepew-pay/payments.sqlite3`
+- Payment API, watcher, and webhook worker are enabled only on VM-B
+- VM-A Payment API/watcher/webhook feature gates are disabled
+- VM-A PEPEW Light API, legacy `/api/payment/check`, wallet, and `/pay/` remain available
+- existing Light checkout capability links reach VM-B authority through the post-cutover compatibility proxy
+- public 8/8 Phase F API-boundary acceptance passed
+- VM-B webhook production E2E passed SSRF protection, exact-body HMAC, persisted retry, stable IDs/body, and delivery-log checks
+- final real 0.01 PEPEW acceptance payment reached `paid_confirmed` with one required confirmation and exact requested/received/confirmed amounts
+- ElectrumX remains bound privately; VM-B reaches it only through the controlled localhost SSH tunnel
 
-Production currently keeps:
+Production feature gates:
 
 ```text
-PAYMENT_API_ENABLED=true
-PAYMENT_WATCHER_ENABLED=true
-PAYMENT_WEBHOOK_ENABLED=true
+VM-A:
+  PAYMENT_API_ENABLED=false
+  PAYMENT_WATCHER_ENABLED=false
+  PAYMENT_WEBHOOK_ENABLED=false
+
+VM-B:
+  PAYMENT_API_ENABLED=true
+  PAYMENT_WATCHER_ENABLED=true
+  PAYMENT_WEBHOOK_ENABLED=true
 ```
 
 Repository defaults remain disabled.
 
-## 3. Target architecture
+## 3. Final production architecture
 
 ```text
 Internet
@@ -303,7 +308,7 @@ The VM-B public IP is currently OCI ephemeral and has been stable for years; the
 initial rollout keeps it. If that IP changes, update both the DNS A record and
 the VM-A tunnel key source restriction.
 
-PepewPay same-origin Payment API readiness is complete. Its default persisted-status API base is now `/api`, so the same static build targets the local Payment API origin on both `light.pepepow.net/pay/` and `pay.pepepow.net/`. The next gate is the SQLite single-writer cutover.
+PepewPay same-origin Payment API behavior is in production. Its default persisted-status API base is `/api`. On `pay.pepepow.net` it resolves directly to VM-B authority; on `light.pepepow.net/pay/`, the authoritative v1 routes are compatibility-proxied to VM-B while legacy Light APIs remain local.
 
 ## 7. VM-B deployment shape
 
@@ -575,7 +580,7 @@ Rollback must preserve one-writer authority.
 
 ## 14. Phase F completion criteria
 
-Phase F is complete when:
+Phase F completed on 2026-09-24. The verified completion state is:
 
 - `pay.pepepow.net` is deployed on the dedicated host
 - Payment API, watcher, SQLite and webhook worker are authoritative on VM-B
@@ -583,4 +588,4 @@ Phase F is complete when:
 - PepewPay uses the VM-B Payment API
 - payment and webhook production E2E pass after migration
 - VM-A no longer runs competing Payment Platform writers
-- rollback and backup procedures are documented and tested
+- backup/snapshot/transfer recovery procedures are documented and rehearsed; destructive post-write rollback is not claimed as tested because any rollback after new VM-B writes requires reconciliation first
