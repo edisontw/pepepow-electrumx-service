@@ -163,3 +163,126 @@ def test_creation_snapshot_persists_preexisting_mempool_baseline(tmp_path, monke
 
     store = payment_gateway_service._store_for_path(settings.payment_db_path)
     assert store.get_baseline_txids(created["payment_id"]) == {old_mempool_txid}
+
+
+def test_idempotent_create_reuses_payment_without_second_electrumx_snapshot(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+            "payment_default_expiry_seconds": 900,
+            "payment_max_expiry_seconds": 86400,
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    payment_gateway_service.clear_payment_store_cache()
+
+    calls = {"snapshot": 0}
+
+    async def fake_snapshot(_settings, _scripthash):
+        calls["snapshot"] += 1
+        return 500, "tip", ()
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", fake_snapshot)
+
+    first = asyncio.run(
+        payment_gateway_service.create_persisted_payment(
+            address=ADDRESS,
+            amount="1.25",
+            confirmations=3,
+            expires_in=900,
+            label="Demo",
+            message="Order 123",
+            idempotency_key="order-123-attempt-1",
+        )
+    )
+    second = asyncio.run(
+        payment_gateway_service.create_persisted_payment(
+            address=ADDRESS,
+            amount="1.25",
+            confirmations=3,
+            expires_in=900,
+            label="Demo",
+            message="Order 123",
+            idempotency_key="order-123-attempt-1",
+        )
+    )
+
+    assert second["payment_id"] == first["payment_id"]
+    assert calls["snapshot"] == 1
+
+    store = payment_gateway_service._store_for_path(settings.payment_db_path)
+    assert [event["event_type"] for event in store.list_events()] == ["payment.created"]
+
+
+def test_idempotency_conflict_is_detected_before_second_snapshot(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+            "payment_default_expiry_seconds": 900,
+            "payment_max_expiry_seconds": 86400,
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    payment_gateway_service.clear_payment_store_cache()
+
+    calls = {"snapshot": 0}
+
+    async def fake_snapshot(_settings, _scripthash):
+        calls["snapshot"] += 1
+        return 500, "tip", ()
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", fake_snapshot)
+
+    asyncio.run(
+        payment_gateway_service.create_persisted_payment(
+            address=ADDRESS,
+            amount="1",
+            idempotency_key="order-123-attempt-1",
+        )
+    )
+
+    try:
+        asyncio.run(
+            payment_gateway_service.create_persisted_payment(
+                address=ADDRESS,
+                amount="2",
+                idempotency_key="order-123-attempt-1",
+            )
+        )
+    except payment_gateway_service.PaymentIdempotencyConflictError:
+        pass
+    else:
+        raise AssertionError("Expected reused Idempotency-Key with changed request to conflict.")
+
+    assert calls["snapshot"] == 1
+
+
+def test_idempotency_key_validation_rejects_unsafe_characters(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    payment_gateway_service.clear_payment_store_cache()
+
+    async def forbidden_snapshot(_settings, _scripthash):
+        raise AssertionError("Invalid idempotency key must fail before ElectrumX.")
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", forbidden_snapshot)
+
+    try:
+        asyncio.run(
+            payment_gateway_service.create_persisted_payment(
+                address=ADDRESS,
+                amount="1",
+                idempotency_key="order 123",
+            )
+        )
+    except payment_gateway_service.InvalidPaymentParameterError as exc:
+        assert exc.code == "invalid_idempotency_key"
+    else:
+        raise AssertionError("Expected invalid idempotency key to be rejected.")
