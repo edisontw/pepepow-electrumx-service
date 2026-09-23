@@ -325,6 +325,44 @@ watcher or webhook worker after this point.
 
 Confirm ElectrumX remains local-only on VM-A and is not publicly reachable.
 
+Post-cutover host/service validation completed on 2026-09-23:
+
+```text
+pay.pepepow.net /api/health: PASS
+pay.pepepow.net /api/status: PASS
+pay.pepepow.net /: HTTP 200 PepewPay static
+VM-B ElectrumX tunnel/status: connected
+VM-A PAYMENT_API_ENABLED=false
+VM-A PAYMENT_WATCHER_ENABLED=false
+VM-A PAYMENT_WEBHOOK_ENABLED=false
+VM-A pepew-light.service=active
+light.pepepow.net /api/health: PASS
+light.pepepow.net /api/status: PASS
+light.pepepow.net /pay/: HTTP 200
+```
+
+Before webhook/payment live E2E, run the public, secret-free API boundary helper:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service
+git pull --ff-only
+cd backend
+
+python3 scripts/phase_f_post_cutover_acceptance.py
+```
+
+This must finish with:
+
+```text
+PHASE F POST-CUTOVER ACCEPTANCE: PASS
+```
+
+It does not create a payment and does not require or print merchant/webhook
+secrets. It verifies the VM-B authoritative Payment API, the VM-A compatibility
+proxy, unauthenticated create rejection, preservation of the legacy Light
+`/api/payment/check` route, and exclusion of legacy Light APIs from the pay
+domain.
+
 ## 9. Production E2E
 
 Use an existing migrated payment ID as the reference for webhook E2E so no
