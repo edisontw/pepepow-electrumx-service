@@ -52,16 +52,16 @@ def _payment_create_request_hash(
     *,
     address: str,
     amount_sats: int,
-    confirmations_required: int,
-    expiry_seconds: int,
+    confirmations: int | None,
+    expires_in: int | None,
     label: str | None,
     message: str | None,
 ) -> str:
     payload = {
         "address": address,
         "amount_sats": int(amount_sats),
-        "confirmations_required": int(confirmations_required),
-        "expiry_seconds": int(expiry_seconds),
+        "confirmations": None if confirmations is None else int(confirmations),
+        "expires_in": None if expires_in is None else int(expires_in),
         "label": label or None,
         "message": message or None,
     }
@@ -187,8 +187,8 @@ async def create_persisted_payment(
     request_hash = _payment_create_request_hash(
         address=normalized_address,
         amount_sats=amount_sats,
-        confirmations_required=confirmations_required,
-        expiry_seconds=expiry_seconds,
+        confirmations=confirmations,
+        expires_in=expires_in,
         label=label,
         message=message,
     )
