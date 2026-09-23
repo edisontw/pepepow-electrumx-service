@@ -403,7 +403,8 @@ Current production rollout status (2026-09-22):
 - VM-A has returned to Light-only mode with Payment API/watcher/webhook gates disabled; Light health/status and `/pay/` remain live
 - Post-cutover API-boundary acceptance tooling is available at `backend/scripts/phase_f_post_cutover_acceptance.py`; the first run exposed an Nginx nested-route precedence issue that was fixed and regression-tested
 - VM-B production webhook E2E passed on 2026-09-24: SSRF rejection, endpoint secret boundary, `payment.created`, persisted HTTP 503 retry, exact-body HMAC verification, retry to HTTP 204 with stable event/delivery IDs and body, authenticated delivery log, cleanup, and no printed secrets
-- Remaining Phase F completion gates: rerun the corrected 8/8 public post-cutover acceptance helper and complete one real small-payment watcher transition from `paid_unconfirmed` to `paid_confirmed`
+- Corrected 8/8 public post-cutover acceptance passed on 2026-09-24, covering pay health/ElectrumX/static UI, authoritative persisted-payment routing, Light compatibility proxy, unauthenticated create rejection, legacy Light payment/check preservation, and exclusion of legacy Light APIs from the pay domain
+- Remaining Phase F completion gate: complete one real small-payment watcher transition from `paid_unconfirmed` to `paid_confirmed` on VM-B
 
 ElectrumX must remain private. A second VM should connect only through an approved private OCI network path or a controlled tunnel; do not expose port 50001 to the Internet.
 
