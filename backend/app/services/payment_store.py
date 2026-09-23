@@ -20,6 +20,10 @@ class PaymentNotFoundError(PaymentStoreError):
     pass
 
 
+class PaymentIdempotencyConflictError(PaymentStoreError):
+    pass
+
+
 def _event_id(payment_id: str, payment_version: int, event_type: str) -> str:
     material = f"pepew-event-v1:{payment_id}:{int(payment_version)}:{event_type}".encode("utf-8")
     return "evt_" + hashlib.sha256(material).hexdigest()
@@ -182,6 +186,14 @@ class PaymentStore:
                     CREATE INDEX IF NOT EXISTS idx_payments_expires_at
                     ON payments (expires_at);
 
+                    CREATE TABLE IF NOT EXISTS payment_idempotency_keys (
+                        idempotency_key TEXT PRIMARY KEY,
+                        request_hash TEXT NOT NULL,
+                        payment_id TEXT NOT NULL UNIQUE,
+                        created_at INTEGER NOT NULL,
+                        FOREIGN KEY (payment_id) REFERENCES payments(payment_id) ON DELETE CASCADE
+                    );
+
                     CREATE TABLE IF NOT EXISTS payment_baseline_transactions (
                         payment_id TEXT NOT NULL,
                         txid TEXT NOT NULL,
@@ -274,9 +286,35 @@ class PaymentStore:
         label: str | None = None,
         message: str | None = None,
         baseline_txids: tuple[str, ...] = (),
+        idempotency_key: str | None = None,
+        request_hash: str | None = None,
     ) -> dict[str, Any]:
         self.initialize()
+        if (idempotency_key is None) != (request_hash is None):
+            raise PaymentStoreError("Idempotency key and request hash must be provided together.")
+
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if idempotency_key is not None:
+                existing = connection.execute(
+                    """
+                    SELECT request_hash, payment_id
+                    FROM payment_idempotency_keys
+                    WHERE idempotency_key = ?
+                    """,
+                    (idempotency_key,),
+                ).fetchone()
+                if existing is not None:
+                    if str(existing["request_hash"]) != str(request_hash):
+                        raise PaymentIdempotencyConflictError(idempotency_key)
+                    replay = connection.execute(
+                        "SELECT * FROM payments WHERE payment_id = ?",
+                        (str(existing["payment_id"]),),
+                    ).fetchone()
+                    if replay is None:
+                        raise PaymentStoreError("Idempotency mapping references a missing payment.")
+                    return dict(replay)
+
             connection.execute(
                 """
                 INSERT INTO payments (
@@ -320,7 +358,48 @@ class PaymentStore:
                 event_type="payment.created",
                 created_at=int(created_at),
             )
+            if idempotency_key is not None:
+                connection.execute(
+                    """
+                    INSERT INTO payment_idempotency_keys (
+                        idempotency_key, request_hash, payment_id, created_at
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        idempotency_key,
+                        str(request_hash),
+                        payment_id,
+                        int(created_at),
+                    ),
+                )
         return self.get_payment(payment_id)
+
+    def get_payment_by_idempotency_key(
+        self,
+        idempotency_key: str,
+        *,
+        request_hash: str,
+    ) -> dict[str, Any] | None:
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT request_hash, payment_id
+                FROM payment_idempotency_keys
+                WHERE idempotency_key = ?
+                """,
+                (idempotency_key,),
+            ).fetchone()
+        if row is None:
+            return None
+        if str(row["request_hash"]) != str(request_hash):
+            raise PaymentIdempotencyConflictError(idempotency_key)
+        try:
+            return self.get_payment(str(row["payment_id"]))
+        except PaymentNotFoundError as exc:
+            raise PaymentStoreError(
+                "Idempotency mapping references a missing payment."
+            ) from exc
 
     def get_payment(self, payment_id: str) -> dict[str, Any]:
         self.initialize()
