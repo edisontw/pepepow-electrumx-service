@@ -380,12 +380,12 @@ VM-B
 - payment watcher
 - SQLite
 - webhook worker
-- PepewPay static hosting if desired
+- PepewPay static hosting
 ```
 
 The reason to split is primarily CPU/failure/security isolation, not current RAM pressure.
 
-Current production rollout status (2026-09-22):
+Phase F rollout record (2026-09-22 through 2026-09-24):
 
 - PEPEW Light baseline deploy passed 184 backend tests on production Python 3.10
 - Payment API authorization boundary verified (unauthenticated POST -> 401)
@@ -393,20 +393,20 @@ Current production rollout status (2026-09-22):
 - public read-only payment status verified through Nginx
 - existing client-side wallet broadcast verified
 - persistent watcher advanced a real 1 PEPEW payment to `paid_confirmed`
-- Payment API and watcher are now enabled on the current host for rollout validation
-- webhook worker is enabled on the current production host after successful production E2E
+- Initial single-host validation enabled Payment API and watcher on VM-A; the completed split disables those authoritative gates on VM-A and enables them on VM-B
+- Initial single-host validation enabled the webhook worker on VM-A; the completed split moves webhook authority to VM-B
 - production webhook E2E verified SSRF rejection, exact-body HMAC, real HTTP 503 retry -> 204 delivery, stable event/delivery IDs and body, authenticated delivery log, cleanup, and no printed secrets
 - PepewPay static UI is deployed and verified at `https://light.pepepow.net/pay/`
 - Live PepewPay production E2E is verified with a new 0.1 PEPEW payment through web-wallet handoff, broadcast, `paid_unconfirmed`, and `paid_confirmed`
 - Production retrieval of the private `pepepow-devkit` static artifact uses a dedicated repository-scoped read-only SSH deploy key; do not store a long-lived GitHub PAT in shell history or the repository
-- VM-B staging backend is running with Payment API/watcher/webhook disabled; `/api/health` and `/api/status` pass through Nginx and the SSH ElectrumX tunnel while `/api/v1/payments` remains blocked with 404
-- `pay.pepepow.net` DNS and Let's Encrypt HTTPS are verified; the bootstrap host still exposes only health/status
+- Pre-cutover VM-B bootstrap validation passed with Payment API/watcher/webhook disabled; health/status worked through Nginx and the SSH ElectrumX tunnel before authority was enabled
+- `pay.pepepow.net` DNS and Let's Encrypt HTTPS were verified during bootstrap, then switched to the production Payment API/PepewPay virtual host after authority migration
 - Phase F cutover preflight tooling is available to verify SQLite integrity/counts and ensure no enabled webhook endpoint would be silently invalidated by key rotation
 - VM-A Phase F cutover preflight passed on 2026-09-23: SQLite integrity ok; 3 payments, 3 payment transactions, 8 events, 1 disabled webhook endpoint, 1 delivered webhook delivery, and zero enabled webhook endpoints
 - Phase F snapshot/verification helpers are now available; the snapshot helper refuses to run while the authoritative VM-A `pepew-light.service` remains active and emits a SHA-256 for destination verification
 - VM-A snapshot rehearsal passed on 2026-09-23: consistent row counts, SHA-256 generated, and `pepew-light.service` restored active immediately afterward; VM-A remains the sole authoritative writer
 - Rehearsal snapshot transfer to VM-B passed SHA-256, SQLite integrity, row-count, and zero-enabled-webhook verification; final authority cutover runbook is now tracked in `docs/PHASE_F_CUTOVER_RUNBOOK.md`
-- VM-B PepewPay static staging passed on 2026-09-23 using the verified GitHub Actions artifact for devkit source commit `3d38810fedce470be5ad3a412815b40c609eb258`; final authority cutover is ready to begin
+- VM-B PepewPay static staging passed on 2026-09-23 using the verified GitHub Actions artifact for devkit source commit `3d38810fedce470be5ad3a412815b40c609eb258` before the final authority cutover
 - Final VM-A freeze/snapshot passed on 2026-09-23; authoritative snapshot `phase-f-final-20260923T155346Z.sqlite3` has SHA-256 `25a73150da504e9eba07f7fe71f28aeefb1bc581f50d159ea25370cff2326942`
 - VM-B public cutover passed on 2026-09-23: `pay.pepepow.net` health/status and PepewPay static root are live, with ElectrumX connected through the localhost SSH tunnel
 - VM-A has returned to Light-only mode with Payment API/watcher/webhook gates disabled; Light health/status and `/pay/` remain live
