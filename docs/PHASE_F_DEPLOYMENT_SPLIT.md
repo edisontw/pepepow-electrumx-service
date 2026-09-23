@@ -513,7 +513,8 @@ Staged migration:
 10. install the verified snapshot as VM-B's production Payment DB and configure new production secrets
 11. start VM-B with the selected production feature gates
 12. rerun payment and webhook E2E
-13. only then route production checkout/API traffic to VM-B
+13. disable `PAYMENT_API_ENABLED`, `PAYMENT_WATCHER_ENABLED`, and `PAYMENT_WEBHOOK_ENABLED` on VM-A and restart `pepew-light.service` so Light API/wallet remain available without competing Payment Platform writers
+14. only then route production checkout/API traffic to VM-B
 
 Do not rsync/copy a live SQLite database file casually while authoritative
 writers remain active.
@@ -555,7 +556,7 @@ Minimum acceptance on VM-B:
 - SSRF loopback/private target rejection still passes
 - no secret appears in logs
 - public scans cannot reach ElectrumX or PEPEPOWd RPC
-- VM-A payment watcher/webhook writer is disabled after authority moves
+- VM-A `pepew-light.service` is restored in Light-only mode after authority moves, with Payment API/watcher/webhook feature gates disabled
 
 ## 13. Rollback
 
