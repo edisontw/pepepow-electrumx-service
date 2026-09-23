@@ -1,6 +1,6 @@
 # Phase F Final Cutover Runbook
 
-Status: **READY FOR FINAL CUTOVER — rehearsal transfer/verification passed**
+Status: **COMPLETE — production authority cutover and E2E verified 2026-09-24**
 
 Use this runbook only after the Phase F preflight, VM-A snapshot rehearsal, and
 VM-B transfer verification have all passed. GitHub `main` remains the source of
@@ -443,6 +443,26 @@ Corrected public post-cutover acceptance completed successfully on 2026-09-24:
 PHASE F POST-CUTOVER ACCEPTANCE: PASS
 ```
 
+Final real-payment watcher acceptance completed successfully on 2026-09-24:
+
+```text
+amount=0.01 PEPEW
+confirmations_required=1
+status=paid_confirmed
+received=0.01
+confirmed=0.01
+policy_confirmed=0.01
+overpaid_by=0
+```
+
+The test used a newly created VM-B authoritative invoice and confirmed that the
+post-cutover watcher persisted the real payment through the unconfirmed/confirmed
+lifecycle to `paid_confirmed`. Capability IDs and wallet addresses are
+intentionally not recorded in this runbook.
+
+With the webhook production E2E and corrected 8/8 public acceptance also passed,
+the Phase F authority migration is complete.
+
 ## 10. Rollback
 
 If VM-B validation fails before accepting real new merchant writes:
@@ -471,11 +491,17 @@ single-writer ledger does not lose accepted state.
 
 ## 11. Completion
 
-Phase F is complete only after:
+Phase F completed on 2026-09-24 with:
 
-- VM-B is authoritative for Payment API/watcher/SQLite/webhook
-- `pay.pepepow.net` serves PepewPay and production Payment API routes
-- payment and webhook E2E pass after migration
-- VM-A no longer runs competing Payment Platform writers
-- ElectrumX remains private
-- rollback path has been validated
+- VM-B authoritative for Payment API/watcher/SQLite/webhook
+- `pay.pepepow.net` serving PepewPay and production Payment API routes
+- production payment and webhook E2E passed after migration
+- corrected 8/8 public post-cutover acceptance passed
+- VM-A restored in Light-only mode with no competing Payment Platform writers
+- existing `light.pepepow.net/pay/` capability links preserved through the compatibility proxy
+- ElectrumX remaining private behind the controlled localhost SSH tunnel
+- snapshot/transfer/recovery mechanics rehearsed and verified
+
+A destructive rollback after VM-B has accepted newer production rows was
+intentionally not exercised. In that situation, reconcile those rows before
+restoring VM-A authority; never run independent writers concurrently.
