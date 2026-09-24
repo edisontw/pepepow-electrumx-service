@@ -14,7 +14,7 @@ GET /api/v1/payments
 Authorization: Bearer <PAYMENT_CREATE_API_KEY>
 ```
 
-The authenticated list is bounded and intended for merchant operational recovery. It may return payment capability IDs and merchant-supplied idempotency keys, so it must never be exposed without Bearer authentication.
+The authenticated list is bounded and intended for merchant operational recovery. It may return payment capability IDs, merchant-supplied idempotency keys, and optional `merchant_reference` values, so it must never be exposed without Bearer authentication.
 
 Payment status for one known payment remains a read-only capability URL:
 
@@ -86,7 +86,7 @@ Anyone holding a valid high-entropy `payment_id` can read that payment status.
 Therefore:
 
 - treat checkout/status URLs as capability links
-- do not put passwords, secrets, medical/personal records, or other sensitive merchant data in `label` or `message`
+- do not put passwords, secrets, medical/personal records, or other sensitive merchant data in `label`, `message`, or `merchant_reference`
 - payment IDs must not be sequential or guessable
 - logs should not unnecessarily retain full capability URLs long-term
 
