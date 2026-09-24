@@ -562,3 +562,58 @@ def test_list_persisted_payments_filters_exact_merchant_reference(tmp_path, monk
 
     assert [item["payment_id"] for item in result["payments"]] == [first["payment_id"]]
     assert result["payments"][0]["merchant_reference"] == "ORDER-A"
+
+
+def test_public_persisted_payment_status_hides_merchant_metadata(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+            "payment_default_expiry_seconds": 900,
+            "payment_max_expiry_seconds": 86400,
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    payment_gateway_service.clear_payment_store_cache()
+
+    async def fake_snapshot(_settings, _scripthash):
+        return 500, "tip", ()
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", fake_snapshot)
+
+    created = asyncio.run(
+        payment_gateway_service.create_persisted_payment(
+            address=ADDRESS,
+            amount="1",
+            merchant_reference="ORDER-PRIVATE-1",
+            idempotency_key="retry-private-1",
+        )
+    )
+    loaded = asyncio.run(
+        payment_gateway_service.get_persisted_payment(created["payment_id"])
+    )
+
+    assert "merchant_reference" not in loaded
+    assert "idempotency_key" not in loaded
+
+
+def test_list_persisted_payments_rejects_invalid_merchant_reference_filter(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    payment_gateway_service.clear_payment_store_cache()
+
+    try:
+        asyncio.run(
+            payment_gateway_service.list_persisted_payments(
+                merchant_reference="ORDER 1",
+            )
+        )
+    except payment_gateway_service.InvalidPaymentParameterError as exc:
+        assert exc.code == "invalid_merchant_reference"
+    else:
+        raise AssertionError("Expected invalid merchant reference filter to be rejected.")
