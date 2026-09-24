@@ -617,3 +617,51 @@ def test_list_persisted_payments_rejects_invalid_merchant_reference_filter(tmp_p
         assert exc.code == "invalid_merchant_reference"
     else:
         raise AssertionError("Expected invalid merchant reference filter to be rejected.")
+
+
+def test_idempotency_key_conflicts_when_merchant_reference_changes(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+            "payment_default_expiry_seconds": 900,
+            "payment_max_expiry_seconds": 86400,
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    payment_gateway_service.clear_payment_store_cache()
+
+    calls = {"snapshot": 0}
+
+    async def fake_snapshot(_settings, _scripthash):
+        calls["snapshot"] += 1
+        return 500, "tip", ()
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", fake_snapshot)
+
+    asyncio.run(
+        payment_gateway_service.create_persisted_payment(
+            address=ADDRESS,
+            amount="1",
+            merchant_reference="ORDER-A",
+            idempotency_key="retry-order",
+        )
+    )
+
+    try:
+        asyncio.run(
+            payment_gateway_service.create_persisted_payment(
+                address=ADDRESS,
+                amount="1",
+                merchant_reference="ORDER-B",
+                idempotency_key="retry-order",
+            )
+        )
+    except payment_gateway_service.PaymentIdempotencyConflictError:
+        pass
+    else:
+        raise AssertionError(
+            "Changing merchant_reference under the same Idempotency-Key must conflict."
+        )
+
+    assert calls["snapshot"] == 1
