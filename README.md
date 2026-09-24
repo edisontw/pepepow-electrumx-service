@@ -253,7 +253,9 @@ This path uses SQLite and the transaction-level invariants in [docs/PAYMENT_STAT
 
 Merchant create requests may include an `Idempotency-Key`. Same-key/same-request retries return the original payment without creating a duplicate invoice/event; same-key/different-request reuse returns HTTP 409.
 
-Authenticated merchant backends can also recover persisted payments through bounded `GET /api/v1/payments` listing with optional status filtering and stable cursor pagination. This route is SQLite-only and can return the merchant's stored idempotency key; anonymous payment enumeration is not allowed. See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md).
+They may also include an optional unique `merchant_reference` such as an order ID. This is merchant business identity, not a replacement for `Idempotency-Key`; duplicate references return HTTP 409. Authenticated merchant listing can recover by exact reference while the public capability-status response does not expose it.
+
+Authenticated merchant backends can recover persisted payments through bounded `GET /api/v1/payments` listing with optional status/reference filtering and stable cursor pagination. This route is SQLite-only and can return merchant recovery metadata; anonymous payment enumeration is not allowed. See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md).
 
 Repository defaults remain disabled:
 
