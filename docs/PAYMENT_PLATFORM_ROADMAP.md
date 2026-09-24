@@ -436,8 +436,12 @@ Priority after the completed production cutover is merchant-facing API correctne
 - [x] Add authenticated merchant-side payment recovery/listing without weakening public capability-link privacy
 - [x] Add bounded status filtering and stable SQLite pagination for merchant payment recovery without ElectrumX work
 - [x] Include merchant-supplied idempotency keys in authenticated recovery results while keeping public capability status unchanged
-- [ ] Define an optional merchant-owned order/reference field and uniqueness semantics before adding it to the API
-- [ ] Re-run production acceptance for idempotent create/retry behavior on VM-B after deployment
+- [x] Define and implement optional `merchant_reference` as a unique merchant-owned business/order identifier
+- [x] Keep `merchant_reference` distinct from `Idempotency-Key`: duplicate references conflict while same-key/same-request retries replay the original payment
+- [x] Add exact authenticated merchant-reference recovery/filtering without exposing the reference in public capability status
+- [x] Add `merchant_reference` to new Payment Event Envelope v1 bodies as additive optional merchant metadata without rewriting historical events
+- [x] Add SQLite schema migration, uniqueness, retry-ordering, API, recovery, event, and privacy regression tests
+- [ ] Re-run production acceptance for Phase G create/retry/recovery/reference behavior on VM-B after deployment
 
 Exit criteria:
 

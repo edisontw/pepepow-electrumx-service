@@ -76,12 +76,17 @@ Stored payload shape:
     "confirmed_sats": 100000000,
     "policy_confirmed_sats": 100000000,
     "confirmations_required": 3,
-    "expires_at": 1760000900
+    "expires_at": 1760000900,
+    "merchant_reference": "ORDER-1234"
   }
 }
 ```
 
 The serialized JSON is canonicalized with sorted keys and compact separators before storage.
+
+For payments created with the optional merchant-owned `merchant_reference`, new events include that value in `data.merchant_reference`. Payments without one carry `null`.
+
+This is an additive v1 field. Existing persisted event bodies are immutable and are not rewritten during schema migration, so historical events created before merchant references existed may not contain the field at all. Webhook consumers should therefore treat it as optional when decoding Payment Event Envelope v1.
 
 ## Atomicity
 

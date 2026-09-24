@@ -20,6 +20,7 @@ from .payment_service import (
 )
 from .payment_store import (
     PaymentIdempotencyConflictError,
+    PaymentMerchantReferenceConflictError,
     PaymentNotFoundError,
     PaymentStore,
     PaymentStoreError,
@@ -35,6 +36,7 @@ class PaymentTipUnavailableError(RuntimeError):
 
 
 _IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_MERCHANT_REFERENCE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
 _PAYMENT_LIST_STATUSES = frozenset(
     {
         "waiting",
@@ -58,6 +60,17 @@ def _normalize_idempotency_key(value: str | None) -> str | None:
     return value
 
 
+def _normalize_merchant_reference(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not _MERCHANT_REFERENCE_RE.fullmatch(value):
+        raise InvalidPaymentParameterError(
+            "invalid_merchant_reference",
+            "merchant_reference must be 1-128 characters using letters, digits, '.', '_', ':', '/', or '-'.",
+        )
+    return value
+
+
 def _payment_create_request_hash(
     *,
     address: str,
@@ -66,6 +79,7 @@ def _payment_create_request_hash(
     expires_in: int | None,
     label: str | None,
     message: str | None,
+    merchant_reference: str | None,
 ) -> str:
     payload = {
         "address": address,
@@ -74,6 +88,7 @@ def _payment_create_request_hash(
         "expires_in": None if expires_in is None else int(expires_in),
         "label": label or None,
         "message": message or None,
+        "merchant_reference": merchant_reference,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -123,6 +138,22 @@ def _payment_response(payment: dict[str, Any], *, decimals: int) -> dict[str, An
     }
 
 
+def _merchant_payment_response(
+    payment: dict[str, Any],
+    *,
+    decimals: int,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    item = _payment_response(payment, decimals=decimals)
+    item["merchant_reference"] = payment.get("merchant_reference")
+    item["idempotency_key"] = (
+        idempotency_key
+        if idempotency_key is not None
+        else payment.get("idempotency_key")
+    )
+    return item
+
+
 def _require_enabled(settings: Any) -> None:
     if not bool(settings.payment_api_enabled):
         raise PaymentGatewayDisabledError("Payment API is disabled.")
@@ -167,6 +198,7 @@ async def create_persisted_payment(
     expires_in: int | None = None,
     label: str | None = None,
     message: str | None = None,
+    merchant_reference: str | None = None,
     idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     settings = get_settings()
@@ -194,6 +226,7 @@ async def create_persisted_payment(
         )
 
     normalized_idempotency_key = _normalize_idempotency_key(idempotency_key)
+    normalized_merchant_reference = _normalize_merchant_reference(merchant_reference)
     request_hash = _payment_create_request_hash(
         address=normalized_address,
         amount_sats=amount_sats,
@@ -201,6 +234,7 @@ async def create_persisted_payment(
         expires_in=expires_in,
         label=label,
         message=message,
+        merchant_reference=normalized_merchant_reference,
     )
     store = _store_for_path(settings.payment_db_path)
 
@@ -211,7 +245,19 @@ async def create_persisted_payment(
             request_hash=request_hash,
         )
         if replay is not None:
-            return _payment_response(replay, decimals=settings.pepew_decimals)
+            return _merchant_payment_response(
+                replay,
+                decimals=settings.pepew_decimals,
+                idempotency_key=normalized_idempotency_key,
+            )
+
+    if normalized_merchant_reference is not None:
+        reference_existing = await asyncio.to_thread(
+            store.get_payment_by_merchant_reference,
+            normalized_merchant_reference,
+        )
+        if reference_existing is not None:
+            raise PaymentMerchantReferenceConflictError(normalized_merchant_reference)
 
     now = int(time.time())
     height, tip_hash, baseline_txids = await _snapshot_creation_state(settings, scripthash)
@@ -235,11 +281,16 @@ async def create_persisted_payment(
         expires_at=now + expiry_seconds,
         label=label or None,
         message=message or None,
+        merchant_reference=normalized_merchant_reference,
         baseline_txids=baseline_txids,
         idempotency_key=normalized_idempotency_key,
         request_hash=request_hash if normalized_idempotency_key is not None else None,
     )
-    return _payment_response(payment, decimals=settings.pepew_decimals)
+    return _merchant_payment_response(
+        payment,
+        decimals=settings.pepew_decimals,
+        idempotency_key=normalized_idempotency_key,
+    )
 
 
 async def get_persisted_payment(payment_id: str) -> dict[str, Any]:
@@ -257,12 +308,15 @@ async def get_persisted_payment(payment_id: str) -> dict[str, Any]:
 async def list_persisted_payments(
     *,
     status: str | None = None,
+    merchant_reference: str | None = None,
     limit: int = 50,
     before_created_at: int | None = None,
     before_payment_id: str | None = None,
 ) -> dict[str, Any]:
     settings = get_settings()
     _require_enabled(settings)
+
+    normalized_merchant_reference = _normalize_merchant_reference(merchant_reference)
 
     if status is not None and status not in _PAYMENT_LIST_STATUSES:
         raise InvalidPaymentParameterError(
@@ -294,6 +348,7 @@ async def list_persisted_payments(
     rows, has_more = await asyncio.to_thread(
         store.list_payments,
         status=status,
+        merchant_reference=normalized_merchant_reference,
         limit=limit,
         before_created_at=before_created_at,
         before_payment_id=before_payment_id,
@@ -301,9 +356,12 @@ async def list_persisted_payments(
 
     payments: list[dict[str, Any]] = []
     for payment in rows:
-        item = _payment_response(payment, decimals=settings.pepew_decimals)
-        item["idempotency_key"] = payment.get("idempotency_key")
-        payments.append(item)
+        payments.append(
+            _merchant_payment_response(
+                payment,
+                decimals=settings.pepew_decimals,
+            )
+        )
 
     next_before_created_at: int | None = None
     next_before_payment_id: str | None = None

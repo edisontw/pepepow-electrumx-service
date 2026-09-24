@@ -24,6 +24,10 @@ class PaymentIdempotencyConflictError(PaymentStoreError):
     pass
 
 
+class PaymentMerchantReferenceConflictError(PaymentStoreError):
+    pass
+
+
 def _event_id(payment_id: str, payment_version: int, event_type: str) -> str:
     material = f"pepew-event-v1:{payment_id}:{int(payment_version)}:{event_type}".encode("utf-8")
     return "evt_" + hashlib.sha256(material).hexdigest()
@@ -56,6 +60,7 @@ def _event_payload(
             "policy_confirmed_sats": int(payment["policy_confirmed_sats"]),
             "confirmations_required": int(payment["confirmations_required"]),
             "expires_at": int(payment["expires_at"]),
+            "merchant_reference": payment.get("merchant_reference"),
         },
     }
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -177,6 +182,7 @@ class PaymentStore:
                         policy_confirmed_sats INTEGER NOT NULL DEFAULT 0,
                         label TEXT,
                         message TEXT,
+                        merchant_reference TEXT,
                         updated_at INTEGER NOT NULL
                     );
 
@@ -273,6 +279,23 @@ class PaymentStore:
                     );
                     """
                 )
+
+                payment_columns = {
+                    str(row["name"])
+                    for row in connection.execute("PRAGMA table_info(payments)").fetchall()
+                }
+                if "merchant_reference" not in payment_columns:
+                    connection.execute(
+                        "ALTER TABLE payments ADD COLUMN merchant_reference TEXT"
+                    )
+
+                connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_merchant_reference
+                    ON payments (merchant_reference)
+                    WHERE merchant_reference IS NOT NULL
+                    """
+                )
             self._initialized = True
 
     def create_payment(
@@ -288,6 +311,7 @@ class PaymentStore:
         expires_at: int,
         label: str | None = None,
         message: str | None = None,
+        merchant_reference: str | None = None,
         baseline_txids: tuple[str, ...] = (),
         idempotency_key: str | None = None,
         request_hash: str | None = None,
@@ -318,6 +342,18 @@ class PaymentStore:
                         raise PaymentStoreError("Idempotency mapping references a missing payment.")
                     return dict(replay)
 
+            if merchant_reference is not None:
+                reference_existing = connection.execute(
+                    """
+                    SELECT payment_id
+                    FROM payments
+                    WHERE merchant_reference = ?
+                    """,
+                    (merchant_reference,),
+                ).fetchone()
+                if reference_existing is not None:
+                    raise PaymentMerchantReferenceConflictError(merchant_reference)
+
             connection.execute(
                 """
                 INSERT INTO payments (
@@ -325,8 +361,8 @@ class PaymentStore:
                     confirmations_required, created_at, created_height,
                     expires_at, status, version, received_sats,
                     confirmed_sats, policy_confirmed_sats,
-                    label, message, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'waiting', 1, 0, 0, 0, ?, ?, ?)
+                    label, message, merchant_reference, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'waiting', 1, 0, 0, 0, ?, ?, ?, ?)
                 """,
                 (
                     payment_id,
@@ -339,6 +375,7 @@ class PaymentStore:
                     int(expires_at),
                     label,
                     message,
+                    merchant_reference,
                     int(created_at),
                 ),
             )
@@ -404,6 +441,22 @@ class PaymentStore:
                 "Idempotency mapping references a missing payment."
             ) from exc
 
+    def get_payment_by_merchant_reference(
+        self,
+        merchant_reference: str,
+    ) -> dict[str, Any] | None:
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM payments
+                WHERE merchant_reference = ?
+                """,
+                (merchant_reference,),
+            ).fetchone()
+        return None if row is None else dict(row)
+
     def get_payment(self, payment_id: str) -> dict[str, Any]:
         self.initialize()
         with self._connect() as connection:
@@ -419,6 +472,7 @@ class PaymentStore:
         self,
         *,
         status: str | None = None,
+        merchant_reference: str | None = None,
         limit: int = 50,
         before_created_at: int | None = None,
         before_payment_id: str | None = None,
@@ -436,6 +490,10 @@ class PaymentStore:
         if status is not None:
             where_parts.append("p.status = ?")
             params.append(status)
+
+        if merchant_reference is not None:
+            where_parts.append("p.merchant_reference = ?")
+            params.append(merchant_reference)
 
         if before_created_at is not None and before_payment_id is not None:
             where_parts.append(
