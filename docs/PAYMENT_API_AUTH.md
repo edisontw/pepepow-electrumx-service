@@ -4,14 +4,19 @@ Status: **selected for initial Payment Platform rollout**
 
 ## Policy
 
-Payment creation is a merchant server-to-server action.
+Payment creation and merchant payment recovery are server-to-server actions using the same current single-merchant credential:
 
 ```http
 POST /api/v1/payments
 Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+
+GET /api/v1/payments
+Authorization: Bearer <PAYMENT_CREATE_API_KEY>
 ```
 
-Payment status is a read-only capability URL:
+The authenticated list is bounded and intended for merchant operational recovery. It may return payment capability IDs and merchant-supplied idempotency keys, so it must never be exposed without Bearer authentication.
+
+Payment status for one known payment remains a read-only capability URL:
 
 ```http
 GET /api/v1/payments/{payment_id}
@@ -19,11 +24,11 @@ GET /api/v1/payments/{payment_id}
 
 The status endpoint does not require the merchant Bearer key. The payment ID is generated from cryptographically secure random bytes and is intended to be shared with PepewPay or a customer browser.
 
-## Why creation is not a browser-secret flow
+## Why merchant operations are not a browser-secret flow
 
 The static PepewPay frontend must not contain a merchant API key.
 
-Merchant applications should create a payment from their own trusted backend, then provide the resulting `payment_id`/checkout URL to the browser.
+Merchant applications should create and recover payments from their own trusted backend, then provide only the intended `payment_id`/checkout URL to the browser.
 
 The current standalone PepewPay shell can still create Payment URI data locally for demonstrations, but authoritative persisted payment creation is server-to-server.
 
@@ -34,7 +39,7 @@ PAYMENT_API_ENABLED=false
 PAYMENT_CREATE_API_KEY=
 ```
 
-The create API fails closed if the configured key is absent or shorter than 32 characters.
+Authenticated merchant operations fail closed if the configured key is absent or shorter than 32 characters.
 
 Recommended key generation on a trusted host:
 
@@ -85,4 +90,6 @@ Therefore:
 - payment IDs must not be sequential or guessable
 - logs should not unnecessarily retain full capability URLs long-term
 
-A future multi-merchant system may add scoped API credentials or account ownership, but that complexity is not required for the initial SQLite-based rollout.
+The authenticated payment list does not change this public capability model: it is a separate merchant-only enumeration surface protected by the Bearer credential.
+
+A future multi-merchant system may add scoped API credentials or account ownership, but that complexity is not required for the current SQLite-based rollout.
