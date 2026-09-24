@@ -11,13 +11,16 @@ import sys
 
 
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
-EXPECTED_TABLES = (
+REQUIRED_TABLES = (
     "payments",
-    "payment_idempotency_keys",
     "payment_transactions",
     "events",
     "webhook_endpoints",
     "webhook_deliveries",
+)
+
+OPTIONAL_TABLES = (
+    "payment_idempotency_keys",
 )
 
 
@@ -39,12 +42,15 @@ def table_counts(connection: sqlite3.Connection) -> dict[str, int]:
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()
     }
-    missing = [table for table in EXPECTED_TABLES if table not in tables]
+    missing = [table for table in REQUIRED_TABLES if table not in tables]
     if missing:
         raise RuntimeError("missing required tables: " + ",".join(missing))
+
+    counted = list(REQUIRED_TABLES)
+    counted.extend(table for table in OPTIONAL_TABLES if table in tables)
     return {
         table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-        for table in EXPECTED_TABLES
+        for table in counted
     }
 
 
@@ -183,8 +189,8 @@ def main() -> int:
     checksum = sha256_file(output)
 
     print("integrity_check=ok")
-    for table in EXPECTED_TABLES:
-        print(f"{table}={snapshot_counts[table]}")
+    for table, count in snapshot_counts.items():
+        print(f"{table}={count}")
     print(f"enabled_webhook_endpoints={snapshot_enabled}")
     print(f"sha256={checksum}")
     print("SNAPSHOT: PASS")

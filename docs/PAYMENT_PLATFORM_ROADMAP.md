@@ -421,7 +421,7 @@ ElectrumX must remain private. A second VM should connect only through an approv
 
 ### Phase G — Merchant integration hardening
 
-Status: **IN PROGRESS**
+Status: **COMPLETE — VM-B production acceptance verified 2026-09-24**
 
 Repository: `pepepow-electrumx-service`
 
@@ -442,7 +442,18 @@ Priority after the completed production cutover is merchant-facing API correctne
 - [x] Add `merchant_reference` to new Payment Event Envelope v1 bodies as additive optional merchant metadata without rewriting historical events
 - [x] Add SQLite schema migration, uniqueness, retry-ordering, API, recovery, event, and privacy regression tests
 - [x] Add a production-safe VM-B deployment/acceptance helper and runbook with pre-migration snapshot and webhook-delivery guard ([PHASE_G_PRODUCTION_ACCEPTANCE.md](PHASE_G_PRODUCTION_ACCEPTANCE.md))
-- [ ] Deploy current main to VM-B and pass Phase G create/retry/recovery/reference production acceptance
+- [x] Deploy current main to VM-B and pass Phase G create/retry/recovery/reference production acceptance
+
+Production closeout record (2026-09-24):
+
+- VM-B pulled GitHub main at `0e9a04c` and passed the full production Python 3.10 backend suite: 219 tests
+- pre-migration authoritative SQLite snapshot passed `PRAGMA integrity_check` and SHA-256 verification before restarting the Payment Platform
+- the pre-Phase-G database correctly did not yet contain `payment_idempotency_keys`; snapshot tooling was subsequently made schema-compatible across this migration boundary
+- `pepew-pay.service` restarted cleanly and the localhost ElectrumX SSH tunnel remained active
+- Phase G production acceptance passed 10/10 checks through `pay.pepepow.net`
+- verified authenticated merchant listing, live `merchant_reference` migration/index, create idempotency replay, idempotency conflict, duplicate-reference conflict, exact merchant-reference recovery, public metadata privacy, and exactly one persisted `payment.created` event
+- the acceptance test used one unfunded one-atom payment with normal expiry and did not print the merchant API key, payment capability ID/URL, or address
+- VM-A remained Light-only; no authoritative writer was re-enabled there
 
 Exit criteria:
 
