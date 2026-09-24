@@ -19,7 +19,7 @@ def require_payment_merchant_auth(authorization: str | None) -> None:
     # A short or missing key is treated as deployment misconfiguration rather
     # than silently weakening the create endpoint.
     if len(configured) < 32:
-        raise PaymentAuthUnconfiguredError("Payment creation API key is not configured.")
+        raise PaymentAuthUnconfiguredError("Payment merchant API key is not configured.")
 
     if not isinstance(authorization, str) or not authorization.startswith("Bearer "):
         raise PaymentAuthError("Bearer authorization is required.")
