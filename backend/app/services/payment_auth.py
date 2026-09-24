@@ -11,8 +11,8 @@ class PaymentAuthUnconfiguredError(RuntimeError):
     pass
 
 
-def require_payment_create_auth(authorization: str | None) -> None:
-    """Require a server-side Bearer API key for payment creation."""
+def require_payment_merchant_auth(authorization: str | None) -> None:
+    """Require the server-side merchant Bearer API key."""
     settings = get_settings()
     configured = (settings.payment_create_api_key or "").strip()
 
@@ -27,3 +27,8 @@ def require_payment_create_auth(authorization: str | None) -> None:
     presented = authorization[7:].strip()
     if not presented or not hmac.compare_digest(presented, configured):
         raise PaymentAuthError("Bearer authorization is required.")
+
+
+def require_payment_create_auth(authorization: str | None) -> None:
+    """Backward-compatible creation-specific auth helper."""
+    require_payment_merchant_auth(authorization)
