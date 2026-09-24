@@ -273,7 +273,7 @@ VM-B enables Payment API/watcher/webhook explicitly. VM-A remains Light-only wit
 
 See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the create, idempotency, merchant recovery, and public capability-status contracts.
 
-Phase G production deployment and acceptance is documented in [docs/PHASE_G_PRODUCTION_ACCEPTANCE.md](docs/PHASE_G_PRODUCTION_ACCEPTANCE.md). The Phase G runbook requires a pre-migration SQLite snapshot before restart. Its acceptance helper then validates the deployed schema/API boundaries and refuses to emit its test `payment.created` event while webhook endpoints are enabled unless the operator explicitly allows that delivery.
+Phase G merchant-integration hardening is deployed and production-accepted on VM-B as of 2026-09-24. Deployment and the 10/10 acceptance contract are documented in [docs/PHASE_G_PRODUCTION_ACCEPTANCE.md](docs/PHASE_G_PRODUCTION_ACCEPTANCE.md). The runbook requires a pre-migration SQLite snapshot before restart; its acceptance helper validates the deployed schema/API boundaries and refuses to emit its test `payment.created` event while webhook endpoints are enabled unless the operator explicitly allows that delivery.
 
 
 ---
