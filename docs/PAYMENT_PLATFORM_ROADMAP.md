@@ -433,7 +433,9 @@ Priority after the completed production cutover is merchant-facing API correctne
 - [x] Reject same-key/different-request reuse with HTTP 409
 - [x] Avoid a second ElectrumX creation snapshot for an already-known idempotent retry
 - [x] Add restart/storage/service/API regression tests for idempotency
-- [ ] Add authenticated merchant-side payment recovery/listing without weakening public capability-link privacy
+- [x] Add authenticated merchant-side payment recovery/listing without weakening public capability-link privacy
+- [x] Add bounded status filtering and stable SQLite pagination for merchant payment recovery without ElectrumX work
+- [x] Include merchant-supplied idempotency keys in authenticated recovery results while keeping public capability status unchanged
 - [ ] Define an optional merchant-owned order/reference field and uniqueness semantics before adding it to the API
 - [ ] Re-run production acceptance for idempotent create/retry behavior on VM-B after deployment
 
