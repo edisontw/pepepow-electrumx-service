@@ -59,6 +59,57 @@ Behavior:
 
 The request hash follows the merchant-supplied create parameters. Omitted defaulted fields remain distinguishable from explicitly supplied fields, so a retry stays stable even if server defaults are changed later.
 
+## Merchant payment recovery
+
+The authenticated merchant API can list persisted payments without turning public capability URLs into an anonymous enumeration endpoint:
+
+```http
+GET /api/v1/payments
+Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+```
+
+This route uses the same current single-merchant server-side Bearer boundary as payment creation. It is intended for merchant backend recovery and operations, not customer browsers.
+
+Optional query parameters:
+
+```text
+status=waiting|partial|paid_unconfirmed|paid_confirmed|overpaid|expired
+limit=1..100                  # default 50
+before_created_at=<unix-seconds>
+before_payment_id=<payment-id>
+```
+
+The two `before_*` fields form one stable descending cursor and must be supplied together. Results are ordered by `created_at DESC, payment_id DESC`. The response includes `has_more` plus the next cursor values when another page exists.
+
+Properties:
+
+- listing is Bearer-authenticated; anonymous `GET /api/v1/payments` returns 401
+- listing is SQLite-only and does not perform ElectrumX requests or refresh every row
+- no expensive total-count query is required
+- results are bounded to at most 100 records per request
+- each merchant result includes its stored `idempotency_key` when one was supplied at creation, which helps recover a timed-out create request
+- the public capability endpoint `GET /api/v1/payments/{payment_id}` does not expose the idempotency key and remains unauthenticated
+- this is still a single-merchant credential model; scoped multi-merchant ownership is intentionally deferred until real requirements justify it
+
+Example response shape:
+
+```json
+{
+  "ok": true,
+  "payments": [
+    {
+      "payment_id": "pay_...",
+      "status": "paid_confirmed",
+      "amount": "1.25",
+      "idempotency_key": "order-123-attempt-1"
+    }
+  ],
+  "has_more": true,
+  "next_before_created_at": 1790240000,
+  "next_before_payment_id": "pay_..."
+}
+```
+
 ## Read payment status
 
 ```http
@@ -118,7 +169,7 @@ SQLite uses WAL mode, foreign keys, a bounded busy timeout, and short transactio
 - public errors do not expose database paths or SQLite exception details
 - authoritative state remains transaction-output based, not current address balance
 
-Merchant authentication is defined in [PAYMENT_API_AUTH.md](PAYMENT_API_AUTH.md): payment creation requires a server-side Bearer API key, while status GET uses the high-entropy payment ID as a read-only capability. The create endpoint fails closed if the key is missing or shorter than 32 characters.
+Merchant authentication is defined in [PAYMENT_API_AUTH.md](PAYMENT_API_AUTH.md): payment creation and merchant payment listing require the server-side Bearer API key, while status GET uses the high-entropy payment ID as a read-only capability. Authenticated merchant operations fail closed if the configured key is missing or shorter than 32 characters.
 
 Durable state-change events are defined in [PAYMENT_EVENTS.md](PAYMENT_EVENTS.md) and are persisted atomically with payment version updates.
 

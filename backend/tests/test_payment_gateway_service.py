@@ -286,3 +286,84 @@ def test_idempotency_key_validation_rejects_unsafe_characters(tmp_path, monkeypa
         assert exc.code == "invalid_idempotency_key"
     else:
         raise AssertionError("Expected invalid idempotency key to be rejected.")
+
+
+def test_list_persisted_payments_is_sqlite_only_and_returns_recovery_metadata(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+            "payment_default_expiry_seconds": 900,
+            "payment_max_expiry_seconds": 86400,
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    payment_gateway_service.clear_payment_store_cache()
+
+    async def fake_snapshot(_settings, _scripthash):
+        return 500, "tip", ()
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", fake_snapshot)
+
+    created = asyncio.run(
+        payment_gateway_service.create_persisted_payment(
+            address=ADDRESS,
+            amount="1.25",
+            confirmations=3,
+            expires_in=900,
+            label="Demo",
+            message="Order 123",
+            idempotency_key="order-123-attempt-1",
+        )
+    )
+
+    async def forbidden_snapshot(_settings, _scripthash):
+        raise AssertionError("Merchant listing must not poll ElectrumX.")
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", forbidden_snapshot)
+
+    result = asyncio.run(
+        payment_gateway_service.list_persisted_payments(limit=50)
+    )
+
+    assert result["ok"] is True
+    assert result["has_more"] is False
+    assert result["next_before_created_at"] is None
+    assert result["next_before_payment_id"] is None
+    assert len(result["payments"]) == 1
+    item = result["payments"][0]
+    assert item["payment_id"] == created["payment_id"]
+    assert item["amount"] == "1.25"
+    assert item["idempotency_key"] == "order-123-attempt-1"
+
+
+def test_list_persisted_payments_validates_status_and_cursor_before_store_use(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    payment_gateway_service.clear_payment_store_cache()
+
+    try:
+        asyncio.run(
+            payment_gateway_service.list_persisted_payments(status="unknown")
+        )
+    except payment_gateway_service.InvalidPaymentParameterError as exc:
+        assert exc.code == "invalid_payment_status"
+    else:
+        raise AssertionError("Expected unsupported payment status to be rejected.")
+
+    try:
+        asyncio.run(
+            payment_gateway_service.list_persisted_payments(
+                before_created_at=1000,
+                before_payment_id=None,
+            )
+        )
+    except payment_gateway_service.InvalidPaymentParameterError as exc:
+        assert exc.code == "invalid_payment_cursor"
+    else:
+        raise AssertionError("Expected incomplete payment cursor to be rejected.")

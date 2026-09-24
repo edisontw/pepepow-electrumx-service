@@ -186,6 +186,9 @@ class PaymentStore:
                     CREATE INDEX IF NOT EXISTS idx_payments_expires_at
                     ON payments (expires_at);
 
+                    CREATE INDEX IF NOT EXISTS idx_payments_created_at
+                    ON payments (created_at DESC, payment_id DESC);
+
                     CREATE TABLE IF NOT EXISTS payment_idempotency_keys (
                         idempotency_key TEXT PRIMARY KEY,
                         request_hash TEXT NOT NULL,
@@ -411,6 +414,62 @@ class PaymentStore:
         if row is None:
             raise PaymentNotFoundError(payment_id)
         return dict(row)
+
+    def list_payments(
+        self,
+        *,
+        status: str | None = None,
+        limit: int = 50,
+        before_created_at: int | None = None,
+        before_payment_id: str | None = None,
+    ) -> tuple[list[dict[str, Any]], bool]:
+        self.initialize()
+        if (before_created_at is None) != (before_payment_id is None):
+            raise PaymentStoreError(
+                "before_created_at and before_payment_id must be provided together."
+            )
+
+        bounded_limit = min(100, max(1, int(limit)))
+        where_parts: list[str] = []
+        params: list[Any] = []
+
+        if status is not None:
+            where_parts.append("p.status = ?")
+            params.append(status)
+
+        if before_created_at is not None and before_payment_id is not None:
+            where_parts.append(
+                "(p.created_at < ? OR (p.created_at = ? AND p.payment_id < ?))"
+            )
+            params.extend(
+                [
+                    int(before_created_at),
+                    int(before_created_at),
+                    before_payment_id,
+                ]
+            )
+
+        where_sql = "" if not where_parts else "WHERE " + " AND ".join(where_parts)
+        params.append(bounded_limit + 1)
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    p.*,
+                    i.idempotency_key AS idempotency_key
+                FROM payments AS p
+                LEFT JOIN payment_idempotency_keys AS i
+                  ON i.payment_id = p.payment_id
+                {where_sql}
+                ORDER BY p.created_at DESC, p.payment_id DESC
+                LIMIT ?
+                """,
+                tuple(params),
+            ).fetchall()
+
+        has_more = len(rows) > bounded_limit
+        return [dict(row) for row in rows[:bounded_limit]], has_more
 
     def list_events(
         self,

@@ -35,6 +35,16 @@ class PaymentTipUnavailableError(RuntimeError):
 
 
 _IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_PAYMENT_LIST_STATUSES = frozenset(
+    {
+        "waiting",
+        "partial",
+        "paid_unconfirmed",
+        "paid_confirmed",
+        "overpaid",
+        "expired",
+    }
+)
 
 
 def _normalize_idempotency_key(value: str | None) -> str | None:
@@ -242,6 +252,72 @@ async def get_persisted_payment(payment_id: str) -> dict[str, Any]:
         now=int(time.time()),
     )
     return _payment_response(payment, decimals=settings.pepew_decimals)
+
+
+async def list_persisted_payments(
+    *,
+    status: str | None = None,
+    limit: int = 50,
+    before_created_at: int | None = None,
+    before_payment_id: str | None = None,
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_enabled(settings)
+
+    if status is not None and status not in _PAYMENT_LIST_STATUSES:
+        raise InvalidPaymentParameterError(
+            "invalid_payment_status",
+            "Unsupported payment status filter.",
+        )
+    if limit < 1 or limit > 100:
+        raise InvalidPaymentParameterError(
+            "invalid_payment_limit",
+            "Payment list limit must be between 1 and 100.",
+        )
+    if (before_created_at is None) != (before_payment_id is None):
+        raise InvalidPaymentParameterError(
+            "invalid_payment_cursor",
+            "before_created_at and before_payment_id must be provided together.",
+        )
+    if before_created_at is not None and before_created_at < 0:
+        raise InvalidPaymentParameterError(
+            "invalid_payment_cursor",
+            "before_created_at must be non-negative.",
+        )
+    if before_payment_id is not None and (len(before_payment_id) < 8 or len(before_payment_id) > 96):
+        raise InvalidPaymentParameterError(
+            "invalid_payment_cursor",
+            "before_payment_id is invalid.",
+        )
+
+    store = _store_for_path(settings.payment_db_path)
+    rows, has_more = await asyncio.to_thread(
+        store.list_payments,
+        status=status,
+        limit=limit,
+        before_created_at=before_created_at,
+        before_payment_id=before_payment_id,
+    )
+
+    payments: list[dict[str, Any]] = []
+    for payment in rows:
+        item = _payment_response(payment, decimals=settings.pepew_decimals)
+        item["idempotency_key"] = payment.get("idempotency_key")
+        payments.append(item)
+
+    next_before_created_at: int | None = None
+    next_before_payment_id: str | None = None
+    if has_more and payments:
+        next_before_created_at = int(payments[-1]["created_at"])
+        next_before_payment_id = str(payments[-1]["payment_id"])
+
+    return {
+        "ok": True,
+        "payments": payments,
+        "has_more": has_more,
+        "next_before_created_at": next_before_created_at,
+        "next_before_payment_id": next_before_payment_id,
+    }
 
 
 async def update_persisted_chain_tip(

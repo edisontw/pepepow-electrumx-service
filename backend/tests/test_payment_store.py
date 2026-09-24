@@ -7,6 +7,7 @@ from app.services.payment_store import (
     PaymentIdempotencyConflictError,
     PaymentNotFoundError,
     PaymentStore,
+    PaymentStoreError,
 )
 
 
@@ -317,3 +318,83 @@ def test_payment_creation_idempotency_rejects_changed_request(tmp_path):
     assert store.get_payment("pay_first")["amount_sats"] == 100
     with pytest.raises(PaymentNotFoundError):
         store.get_payment("pay_second")
+
+
+def test_list_payments_is_bounded_stable_and_includes_idempotency_key(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    for payment_id, created_at, key in (
+        ("pay_a", 1000, "order-a"),
+        ("pay_b", 1000, "order-b"),
+        ("pay_c", 1001, None),
+    ):
+        store.create_payment(
+            payment_id=payment_id,
+            address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+            scripthash="11" * 32,
+            amount_sats=100,
+            confirmations_required=3,
+            created_at=created_at,
+            created_height=500,
+            expires_at=created_at + 900,
+            idempotency_key=key,
+            request_hash=None if key is None else f"hash-{payment_id}",
+        )
+
+    first, has_more = store.list_payments(limit=2)
+    assert [item["payment_id"] for item in first] == ["pay_c", "pay_b"]
+    assert has_more is True
+    assert first[1]["idempotency_key"] == "order-b"
+
+    second, has_more = store.list_payments(
+        limit=2,
+        before_created_at=first[-1]["created_at"],
+        before_payment_id=first[-1]["payment_id"],
+    )
+    assert [item["payment_id"] for item in second] == ["pay_a"]
+    assert second[0]["idempotency_key"] == "order-a"
+    assert has_more is False
+
+
+def test_list_payments_can_filter_status_without_count_query(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    store.create_payment(
+        payment_id="pay_waiting",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+    )
+    store.create_payment(
+        payment_id="pay_expired",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="22" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=900,
+        created_height=499,
+        expires_at=950,
+    )
+    store.refresh_payment("pay_expired", now=1000)
+
+    waiting, has_more = store.list_payments(status="waiting", limit=10)
+    assert [item["payment_id"] for item in waiting] == ["pay_waiting"]
+    assert has_more is False
+
+    expired, has_more = store.list_payments(status="expired", limit=10)
+    assert [item["payment_id"] for item in expired] == ["pay_expired"]
+    assert has_more is False
+
+
+def test_list_payments_requires_complete_cursor_pair(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.initialize()
+
+    with pytest.raises(PaymentStoreError):
+        store.list_payments(before_created_at=1000)
