@@ -1,6 +1,6 @@
 # Phase G Production Deployment and Acceptance
 
-Status: **READY FOR VM-B DEPLOYMENT**
+Status: **COMPLETE — VM-B production acceptance passed 2026-09-24**
 
 This runbook deploys the Phase G merchant-integration hardening already merged into
 GitHub `main`:
@@ -13,6 +13,13 @@ GitHub `main`:
 The deployment changes the authoritative SQLite schema by adding one nullable
 `payments.merchant_reference` column and one partial unique index. Take a verified
 snapshot before starting the new code.
+
+Production closeout on 2026-09-24 passed the full 10/10 acceptance contract after
+219 backend tests on production Python 3.10. The pre-migration database did not
+yet contain `payment_idempotency_keys`; this exposed an overly strict assumption
+in the older Phase F snapshot helper. Snapshot/verification tooling now treats
+that Phase G table as migration-optional while continuing to require the core
+authoritative payment/event/webhook tables.
 
 ## Scope
 
