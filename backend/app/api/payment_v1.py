@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header, Path, status
+from fastapi import APIRouter, Header, Path, Query, status
 from pydantic import BaseModel, Field
 
 from .errors import api_error_response
@@ -7,6 +7,7 @@ from ..services.payment_auth import (
     PaymentAuthError,
     PaymentAuthUnconfiguredError,
     require_payment_create_auth,
+    require_payment_merchant_auth,
 )
 from ..services.payment_gateway_service import (
     PaymentGatewayDisabledError,
@@ -16,6 +17,7 @@ from ..services.payment_gateway_service import (
     PaymentTipUnavailableError,
     create_persisted_payment,
     get_persisted_payment,
+    list_persisted_payments,
 )
 from ..services.payment_service import InvalidPaymentAmountError, InvalidPaymentParameterError
 
@@ -29,6 +31,43 @@ class CreatePaymentRequest(BaseModel):
     expires_in: int | None = Field(default=None, ge=60, le=86400)
     label: str | None = Field(default=None, max_length=128)
     message: str | None = Field(default=None, max_length=256)
+
+
+@router.get("/v1/payments")
+async def list_payments(
+    authorization: str | None = Header(default=None),
+    payment_status: str | None = Query(default=None, alias="status", max_length=32),
+    limit: int = Query(default=50, ge=1, le=100),
+    before_created_at: int | None = Query(default=None, ge=0),
+    before_payment_id: str | None = Query(default=None, min_length=8, max_length=96),
+):
+    try:
+        require_payment_merchant_auth(authorization)
+        return await list_persisted_payments(
+            status=payment_status,
+            limit=limit,
+            before_created_at=before_created_at,
+            before_payment_id=before_payment_id,
+        )
+    except PaymentAuthUnconfiguredError:
+        return api_error_response(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "payment_auth_unconfigured",
+        )
+    except PaymentAuthError:
+        return api_error_response(
+            status.HTTP_401_UNAUTHORIZED,
+            "payment_auth_required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except InvalidPaymentParameterError as exc:
+        return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
+    except PaymentGatewayDisabledError:
+        return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "payment_api_disabled")
+    except PaymentStoreError:
+        return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "payment_store_error")
+    except Exception:
+        return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error")
 
 
 @router.post("/v1/payments", status_code=status.HTTP_201_CREATED)
