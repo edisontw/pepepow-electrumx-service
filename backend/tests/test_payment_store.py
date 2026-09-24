@@ -7,6 +7,7 @@ from app.services.payment_store import (
     PaymentIdempotencyConflictError,
     PaymentNotFoundError,
     PaymentStore,
+    PaymentStoreError,
 )
 
 
@@ -395,5 +396,5 @@ def test_list_payments_requires_complete_cursor_pair(tmp_path):
     store = PaymentStore(str(tmp_path / "payments.sqlite3"))
     store.initialize()
 
-    with pytest.raises(Exception):
+    with pytest.raises(PaymentStoreError):
         store.list_payments(before_created_at=1000)
