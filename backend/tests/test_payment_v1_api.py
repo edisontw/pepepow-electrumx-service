@@ -9,6 +9,7 @@ ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 def test_create_payment_v1_returns_201(monkeypatch):
     async def fake_create(**kwargs):
         assert kwargs["idempotency_key"] == "order-1-attempt-1"
+        assert kwargs["merchant_reference"] == "ORDER-1"
         return {
             "ok": True,
             "payment_id": "pay_example",
@@ -41,6 +42,7 @@ def test_create_payment_v1_returns_201(monkeypatch):
             "amount": "1",
             "label": "Demo",
             "message": "Order 1",
+            "merchant_reference": "ORDER-1",
         },
     )
 
@@ -183,6 +185,7 @@ def test_list_payments_v1_passes_bounded_filters_and_cursor(monkeypatch):
     async def fake_list(**kwargs):
         assert kwargs == {
             "status": "paid_confirmed",
+            "merchant_reference": "ORDER-1",
             "limit": 25,
             "before_created_at": 1234,
             "before_payment_id": "pay_cursor",
@@ -214,6 +217,7 @@ def test_list_payments_v1_passes_bounded_filters_and_cursor(monkeypatch):
                     "message": None,
                     "updated_at": 1300,
                     "idempotency_key": "order-1",
+                    "merchant_reference": "ORDER-1",
                 }
             ],
             "has_more": False,
@@ -230,6 +234,7 @@ def test_list_payments_v1_passes_bounded_filters_and_cursor(monkeypatch):
         headers={"Authorization": "Bearer merchant-test"},
         params={
             "status": "paid_confirmed",
+            "merchant_reference": "ORDER-1",
             "limit": 25,
             "before_created_at": 1234,
             "before_payment_id": "pay_cursor",
@@ -279,3 +284,48 @@ def test_public_payment_status_does_not_require_merchant_list_auth(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["payment_id"] == "pay_example"
+
+
+def test_create_payment_v1_returns_merchant_reference_conflict(monkeypatch):
+    async def fake_create(**_kwargs):
+        raise payment_v1.PaymentMerchantReferenceConflictError("ORDER-1")
+
+    monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/payments",
+        json={
+            "address": ADDRESS,
+            "amount": "1",
+            "merchant_reference": "ORDER-1",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "payment_merchant_reference_conflict"
+
+
+def test_create_payment_v1_rejects_invalid_merchant_reference(monkeypatch):
+    async def fake_create(**_kwargs):
+        raise payment_v1.InvalidPaymentParameterError(
+            "invalid_merchant_reference",
+            "invalid",
+        )
+
+    monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/payments",
+        json={
+            "address": ADDRESS,
+            "amount": "1",
+            "merchant_reference": "ORDER 1",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_merchant_reference"
