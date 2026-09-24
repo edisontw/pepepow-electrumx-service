@@ -245,12 +245,15 @@ The authoritative Payment Platform exposes a separate transaction-level persiste
 
 ```text
 POST /api/v1/payments
-GET  /api/v1/payments/{payment_id}
+GET  /api/v1/payments                 # merchant Bearer-authenticated recovery/listing
+GET  /api/v1/payments/{payment_id}    # public read-only capability status
 ```
 
 This path uses SQLite and the transaction-level invariants in [docs/PAYMENT_STATE.md](docs/PAYMENT_STATE.md). Browser status reads are served from persisted state and do not trigger an equivalent ElectrumX request.
 
-Merchant create requests may include an `Idempotency-Key`. Same-key/same-request retries return the original payment without creating a duplicate invoice/event; same-key/different-request reuse returns HTTP 409. See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md).
+Merchant create requests may include an `Idempotency-Key`. Same-key/same-request retries return the original payment without creating a duplicate invoice/event; same-key/different-request reuse returns HTTP 409.
+
+Authenticated merchant backends can also recover persisted payments through bounded `GET /api/v1/payments` listing with optional status filtering and stable cursor pagination. This route is SQLite-only and can return the merchant's stored idempotency key; anonymous payment enumeration is not allowed. See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md).
 
 Repository defaults remain disabled:
 
@@ -266,7 +269,7 @@ Authoritative production SQLite state on VM-B is:
 
 VM-B enables Payment API/watcher/webhook explicitly. VM-A remains Light-only with all authoritative Payment Platform writer gates disabled.
 
-See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the request/response and idempotency contract.
+See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the create, idempotency, merchant recovery, and public capability-status contracts.
 
 
 ---
