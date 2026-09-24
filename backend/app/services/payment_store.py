@@ -322,18 +322,6 @@ class PaymentStore:
 
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            if merchant_reference is not None:
-                reference_existing = connection.execute(
-                    """
-                    SELECT payment_id
-                    FROM payments
-                    WHERE merchant_reference = ?
-                    """,
-                    (merchant_reference,),
-                ).fetchone()
-                if reference_existing is not None:
-                    raise PaymentMerchantReferenceConflictError(merchant_reference)
-
             if idempotency_key is not None:
                 existing = connection.execute(
                     """
@@ -353,6 +341,18 @@ class PaymentStore:
                     if replay is None:
                         raise PaymentStoreError("Idempotency mapping references a missing payment.")
                     return dict(replay)
+
+            if merchant_reference is not None:
+                reference_existing = connection.execute(
+                    """
+                    SELECT payment_id
+                    FROM payments
+                    WHERE merchant_reference = ?
+                    """,
+                    (merchant_reference,),
+                ).fetchone()
+                if reference_existing is not None:
+                    raise PaymentMerchantReferenceConflictError(merchant_reference)
 
             connection.execute(
                 """
