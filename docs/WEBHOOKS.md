@@ -185,6 +185,10 @@ The merchant should:
 
 The stable `event_id` is the merchant idempotency key. Retries reuse the same event ID, delivery ID, and body.
 
+For newly created payments, Payment Event Envelope v1 may also contain `data.merchant_reference`. This is the optional merchant-owned business/order identifier supplied during payment creation. Historical event bodies created before the field existed are not rewritten, so receivers must treat the field as optional.
+
+Do not put passwords, access tokens, personal records, or other secrets into `merchant_reference`; webhook bodies are merchant operational data but still pass through the configured receiver.
+
 ## Delivery semantics
 
 Delivery is **at least once**.
