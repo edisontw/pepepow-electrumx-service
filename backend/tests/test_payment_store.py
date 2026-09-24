@@ -1,3 +1,4 @@
+import sqlite3
 import time
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from app.services.payment_state import PaymentTransactionObservation
 from app.services.payment_store import (
     PaymentIdempotencyConflictError,
+    PaymentMerchantReferenceConflictError,
     PaymentNotFoundError,
     PaymentStore,
     PaymentStoreError,
@@ -398,3 +400,166 @@ def test_list_payments_requires_complete_cursor_pair(tmp_path):
 
     with pytest.raises(PaymentStoreError):
         store.list_payments(before_created_at=1000)
+
+
+def test_merchant_reference_is_unique_lookupable_and_in_event(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    created = store.create_payment(
+        payment_id="pay_order_1",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+        merchant_reference="ORDER-1001",
+    )
+
+    assert created["merchant_reference"] == "ORDER-1001"
+    assert store.get_payment_by_merchant_reference("ORDER-1001")["payment_id"] == "pay_order_1"
+
+    events = store.list_events(payment_id="pay_order_1")
+    assert events[0]["payload"]["data"]["merchant_reference"] == "ORDER-1001"
+
+    with pytest.raises(PaymentMerchantReferenceConflictError):
+        store.create_payment(
+            payment_id="pay_order_2",
+            address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+            scripthash="22" * 32,
+            amount_sats=200,
+            confirmations_required=3,
+            created_at=1001,
+            created_height=500,
+            expires_at=1901,
+            merchant_reference="ORDER-1001",
+        )
+
+    with pytest.raises(PaymentNotFoundError):
+        store.get_payment("pay_order_2")
+
+
+def test_idempotent_replay_precedes_merchant_reference_conflict(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    first = store.create_payment(
+        payment_id="pay_first",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+        merchant_reference="ORDER-1001",
+        idempotency_key="retry-order-1001",
+        request_hash="same-request",
+    )
+
+    replay = store.create_payment(
+        payment_id="pay_second",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1001,
+        created_height=501,
+        expires_at=1901,
+        merchant_reference="ORDER-1001",
+        idempotency_key="retry-order-1001",
+        request_hash="same-request",
+    )
+
+    assert first["payment_id"] == "pay_first"
+    assert replay["payment_id"] == "pay_first"
+    assert [event["event_type"] for event in store.list_events()] == ["payment.created"]
+
+
+def test_list_payments_can_recover_exact_merchant_reference(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    for payment_id, reference in (
+        ("pay_a", "ORDER-A"),
+        ("pay_b", "ORDER-B"),
+    ):
+        store.create_payment(
+            payment_id=payment_id,
+            address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+            scripthash=("11" if payment_id == "pay_a" else "22") * 32,
+            amount_sats=100,
+            confirmations_required=3,
+            created_at=1000,
+            created_height=500,
+            expires_at=1900,
+            merchant_reference=reference,
+        )
+
+    rows, has_more = store.list_payments(
+        merchant_reference="ORDER-B",
+        limit=10,
+    )
+
+    assert [item["payment_id"] for item in rows] == ["pay_b"]
+    assert rows[0]["merchant_reference"] == "ORDER-B"
+    assert has_more is False
+
+
+def test_initialize_migrates_existing_payments_table_for_merchant_reference(tmp_path):
+    path = tmp_path / "legacy.sqlite3"
+    with sqlite3.connect(path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE payments (
+                payment_id TEXT PRIMARY KEY,
+                address TEXT NOT NULL,
+                scripthash TEXT NOT NULL,
+                amount_sats INTEGER NOT NULL CHECK (amount_sats > 0),
+                confirmations_required INTEGER NOT NULL CHECK (confirmations_required >= 0),
+                created_at INTEGER NOT NULL,
+                created_height INTEGER NOT NULL CHECK (created_height >= 0),
+                expires_at INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
+                received_sats INTEGER NOT NULL DEFAULT 0,
+                confirmed_sats INTEGER NOT NULL DEFAULT 0,
+                policy_confirmed_sats INTEGER NOT NULL DEFAULT 0,
+                label TEXT,
+                message TEXT,
+                updated_at INTEGER NOT NULL
+            );
+            """
+        )
+
+    store = PaymentStore(str(path))
+    store.initialize()
+
+    with sqlite3.connect(path) as connection:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(payments)").fetchall()
+        }
+        indexes = {
+            row[1]
+            for row in connection.execute("PRAGMA index_list(payments)").fetchall()
+        }
+
+    assert "merchant_reference" in columns
+    assert "idx_payments_merchant_reference" in indexes
+
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+    payment = store.create_payment(
+        payment_id="pay_after_migration",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+        merchant_reference="ORDER-AFTER-MIGRATION",
+    )
+    assert payment["merchant_reference"] == "ORDER-AFTER-MIGRATION"
