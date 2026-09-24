@@ -31,6 +31,7 @@ ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 DEFAULT_API_BASE = "https://pay.pepepow.net"
 TEST_AMOUNT = "0.00000001"
 CHANGED_AMOUNT = "0.00000002"
+PAYMENT_ROUTE_INTERVAL_SECONDS = 0.4
 
 
 class AcceptanceError(RuntimeError):
@@ -276,6 +277,7 @@ def main() -> int:
         "anonymous merchant listing missing WWW-Authenticate: Bearer",
     )
     print("3/10 anonymous merchant enumeration blocked: PASS")
+    time.sleep(PAYMENT_ROUTE_INTERVAL_SECONDS)
 
     status, payload, _ = json_request(
         "GET",
@@ -285,6 +287,7 @@ def main() -> int:
     require(status == 200 and payload.get("ok") is True, f"authenticated listing failed: HTTP {status}")
     verify_merchant_reference_schema(db_path)
     print("4/10 authenticated listing + SQLite merchant_reference migration: PASS")
+    time.sleep(PAYMENT_ROUTE_INTERVAL_SECONDS)
 
     suffix = f"{int(time.time())}-{secrets.token_hex(6)}"
     merchant_reference = f"phase-g-acceptance/{suffix}"
@@ -313,6 +316,7 @@ def main() -> int:
     require(created.get("merchant_reference") == merchant_reference, "create response lost merchant_reference")
     require(created.get("idempotency_key") == idempotency_key, "create response lost Idempotency-Key metadata")
     print("5/10 merchant_reference + Idempotency-Key create: PASS")
+    time.sleep(PAYMENT_ROUTE_INTERVAL_SECONDS)
 
     status, replay, _ = json_request(
         "POST",
@@ -323,6 +327,7 @@ def main() -> int:
     require(status == 201, f"idempotent replay expected HTTP 201, got {status} {error_code(replay)}")
     require(replay.get("payment_id") == payment_id, "idempotent retry created a different payment")
     print("6/10 same-key/same-request replay returns original payment: PASS")
+    time.sleep(PAYMENT_ROUTE_INTERVAL_SECONDS)
 
     changed_body = dict(create_body)
     changed_body["amount"] = CHANGED_AMOUNT
@@ -337,6 +342,7 @@ def main() -> int:
         f"changed request expected 409 payment_idempotency_conflict, got HTTP {status} {error_code(conflict)}",
     )
     print("7/10 same-key/different-request conflict: PASS")
+    time.sleep(PAYMENT_ROUTE_INTERVAL_SECONDS)
 
     different_retry_headers = {
         **auth,
@@ -353,6 +359,7 @@ def main() -> int:
         f"duplicate reference expected 409 payment_merchant_reference_conflict, got HTTP {status} {error_code(conflict)}",
     )
     print("8/10 duplicate merchant_reference conflict: PASS")
+    time.sleep(PAYMENT_ROUTE_INTERVAL_SECONDS)
 
     query = urllib.parse.urlencode(
         {
@@ -373,6 +380,7 @@ def main() -> int:
     require(recovered_payment.get("payment_id") == payment_id, "reference recovery returned wrong payment")
     require(recovered_payment.get("merchant_reference") == merchant_reference, "reference recovery lost merchant_reference")
     require(recovered_payment.get("idempotency_key") == idempotency_key, "reference recovery lost idempotency metadata")
+    time.sleep(PAYMENT_ROUTE_INTERVAL_SECONDS)
 
     status, public_payment, _ = json_request(
         "GET",
