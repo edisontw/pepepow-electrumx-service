@@ -32,7 +32,8 @@ Example request:
   "confirmations": 3,
   "expires_in": 900,
   "label": "Demo merchant",
-  "message": "Order 1234"
+  "message": "Order 1234",
+  "merchant_reference": "ORDER-1234"
 }
 ```
 
@@ -59,6 +60,31 @@ Behavior:
 
 The request hash follows the merchant-supplied create parameters. Omitted defaulted fields remain distinguishable from explicitly supplied fields, so a retry stays stable even if server defaults are changed later.
 
+### Merchant reference
+
+`merchant_reference` is an optional merchant-owned external order/payment identifier.
+
+Current v1 semantics:
+
+- it is scoped to the current single-merchant credential namespace and is unique across all non-null payment records
+- accepted values are 1-128 characters using ASCII letters, digits, `.`, `_`, `:`, `/`, or `-`
+- it is immutable after payment creation; v1 has no API that rewrites it
+- duplicate reuse returns HTTP `409 payment_merchant_reference_conflict`, even if the new request otherwise matches the old payment
+- it is **not** the HTTP retry idempotency mechanism; merchants should still send `Idempotency-Key` when retrying a create request
+- when both are supplied, a valid same-key/same-request idempotent replay wins before merchant-reference conflict detection
+- it is included in authenticated create/list responses and new Payment Event Envelope v1 payloads
+- it is deliberately omitted from the public capability response `GET /api/v1/payments/{payment_id}`
+
+This separation keeps two concepts distinct:
+
+```text
+Idempotency-Key      = retry identity for one create request
+merchant_reference   = durable merchant business/order identity
+payment_id           = PEPEW Payment Platform capability identity
+```
+
+Existing payments created before this field was introduced remain valid with `merchant_reference = null`.
+
 ## Merchant payment recovery
 
 The authenticated merchant API can list persisted payments without turning public capability URLs into an anonymous enumeration endpoint:
@@ -74,6 +100,7 @@ Optional query parameters:
 
 ```text
 status=waiting|partial|paid_unconfirmed|paid_confirmed|overpaid|expired
+merchant_reference=ORDER-1234
 limit=1..100                  # default 50
 before_created_at=<unix-seconds>
 before_payment_id=<payment-id>
@@ -88,6 +115,7 @@ Properties:
 - no expensive total-count query is required
 - results are bounded to at most 100 records per request
 - each merchant result includes its stored `idempotency_key` when one was supplied at creation, which helps recover a timed-out create request
+- exact `merchant_reference` filtering uses the unique merchant-reference index and returns zero or one matching payment in the current single-merchant model
 - the public capability endpoint `GET /api/v1/payments/{payment_id}` does not expose the idempotency key and remains unauthenticated
 - this is still a single-merchant credential model; scoped multi-merchant ownership is intentionally deferred until real requirements justify it
 
@@ -101,6 +129,7 @@ Example response shape:
       "payment_id": "pay_...",
       "status": "paid_confirmed",
       "amount": "1.25",
+      "merchant_reference": "ORDER-1234",
       "idempotency_key": "order-123-attempt-1"
     }
   ],
@@ -164,7 +193,7 @@ SQLite uses WAL mode, foreign keys, a bounded busy timeout, and short transactio
 
 - payment IDs are generated from cryptographically secure random bytes
 - no mnemonic/private key/signing material is accepted
-- creation is feature-gated, authenticated, rate-limited at Nginx, and supports durable idempotent retries
+- creation is feature-gated, authenticated, rate-limited at Nginx, supports durable idempotent retries, and enforces unique merchant references when supplied
 - request body size should remain small
 - public errors do not expose database paths or SQLite exception details
 - authoritative state remains transaction-output based, not current address balance
