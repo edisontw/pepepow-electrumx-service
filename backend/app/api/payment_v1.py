@@ -12,6 +12,7 @@ from ..services.payment_auth import (
 from ..services.payment_gateway_service import (
     PaymentGatewayDisabledError,
     PaymentIdempotencyConflictError,
+    PaymentMerchantReferenceConflictError,
     PaymentNotFoundError,
     PaymentStoreError,
     PaymentTipUnavailableError,
@@ -31,12 +32,14 @@ class CreatePaymentRequest(BaseModel):
     expires_in: int | None = Field(default=None, ge=60, le=86400)
     label: str | None = Field(default=None, max_length=128)
     message: str | None = Field(default=None, max_length=256)
+    merchant_reference: str | None = Field(default=None, max_length=128)
 
 
 @router.get("/v1/payments")
 async def list_payments(
     authorization: str | None = Header(default=None),
     payment_status: str | None = Query(default=None, alias="status", max_length=32),
+    merchant_reference: str | None = Query(default=None, max_length=128),
     limit: int = Query(default=50, ge=1, le=100),
     before_created_at: int | None = Query(default=None, ge=0),
     before_payment_id: str | None = Query(default=None, min_length=8, max_length=96),
@@ -45,6 +48,7 @@ async def list_payments(
         require_payment_merchant_auth(authorization)
         return await list_persisted_payments(
             status=payment_status,
+            merchant_reference=merchant_reference,
             limit=limit,
             before_created_at=before_created_at,
             before_payment_id=before_payment_id,
@@ -85,6 +89,7 @@ async def create_payment(
             expires_in=request.expires_in,
             label=request.label,
             message=request.message,
+            merchant_reference=request.merchant_reference,
             idempotency_key=idempotency_key,
         )
     except PaymentAuthUnconfiguredError:
@@ -113,6 +118,12 @@ async def create_payment(
             status.HTTP_409_CONFLICT,
             "payment_idempotency_conflict",
             "Idempotency-Key was already used with different payment parameters.",
+        )
+    except PaymentMerchantReferenceConflictError:
+        return api_error_response(
+            status.HTTP_409_CONFLICT,
+            "payment_merchant_reference_conflict",
+            "merchant_reference is already assigned to another payment.",
         )
     except PaymentStoreError:
         return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "payment_store_error")
