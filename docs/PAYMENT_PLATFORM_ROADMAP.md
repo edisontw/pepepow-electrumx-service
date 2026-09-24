@@ -441,7 +441,8 @@ Priority after the completed production cutover is merchant-facing API correctne
 - [x] Add exact authenticated merchant-reference recovery/filtering without exposing the reference in public capability status
 - [x] Add `merchant_reference` to new Payment Event Envelope v1 bodies as additive optional merchant metadata without rewriting historical events
 - [x] Add SQLite schema migration, uniqueness, retry-ordering, API, recovery, event, and privacy regression tests
-- [ ] Re-run production acceptance for Phase G create/retry/recovery/reference behavior on VM-B after deployment
+- [x] Add a production-safe VM-B deployment/acceptance helper and runbook with pre-migration snapshot and webhook-delivery guard ([PHASE_G_PRODUCTION_ACCEPTANCE.md](PHASE_G_PRODUCTION_ACCEPTANCE.md))
+- [ ] Deploy current main to VM-B and pass Phase G create/retry/recovery/reference production acceptance
 
 Exit criteria:
 
