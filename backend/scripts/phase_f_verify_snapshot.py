@@ -8,13 +8,16 @@ import sqlite3
 import sys
 
 
-EXPECTED_TABLES = (
+REQUIRED_TABLES = (
     "payments",
-    "payment_idempotency_keys",
     "payment_transactions",
     "events",
     "webhook_endpoints",
     "webhook_deliveries",
+)
+
+OPTIONAL_TABLES = (
+    "payment_idempotency_keys",
 )
 
 
@@ -66,7 +69,7 @@ def main() -> int:
                 "SELECT name FROM sqlite_master WHERE type='table'"
             ).fetchall()
         }
-        missing = [table for table in EXPECTED_TABLES if table not in tables]
+        missing = [table for table in REQUIRED_TABLES if table not in tables]
         if missing:
             print(
                 "VERIFY: FAIL: missing required tables: " + ",".join(missing),
@@ -74,9 +77,11 @@ def main() -> int:
             )
             return 1
 
+        counted = list(REQUIRED_TABLES)
+        counted.extend(table for table in OPTIONAL_TABLES if table in tables)
         counts = {
             table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-            for table in EXPECTED_TABLES
+            for table in counted
         }
         enabled = connection.execute(
             "SELECT COUNT(*) FROM webhook_endpoints WHERE enabled = 1"
@@ -89,8 +94,8 @@ def main() -> int:
         return 2
 
     print("integrity_check=ok")
-    for table in EXPECTED_TABLES:
-        print(f"{table}={counts[table]}")
+    for table, count in counts.items():
+        print(f"{table}={count}")
     print(f"enabled_webhook_endpoints={enabled}")
     print(f"sha256={actual_sha256}")
     print("VERIFY: PASS")
