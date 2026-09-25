@@ -12,6 +12,7 @@ from ..electrumx.errors import (
     ElectrumXTimeoutError,
 )
 from ..electrumx.methods import headers_subscribe, server_features, server_version
+from .payment_watcher import get_payment_watcher_status
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,16 @@ def clear_status_cache() -> None:
 def _with_cache_metadata(status: dict[str, Any], settings: Any) -> dict[str, Any]:
     checked_at = int(status.get("checked_at") or time.time())
     ttl = status.get("cache", {}).get("ttl_seconds", settings.cache_status_seconds)
-    return {
+    result = {
         **status,
         "checked_at": checked_at,
         "cache_ttl_seconds": ttl,
         "cache_age_seconds": max(0, int(time.time()) - checked_at),
     }
+    # Watcher health is process-local and intentionally bypasses the ElectrumX
+    # status cache so disconnect/stale transitions remain immediately observable.
+    result["payment_watcher"] = get_payment_watcher_status()
+    return result
 
 
 async def get_status() -> dict[str, Any]:
