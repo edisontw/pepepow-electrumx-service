@@ -1,6 +1,6 @@
 # Phase H2 — SQLite Backup / Restore Operational Hardening
 
-Status: **IN PROGRESS — online backup + non-destructive restore drill implemented; production acceptance pending**
+Status: **IN PROGRESS — online backup/restore production accepted; bounded automation implemented, production enablement pending**
 
 VM-B (`pay.pepepow.net`) is the sole authoritative Payment Platform writer. This
 runbook hardens backup and restore operations without adding Redis, PostgreSQL,
@@ -26,6 +26,9 @@ addresses, payment IDs, transaction IDs, or row contents.
 ```text
 backend/scripts/payment_db_backup.py
 backend/scripts/payment_db_restore_drill.py
+backend/scripts/payment_db_backup_maintenance.py
+deploy/systemd/pepew-pay-backup.service
+deploy/systemd/pepew-pay-backup.timer
 ```
 
 The earlier Phase F snapshot helpers remain available for cutover/history use.
@@ -167,33 +170,108 @@ H2 intentionally does not automate those destructive steps in this increment.
 Moving Payment Platform authority back to VM-A is not a routine restore path.
 VM-A remains Light-only.
 
-## 4. Production acceptance for this increment
+## 4. First-increment production acceptance
 
-Before marking this H2 increment complete on VM-B:
+VM-B production acceptance passed on 2026-09-25 at GitHub main
+`e5565f3caceb82009b63273cecfb2dc328d03f16`.
 
-1. pull the H2 commit
-2. run the full Python 3.10 backend test suite
-3. confirm `pepew-pay.service` and the ElectrumX tunnel remain active
-4. create one online backup while the Payment Platform remains running
-5. confirm `BACKUP: PASS`
-6. run the restore drill against that backup
-7. confirm `RESTORE DRILL: PASS`
-8. confirm the live Payment API/watcher/webhook configuration was not changed
-9. confirm VM-A writer gates remain disabled
+Verified production results:
 
-Do not run a destructive live restore merely to satisfy acceptance.
+- Python 3.10.12
+- 233 backend tests passed
+- `pepew-pay.service` remained active/running
+- localhost ElectrumX tunnel remained active
+- online backup completed with `BACKUP: PASS` while the Payment Platform stayed online
+- backup SQLite integrity check passed
+- backup size was 446,464 bytes
+- SHA-256 was generated
+- backup and manifest were both mode `0600`
+- manifest privacy check passed
+- non-destructive restore drill completed with `RESTORE DRILL: PASS`
+- live authoritative database was not replaced
+- local and public health remained healthy
+- payment watcher remained enabled/running/connected/healthy, not degraded, and not stale
+- no recent SQLite/service errors were observed
+- production configuration was unchanged
+- VM-A was not touched
+- no automatic timer or retention policy was installed during the acceptance
 
-## 5. Scheduling / retention
+This closes the manual online-backup/restore-drill increment.
 
-Automatic scheduling and retention policy are deliberately not enabled by this
-increment. First verify the backup and restore-drill behavior on the production
-VM-B filesystem.
+## 5. Bounded automatic backup policy
 
-A later H2 increment may add a lightweight systemd timer after deciding:
+The second H2 increment keeps automation intentionally small and local:
 
-- backup frequency
-- local retention count / maximum age
-- whether a second-host or object-storage copy is required
-- disk-space guardrails
+```text
+frequency              daily
+schedule               03:00 UTC + up to 30 minutes randomized delay
+retention              14 complete automatic backup/manifest pairs
+free-space guardrail   512 MiB before creating a new backup
+verification           restore drill after every automatic backup
+production downtime    none
+external infrastructure none
+```
+
+The maintenance helper creates files named:
+
+```text
+payment-auto-YYYYMMDDTHHMMSSZ.sqlite3
+payment-auto-YYYYMMDDTHHMMSSZ.sqlite3.manifest.json
+```
+
+A maintenance run performs this sequence:
+
+1. validate the configured live database path exists
+2. verify at least 512 MiB is free in the backup filesystem
+3. create one online SQLite backup
+4. verify its manifest/checksum/schema/integrity
+5. perform a temporary non-destructive restore drill
+6. only after those steps succeed, prune old complete automatic pairs down to 14
+
+Retention deletion is deliberately narrow:
+
+- only `payment-auto-*.sqlite3` files with their matching manifest are eligible
+- manual H2 backups are not deleted
+- Phase F/G snapshots are not deleted
+- orphan database or manifest files are not automatically deleted
+- a failed backup or restore drill does not trigger retention deletion
+
+## 6. systemd automation
+
+Repository units:
+
+```text
+deploy/systemd/pepew-pay-backup.service
+deploy/systemd/pepew-pay-backup.timer
+```
+
+The oneshot service runs as `ubuntu`, uses a restrictive umask, low process
+priority and idle I/O scheduling, has no network requirement, and can write only
+to the backup directory under its hardened systemd filesystem policy.
+
+The timer uses:
+
+```text
+OnCalendar=*-*-* 03:00:00 UTC
+RandomizedDelaySec=30m
+Persistent=true
+```
+
+Do not enable these units until the second-increment production acceptance has
+verified the unit files, a manual oneshot run, retention behavior, free-space
+guardrail visibility, and unchanged Payment Platform health.
+
+## 7. Off-host recovery copy
+
+H2 does not yet add an object-storage dependency or another backup daemon.
+
+Local automatic backups protect against application/database-level failures but
+do not protect against loss of VM-B or its boot/block volume. An off-host copy is
+therefore still a separate resilience decision.
+
+The preferred next evaluation is a simple encrypted or provider-native
+second-copy mechanism that does not add a continuously running service. It must
+be assessed against actual VM-B/OCI capabilities and storage costs before being
+enabled.
 
 No additional database or queue infrastructure is required.
