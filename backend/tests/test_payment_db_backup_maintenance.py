@@ -91,6 +91,10 @@ def test_retention_never_deletes_manual_or_orphan_files(tmp_path):
     orphan = backup_dir / "payment-auto-20260920T010000Z.sqlite3"
     orphan.write_bytes(b"orphan")
 
+    malformed = backup_dir / "payment-auto-manual.sqlite3"
+    malformed.write_bytes(b"manual-auto-name")
+    Path(str(malformed) + ".manifest.json").write_text("{}", encoding="utf-8")
+
     for day in (21, 22):
         database = backup_dir / f"payment-auto-202609{day:02d}T010000Z.sqlite3"
         database.write_bytes(b"db")
@@ -101,6 +105,8 @@ def test_retention_never_deletes_manual_or_orphan_files(tmp_path):
     assert removed == ["payment-auto-20260921T010000Z.sqlite3"]
     assert manual.exists()
     assert orphan.exists()
+    assert malformed.exists()
+    assert Path(str(malformed) + ".manifest.json").exists()
     assert (backup_dir / "payment-auto-20260922T010000Z.sqlite3").exists()
 
 
