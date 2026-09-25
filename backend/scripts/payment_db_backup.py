@@ -114,19 +114,15 @@ def create_backup(source: Path, output: Path, manifest: Path) -> dict[str, Any]:
 
         source_uri = f"file:{source.resolve()}?mode=ro"
         source_connection = sqlite3.connect(source_uri, uri=True, timeout=5.0)
-        source_summary = database_summary(source_connection)
+        # Validate the live source before taking the backup. Its counts are not
+        # compared afterward because concurrent production writes may legitimately
+        # advance while SQLite creates a consistent point-in-time backup.
+        database_summary(source_connection)
 
         destination_connection = sqlite3.connect(temp_output)
         source_connection.backup(destination_connection, pages=256, sleep=0.05)
         destination_connection.commit()
         backup_summary = database_summary(destination_connection)
-
-        if backup_summary["table_counts"] != source_summary["table_counts"]:
-            # The SQLite backup API is consistent even with concurrent writers, so a
-            # live source may legitimately advance after the backup starts. Compare
-            # only the completed backup to its own manifest below, not to a second
-            # post-backup source read.
-            pass
 
         destination_connection.close()
         destination_connection = None
