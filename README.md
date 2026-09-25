@@ -324,6 +324,30 @@ non-destructive restore drill after every automatic backup. The WAL-compatible
 systemd timer was production-accepted and enabled on VM-B on 2026-09-25 after a
 corrected manual oneshot and independent restore drill both passed.
 
+### Reference merchant integration
+
+Phase H3 provides one canonical merchant-backend flow without adding production
+runtime dependencies:
+
+- persist `merchant_reference` and a stable `Idempotency-Key` before create
+- call authenticated `POST /api/v1/payments`
+- hand only `?payment_id=...` to PepewPay/customer browsers
+- recover uncertain creates by exact `merchant_reference`
+- verify webhook HMAC against the exact raw body with a replay window
+- durably deduplicate by `event_id`
+- apply newer `payment_version` values even when a reorg moves status backward
+
+Reference code:
+
+```text
+backend/examples/reference_merchant.py
+```
+
+See [docs/PHASE_H3_REFERENCE_MERCHANT_FLOW.md](docs/PHASE_H3_REFERENCE_MERCHANT_FLOW.md).
+
+The H3 example is merchant-side reference code only. Reusable merchant SDK
+packaging is planned for `pepepow-devkit` Phase H4.
+
 ---
 
 ## 8. Payment Webhooks
