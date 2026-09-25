@@ -81,6 +81,43 @@
           </table>
         </div>
       </div>
+
+      <!-- Authoritative Payment Watcher Operational Health -->
+      {% if status.payment_watcher %}
+      <div class="card">
+        <div>
+          <h2>Payment Watcher</h2>
+          <p>In-process operational health only; no payment identifiers or addresses are exposed.</p>
+          <table>
+            <tbody>
+              <tr>
+                <th>State</th>
+                <td>
+                  <span class="{{ 'bad' if status.payment_watcher.degraded else 'ok' }}">
+                    {{ status.payment_watcher.state }}
+                  </span>
+                </td>
+              </tr>
+              <tr><th>Enabled</th><td><code>{{ status.payment_watcher.enabled }}</code></td></tr>
+              <tr><th>Running</th><td><code>{{ status.payment_watcher.running }}</code></td></tr>
+              <tr><th>Connected</th><td><code>{{ status.payment_watcher.connected }}</code></td></tr>
+              <tr><th>Watcher Tip</th><td><code>{{ status.payment_watcher.chain_tip_height if status.payment_watcher.chain_tip_height is not none else "n/a" }}</code></td></tr>
+              <tr><th>Subscriptions</th><td><code>{{ status.payment_watcher.subscribed_count }}</code></td></tr>
+              <tr><th>Reconnects</th><td><code>{{ status.payment_watcher.reconnect_count }}</code></td></tr>
+              <tr><th>Consecutive Failures</th><td><code>{{ status.payment_watcher.consecutive_failures }}</code></td></tr>
+              <tr><th>Last Connection</th><td><span class="muted">{{ status.payment_watcher.last_successful_connection_at or "n/a" }}</span></td></tr>
+              <tr><th>Last Reconciliation</th><td><span class="muted">{{ status.payment_watcher.last_reconciliation_at or "n/a" }}</span></td></tr>
+              <tr><th>Last Header</th><td><span class="muted">{{ status.payment_watcher.last_header_at or "n/a" }}</span></td></tr>
+              <tr><th>Activity Age</th><td><code>{{ status.payment_watcher.last_activity_age_seconds if status.payment_watcher.last_activity_age_seconds is not none else "n/a" }}s</code></td></tr>
+              <tr><th>Stale After</th><td><code>{{ status.payment_watcher.stale_after_seconds }}s</code></td></tr>
+              {% if status.payment_watcher.last_error %}
+              <tr><th>Last Error</th><td><code>{{ status.payment_watcher.last_error }}</code></td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
     </div>
   </div>
 
