@@ -1,6 +1,6 @@
 # Phase H2 — SQLite Backup / Restore Operational Hardening
 
-Status: **IN PROGRESS — online backup/restore production accepted; bounded automation implemented, production enablement pending**
+Status: **COMPLETE — local backup/restore automation production verified 2026-09-25**
 
 VM-B (`pay.pepepow.net`) is the sole authoritative Payment Platform writer. This
 runbook hardens backup and restore operations without adding Redis, PostgreSQL,
@@ -289,6 +289,24 @@ The `-shm` sidecar is intentionally not read-only. This change does not alter
 the real filesystem permissions seen by `pepew-pay.service`, and it does not
 make the live database writable through the backup script itself; the script
 continues opening the source with SQLite `mode=ro`.
+
+The corrected unit was production-accepted on VM-B on 2026-09-25:
+
+- corrected GitHub main: `e208c8e4db41d76298cd54bdc4bf592701665ea4`
+- manual oneshot created an automatic backup successfully
+- backup and manifest were both mode `0600`
+- automatic restore drill passed
+- a second independent restore drill also passed
+- Payment API service and ElectrumX tunnel remained active
+- local/public health and watcher health remained normal
+- timer was enabled only after the corrected oneshot passed
+- next timer activation observed at `2026-09-26 03:28:07 UTC`
+- live database was not replaced
+- production configuration was unchanged
+- existing backups were preserved
+- VM-A was not touched
+
+This completes the local H2 backup/restore automation scope.
 
 ## 7. Off-host recovery copy
 
