@@ -472,7 +472,7 @@ Repository: `pepepow-electrumx-service` for H1/H2/H3 backend work, with
 
 #### H1 — Payment Watcher Operational Health
 
-Status: **COMPLETE — implementation and deterministic regression coverage; production deployment pending**
+Status: **COMPLETE — production deployed and verified 2026-09-25**
 
 - [x] Keep watcher metrics in memory; add no database table or external metrics infrastructure
 - [x] Expose watcher `enabled`, `running`, `connected`, derived health state, and stale/degraded flags through `GET /api/status`
@@ -487,14 +487,39 @@ Status: **COMPLETE — implementation and deterministic regression coverage; pro
 - [x] Preserve Payment API, webhook, Light API, SQLite payment authority, and transaction/replay semantics
 - [x] Keep VM-A writer gates unchanged; H1 is observability only and does not enable Payment Platform writers
 
-H1 deployment note: after the normal VM-B pull/test/restart, verify the
-`payment_watcher` object on `/api/status` becomes `healthy`, shows recent
-reconciliation/header activity, and remains privacy-safe. VM-A should report the
-watcher as `disabled`.
+H1 production closeout (2026-09-25):
 
-Planned later H increments are intentionally not started in H1:
+- VM-B deployed GitHub main at `906ed65` and passed 228 backend tests on production Python 3.10
+- `pepew-electrumx-tunnel.service` and `pepew-pay.service` remained active
+- local and public health endpoints returned HTTP 200
+- watcher reported `enabled=true`, `running=true`, `connected=true`, `state=healthy`, `degraded=false`, and `stale=false`
+- watcher stale threshold was 60 seconds, chain tip was 5,027,400, one subscription was active, and the acceptance sample had one-second activity age
+- connection attempts were 1 with zero reconnects, failures, consecutive failures, or active error
+- watcher health contained no prohibited addresses, scripthashes, payment IDs, txids, merchant metadata, credentials, secrets, or internal paths
+- VM-A deployed the same commit and passed 228 backend tests on Python 3.10.12
+- VM-A ElectrumX remained connected while Payment API, watcher, and webhook writer gates all remained disabled
+- VM-A reported watcher state `disabled`; no authoritative writer was re-enabled
 
-- H2 — lightweight SQLite backup/restore operational hardening
+#### H2 — SQLite Backup / Restore Operational Hardening
+
+Status: **IN PROGRESS — first tooling increment implemented; production acceptance pending**
+
+Runbook: [PHASE_H2_SQLITE_BACKUP_RESTORE.md](PHASE_H2_SQLITE_BACKUP_RESTORE.md)
+
+- [x] Reuse SQLite only; add no backup daemon, database, queue, or external infrastructure
+- [x] Add an online VM-B backup helper using SQLite's backup API so normal backups do not require stopping the Payment Platform
+- [x] Verify backup integrity, required schema, bounded table counts, SHA-256, and restrictive file permissions
+- [x] Add a privacy-safe sidecar manifest containing checksum/size/count metadata only
+- [x] Refuse accidental overwrite and clean partial temporary files on failure
+- [x] Add a non-destructive restore drill that restores into a temporary SQLite database and re-verifies it
+- [x] Keep the live `PAYMENT_DB_PATH` outside restore-drill scope
+- [x] Document the rollback boundary: an older snapshot must not silently discard newer authoritative writes
+- [x] Add deterministic tests for WAL/online backup, pre-Phase-G schema compatibility, overwrite refusal, tamper detection, and manifest mismatch
+- [ ] Deploy this H2 increment to VM-B and pass online backup + restore-drill production acceptance
+- [ ] Decide backup frequency, retention, disk-space guardrails, and whether a second-host/object-storage copy is required before enabling automation
+
+Planned later H increments:
+
 - H3 — reference merchant integration flow
 - H4 — merchant examples / SDK helpers in `pepepow-devkit`
 
