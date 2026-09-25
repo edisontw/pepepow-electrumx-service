@@ -3,6 +3,7 @@ import hmac
 import importlib.util
 import json
 from pathlib import Path
+import sys
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -14,6 +15,7 @@ EXAMPLE = ROOT / "examples" / "reference_merchant.py"
 spec = importlib.util.spec_from_file_location("reference_merchant", EXAMPLE)
 assert spec is not None and spec.loader is not None
 reference = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = reference
 spec.loader.exec_module(reference)
 
 
