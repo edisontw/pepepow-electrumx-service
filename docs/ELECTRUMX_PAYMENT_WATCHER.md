@@ -1,6 +1,6 @@
 # ElectrumX Payment Watcher
 
-Status: **Phase D implementation**
+Status: **Phase D implementation + Phase H1 operational health**
 
 This document records the PEPEPOW ElectrumX subscription behavior verified from
 `edisontw/electrumx-pepepow/main` and the watcher design built against it.
@@ -216,6 +216,7 @@ PAYMENT_WATCHER_SUBSCRIPTION_REFRESH_SECONDS=5
 PAYMENT_WATCHER_RECONNECT_MIN_SECONDS=1
 PAYMENT_WATCHER_RECONNECT_MAX_SECONDS=30
 PAYMENT_WATCHER_MAX_SUBSCRIPTIONS=2000
+PAYMENT_WATCHER_STALE_SECONDS=60
 ```
 
 The subscription set is capped. If the desired capped set changes in a way that
@@ -225,6 +226,47 @@ reconnects rather than allowing unbounded subscription growth.
 The watcher fetches verbose transactions only after a subscribed scripthash
 status changes or during reconnect reconciliation. It does not poll every
 payment on a fixed short interval.
+
+
+## Operational health (Phase H1)
+
+The watcher now maintains a small process-local health snapshot. It is exposed
+through the existing `GET /api/status` response under `payment_watcher` and
+does not require a metrics daemon, database table, Prometheus, Redis, or an
+additional polling loop.
+
+The snapshot reports:
+
+- feature-gate state plus `running` / `connected`
+- derived state: `disabled`, `stopped`, `starting`, `healthy`,
+  `recovering`, `disconnected`, or `stale`
+- last successful connection, reconciliation, header, failure, disconnect, and
+  general activity timestamps
+- watcher-observed chain-tip height
+- current subscription count
+- connection attempts, reconnects, total failures, and consecutive failures
+- a bounded safe error code
+
+It does **not** expose watched scripthashes, addresses, payment IDs, transaction
+IDs, SQLite paths, credentials, webhook secrets, or merchant metadata.
+
+`PAYMENT_WATCHER_STALE_SECONDS` defaults to 60 seconds. Successful connection,
+header processing, and reconciliation update the activity timestamp. Because the
+existing subscription refresh cycle already performs reconciliation work, stale
+detection adds no new background load.
+
+`/api/status` appends this process-local snapshot after the normal ElectrumX
+status cache is evaluated. Watcher disconnect/stale/recovery changes therefore
+remain visible immediately even when the upstream status portion is a cache hit.
+
+Reconnect logging is intentionally bounded: the first three consecutive failures
+are warnings, then every tenth consecutive failure is a warning; intermediate
+repeats are debug-level. After a connection has completed its initial header and
+subscription reconciliation, recovery is logged once and the consecutive-failure
+counter resets.
+
+`GET /api/health` remains a shallow service-liveness endpoint and is not made
+dependent on watcher or ElectrumX health.
 
 ## Deployment state
 
