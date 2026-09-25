@@ -564,9 +564,37 @@ H2 automation retry closeout (2026-09-25):
 
 H2 local backup/restore exit criteria are satisfied. Off-host second-copy resilience is tracked as a follow-up reliability item rather than a blocker for the completed local H2 scope.
 
+#### H3 — Reference Merchant Integration Flow
+
+Status: **COMPLETE — canonical merchant flow implemented and contract-tested 2026-09-25**
+
+Runbook: [PHASE_H3_REFERENCE_MERCHANT_FLOW.md](PHASE_H3_REFERENCE_MERCHANT_FLOW.md)
+
+Reference implementation:
+
+```text
+backend/examples/reference_merchant.py
+```
+
+- [x] Define the merchant trust boundary: Bearer API key and webhook signing secret remain backend-only
+- [x] Reserve merchant order identity plus a stable Idempotency-Key before remote payment creation
+- [x] Demonstrate authenticated payment creation and durable `merchant_reference` / `payment_id` mapping
+- [x] Build customer checkout URLs containing only the high-entropy `payment_id` capability
+- [x] Demonstrate exact-reference merchant recovery after uncertain create outcomes
+- [x] Verify webhook HMAC against exact raw body bytes with constant-time comparison
+- [x] Enforce a bounded webhook timestamp replay window
+- [x] Durably deduplicate webhook processing by stable `event_id`
+- [x] Handle create/webhook races without consuming unknown-order events
+- [x] Apply merchant state by increasing `payment_version`, not status ranking, so reorg rollback events remain correct
+- [x] Keep the example standalone and Python 3.10 standard-library-only; add no production daemon/infrastructure
+- [x] Add deterministic contract tests for create/recovery/checkout/signature/replay/dedup/reorg behavior
+
+H3 is documentation/example work and does not alter production Payment Platform
+runtime behavior. Reusable merchant SDK packaging remains intentionally deferred
+to H4.
+
 Planned later H increments:
 
-- H3 — reference merchant integration flow
 - H4 — merchant examples / SDK helpers in `pepepow-devkit`
 
 ## 11. Testing policy
