@@ -331,9 +331,15 @@ def verify_webhook(
         raise WebhookVerificationError("webhook_event_id_mismatch")
     if not isinstance(event.get("event_type"), str):
         raise WebhookVerificationError("webhook_event_type_invalid")
-    if not isinstance(event.get("payment_id"), str):
+    payment_id = event.get("payment_id")
+    if not isinstance(payment_id, str):
         raise WebhookVerificationError("webhook_payment_id_invalid")
-    if not isinstance(event.get("payment_version"), int):
+    try:
+        _require_payment_id(payment_id)
+    except ValueError:
+        raise WebhookVerificationError("webhook_payment_id_invalid") from None
+    payment_version = event.get("payment_version")
+    if not isinstance(payment_version, int) or payment_version < 0:
         raise WebhookVerificationError("webhook_payment_version_invalid")
     data = event.get("data")
     if not isinstance(data, dict) or not isinstance(data.get("status"), str):
