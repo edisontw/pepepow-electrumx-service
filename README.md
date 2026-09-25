@@ -278,7 +278,7 @@ Phase G merchant-integration hardening is deployed and production-accepted on VM
 
 ### Payment watcher operational health
 
-Phase H1 adds privacy-safe in-memory watcher diagnostics to `GET /api/status`.
+Phase H1 adds privacy-safe in-memory watcher diagnostics to `GET /api/status` and was production-accepted on VM-B/VM-A on 2026-09-25.
 The shallow `GET /api/health` liveness contract is unchanged.
 
 When the watcher is enabled, `payment_watcher` reports only bounded operational
@@ -302,6 +302,21 @@ Repeated reconnect failures log warnings for the first three failures and then e
 tenth consecutive failure; intermediate repeats are debug-level. A successful
 initial reconciliation emits a single recovery log entry.
 
+### SQLite backup / restore hardening
+
+Phase H2 adds lightweight VM-B operational tooling around the authoritative
+SQLite database:
+
+- online backup through SQLite's backup API while `pepew-pay.service` remains running
+- SHA-256, integrity, schema, count, and file-permission verification
+- a privacy-safe manifest beside each backup
+- a non-destructive restore drill that restores only to a temporary database
+
+The restore drill never replaces the live `PAYMENT_DB_PATH`. Older backups must
+not be installed over newer authoritative payment/event/webhook writes without
+an explicit recovery-point decision and reconciliation/data-loss review.
+
+See [docs/PHASE_H2_SQLITE_BACKUP_RESTORE.md](docs/PHASE_H2_SQLITE_BACKUP_RESTORE.md).
 
 ---
 
