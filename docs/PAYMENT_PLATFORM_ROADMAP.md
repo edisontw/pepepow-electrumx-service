@@ -465,10 +465,15 @@ Exit criteria:
 
 ### Phase H — Production Reliability & Merchant Readiness
 
-Status: **IN PROGRESS**
+Status: **COMPLETE — H1-H4 baseline delivered and verified 2026-09-25**
 
-Repository: `pepepow-electrumx-service` for H1/H2/H3 backend work, with
-`pepepow-devkit` planned for H4 merchant helpers/examples.
+Repositories:
+
+- `pepepow-electrumx-service` for H1/H2/H3 reliability/backend reference work
+- `pepepow-devkit` for H4 merchant SDK helpers/examples
+
+Off-host backup remains a follow-up reliability enhancement, not a blocker for
+the completed Phase H baseline.
 
 #### H1 — Payment Watcher Operational Health
 
@@ -590,12 +595,40 @@ backend/examples/reference_merchant.py
 - [x] Add deterministic contract tests for create/recovery/checkout/signature/replay/dedup/reorg behavior
 
 H3 is documentation/example work and does not alter production Payment Platform
-runtime behavior. Reusable merchant SDK packaging remains intentionally deferred
-to H4.
+runtime behavior.
 
-Planned later H increments:
+#### H4 — Merchant SDK Helpers / Examples
 
-- H4 — merchant examples / SDK helpers in `pepepow-devkit`
+Status: **COMPLETE — devkit implementation and CI verified 2026-09-25**
+
+Repository: `edisontw/pepepow-devkit`
+
+Implemented at devkit main `05ffb264f615b70fcd5697a9f7c9110fdd9c2aa4`:
+
+```text
+packages/pepewpay-merchant/
+examples/merchant-node/
+```
+
+- [x] Keep `@pepepow/pepew-js` browser/protocol-focused; isolate merchant-secret handling in a separate server-side package
+- [x] Add Node.js 20+ `@pepepow/pepewpay-merchant` package
+- [x] Add authenticated payment-create helper with stable `Idempotency-Key`
+- [x] Add exact `merchant_reference` recovery helper for uncertain create outcomes
+- [x] Add PepewPay checkout URL builder that exposes only the high-entropy `payment_id`
+- [x] Add exact-raw-body webhook HMAC-SHA256 verification with constant-time comparison
+- [x] Add bounded default webhook replay-window verification
+- [x] Validate Payment Event Envelope v1 identity/version before merchant application use
+- [x] Add reorg-safe `payment_version` ordering helper rather than status ranking
+- [x] Keep merchant durable order storage, event-ID deduplication, and fulfillment state application-owned
+- [x] Add framework-neutral durable-store composition examples under `examples/merchant-node/`
+- [x] Add CI build/tests and preserve the PepewPay browser bundle Node-shim guard
+- [x] Verify devkit PR CI: `pepew-js` 23/23, merchant SDK 10/10, PepewPay 11/11, build and bundle guard PASS
+
+H4 adds no production runtime dependency and does not move mnemonic, private
+keys, transaction signing, merchant API keys, or webhook signing secrets into
+customer/browser code.
+
+Phase H exit criteria are satisfied for the planned H1-H4 baseline.
 
 ## 11. Testing policy
 
