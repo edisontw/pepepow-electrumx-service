@@ -135,8 +135,9 @@ def test_restore_drill_rejects_tampered_backup(tmp_path):
     manifest = tmp_path / "backup.sqlite3.manifest.json"
     backup.create_backup(source, output, manifest)
 
-    with output.open("ab") as handle:
-        handle.write(b"tamper")
+    payload = bytearray(output.read_bytes())
+    payload[-1] ^= 1
+    output.write_bytes(payload)
 
     try:
         restore.run_restore_drill(output, manifest)
