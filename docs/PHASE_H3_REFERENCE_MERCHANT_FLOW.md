@@ -371,8 +371,8 @@ It demonstrates:
 - reorg-safe status updates
 - local create/webhook race handling
 
-It is reference code, not a production merchant SDK. Reusable SDK/helpers belong
-to Phase H4 in `pepepow-devkit`.
+It is reference code, not a production merchant SDK. Reusable SDK/helpers are
+implemented separately by Phase H4 in `pepepow-devkit`.
 
 ## 14. H3 exit criteria
 

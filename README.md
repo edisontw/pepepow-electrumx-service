@@ -345,8 +345,18 @@ backend/examples/reference_merchant.py
 
 See [docs/PHASE_H3_REFERENCE_MERCHANT_FLOW.md](docs/PHASE_H3_REFERENCE_MERCHANT_FLOW.md).
 
-The H3 example is merchant-side reference code only. Reusable merchant SDK
-packaging is planned for `pepepow-devkit` Phase H4.
+The H3 example is merchant-side reference code only.
+
+Phase H4 is complete in `edisontw/pepepow-devkit` and adds the dedicated
+server-side `@pepepow/pepewpay-merchant` package plus framework-neutral
+merchant examples. The helpers cover authenticated create/recovery, public
+checkout URL construction, exact-raw-body webhook verification, replay-window
+checks, and reorg-safe `payment_version` ordering while leaving durable order
+storage, event-ID deduplication, and fulfillment state to the merchant
+application.
+
+Merchant API keys and webhook signing secrets remain server-side and are not
+part of `@pepepow/pepew-js` or the PepewPay browser bundle.
 
 ---
 
