@@ -42,6 +42,10 @@ class Settings(BaseSettings):
         default=2000,
         alias="PAYMENT_WATCHER_MAX_SUBSCRIPTIONS",
     )
+    payment_watcher_stale_seconds: float = Field(
+        default=60.0,
+        alias="PAYMENT_WATCHER_STALE_SECONDS",
+    )
 
     payment_webhook_enabled: bool = Field(default=False, alias="PAYMENT_WEBHOOK_ENABLED")
     payment_webhook_master_key: str | None = Field(default=None, alias="PAYMENT_WEBHOOK_MASTER_KEY")
