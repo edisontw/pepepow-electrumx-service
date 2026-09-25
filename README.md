@@ -276,6 +276,33 @@ See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the create, idempotency
 Phase G merchant-integration hardening is deployed and production-accepted on VM-B as of 2026-09-24. Deployment and the 10/10 acceptance contract are documented in [docs/PHASE_G_PRODUCTION_ACCEPTANCE.md](docs/PHASE_G_PRODUCTION_ACCEPTANCE.md). The runbook requires a pre-migration SQLite snapshot before restart; its acceptance helper validates the deployed schema/API boundaries and refuses to emit its test `payment.created` event while webhook endpoints are enabled unless the operator explicitly allows that delivery.
 
 
+### Payment watcher operational health
+
+Phase H1 adds privacy-safe in-memory watcher diagnostics to `GET /api/status`.
+The shallow `GET /api/health` liveness contract is unchanged.
+
+When the watcher is enabled, `payment_watcher` reports only bounded operational
+state such as:
+
+- `running`, `connected`, `state`, `degraded`, and `stale`
+- last successful connection, reconciliation, header, failure, and activity timestamps
+- current watcher-observed chain-tip height and subscription count
+- connection attempts, reconnect count, failure count, and consecutive failures
+- a safe bounded error code; never addresses, payment IDs, secrets, credentials, or paths
+
+The default stale threshold is 60 seconds and can be adjusted with:
+
+```text
+PAYMENT_WATCHER_STALE_SECONDS=60
+```
+
+Watcher activity is refreshed by successful connection/header/reconciliation work,
+so stale detection does not require additional polling or background infrastructure.
+Repeated reconnect failures log warnings for the first three failures and then every
+tenth consecutive failure; intermediate repeats are debug-level. A successful
+initial reconciliation emits a single recovery log entry.
+
+
 ---
 
 ## 8. Payment Webhooks

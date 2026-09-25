@@ -1,6 +1,6 @@
 # PEPEW Payment Platform Roadmap
 
-Last updated: 2026-09-24
+Last updated: 2026-09-25
 
 This document is the canonical cross-repository roadmap for the PEPEW Payment Platform. GitHub `main` remains the source of truth for implementation state. Update this file when architecture, phase status, API boundaries, deployment assumptions, or major decisions change.
 
@@ -461,6 +461,42 @@ Exit criteria:
 - merchant operational recovery does not require exposing or enumerating public payment capability IDs
 - VM-A remains Light-only and no new authoritative writer is introduced
 - changes remain SQLite-based and bounded for the current single-core production footprint
+
+
+### Phase H — Production Reliability & Merchant Readiness
+
+Status: **IN PROGRESS**
+
+Repository: `pepepow-electrumx-service` for H1/H2/H3 backend work, with
+`pepepow-devkit` planned for H4 merchant helpers/examples.
+
+#### H1 — Payment Watcher Operational Health
+
+Status: **COMPLETE — implementation and deterministic regression coverage; production deployment pending**
+
+- [x] Keep watcher metrics in memory; add no database table or external metrics infrastructure
+- [x] Expose watcher `enabled`, `running`, `connected`, derived health state, and stale/degraded flags through `GET /api/status`
+- [x] Expose last successful connection, reconciliation, header, failure/disconnect, and activity timestamps
+- [x] Expose watcher-observed chain-tip height plus bounded subscription count
+- [x] Expose connection attempts, reconnect count, total failures, and consecutive failures
+- [x] Add configurable `PAYMENT_WATCHER_STALE_SECONDS` with a lightweight 60-second default
+- [x] Keep watcher health dynamic even when the existing ElectrumX status payload is served from cache
+- [x] Keep the health surface privacy-safe: no addresses, scripthashes, payment IDs, txids, credentials, paths, or secrets
+- [x] Bound repetitive reconnect warnings while retaining first failures, periodic summaries, and an explicit recovery log
+- [x] Add deterministic tests for healthy, disconnected, stale, reconnect, and recovery states
+- [x] Preserve Payment API, webhook, Light API, SQLite payment authority, and transaction/replay semantics
+- [x] Keep VM-A writer gates unchanged; H1 is observability only and does not enable Payment Platform writers
+
+H1 deployment note: after the normal VM-B pull/test/restart, verify the
+`payment_watcher` object on `/api/status` becomes `healthy`, shows recent
+reconciliation/header activity, and remains privacy-safe. VM-A should report the
+watcher as `disabled`.
+
+Planned later H increments are intentionally not started in H1:
+
+- H2 — lightweight SQLite backup/restore operational hardening
+- H3 — reference merchant integration flow
+- H4 — merchant examples / SDK helpers in `pepepow-devkit`
 
 ## 11. Testing policy
 
