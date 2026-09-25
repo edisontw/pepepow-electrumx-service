@@ -18,7 +18,16 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/var/lib/pepew-pay/backups
+
+# SQLite WAL readers may need to update/create the shared-memory (-shm)
+# sidecar even when the database itself is opened mode=ro. Keep the state
+# directory writable inside this unit's private mount namespace so SQLite can
+# coordinate safely, then pin the authoritative database and WAL/journal files
+# read-only. The backup directory remains the only intended persistent output.
+ReadWritePaths=/var/lib/pepew-pay
+ReadOnlyPaths=/var/lib/pepew-pay/payments.sqlite3
+ReadOnlyPaths=-/var/lib/pepew-pay/payments.sqlite3-wal
+ReadOnlyPaths=-/var/lib/pepew-pay/payments.sqlite3-journal
 
 [Install]
 WantedBy=multi-user.target
