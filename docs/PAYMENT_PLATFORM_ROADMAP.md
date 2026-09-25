@@ -502,7 +502,7 @@ H1 production closeout (2026-09-25):
 
 #### H2 — SQLite Backup / Restore Operational Hardening
 
-Status: **IN PROGRESS — first tooling increment implemented; production acceptance pending**
+Status: **IN PROGRESS — manual backup/restore production accepted; bounded automation implemented, production enablement pending**
 
 Runbook: [PHASE_H2_SQLITE_BACKUP_RESTORE.md](PHASE_H2_SQLITE_BACKUP_RESTORE.md)
 
@@ -515,8 +515,23 @@ Runbook: [PHASE_H2_SQLITE_BACKUP_RESTORE.md](PHASE_H2_SQLITE_BACKUP_RESTORE.md)
 - [x] Keep the live `PAYMENT_DB_PATH` outside restore-drill scope
 - [x] Document the rollback boundary: an older snapshot must not silently discard newer authoritative writes
 - [x] Add deterministic tests for WAL/online backup, pre-Phase-G schema compatibility, overwrite refusal, tamper detection, and manifest mismatch
-- [ ] Deploy this H2 increment to VM-B and pass online backup + restore-drill production acceptance
-- [ ] Decide backup frequency, retention, disk-space guardrails, and whether a second-host/object-storage copy is required before enabling automation
+- [x] Deploy the first H2 increment to VM-B and pass online backup + restore-drill production acceptance
+- [x] Select a lightweight local policy: daily backup, 14 complete automatic pairs, 512 MiB pre-backup free-space guardrail, restore drill after every backup
+- [x] Add bounded retention that deletes only complete H2 automatic backup/manifest pairs and leaves manual/Phase F/Phase G/orphan files untouched
+- [x] Add hardened systemd oneshot/timer units with low process/I/O priority and no Payment Platform downtime
+- [x] Add deterministic retention/low-disk/failure-boundary tests
+- [ ] Deploy the automation increment to VM-B, run the oneshot manually, then enable/verify the timer
+- [ ] Evaluate a simple off-host second copy without introducing a continuously running backup service
+
+H2 first-increment production closeout (2026-09-25):
+
+- VM-B deployed `e5565f3` and passed 233 backend tests on Python 3.10.12
+- online SQLite backup passed while `pepew-pay.service` and the ElectrumX tunnel remained active
+- backup size was 446,464 bytes; integrity, SHA-256, mode `0600`, and privacy-safe manifest checks passed
+- non-destructive restore drill passed without replacing the live authoritative database
+- local/public health remained healthy and the payment watcher remained healthy, connected, non-degraded, and non-stale
+- no recent SQLite/service errors were observed; production configuration was unchanged
+- VM-A was not touched and no automatic timer/retention was installed during this acceptance
 
 Planned later H increments:
 

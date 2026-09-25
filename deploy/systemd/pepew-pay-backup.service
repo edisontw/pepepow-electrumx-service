@@ -1,0 +1,24 @@
+[Unit]
+Description=PEPEW Payment Platform SQLite backup maintenance (VM-B)
+After=local-fs.target
+ConditionPathExists=/home/ubuntu/pepepow-electrumx-service/backend/.env
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/pepepow-electrumx-service
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /home/ubuntu/pepepow-electrumx-service/backend/scripts/payment_db_backup_maintenance.py --backup-dir /var/lib/pepew-pay/backups --keep 14 --min-free-mib 512
+
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/pepew-pay/backups
+
+[Install]
+WantedBy=multi-user.target
