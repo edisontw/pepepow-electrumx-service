@@ -502,7 +502,7 @@ H1 production closeout (2026-09-25):
 
 #### H2 — SQLite Backup / Restore Operational Hardening
 
-Status: **IN PROGRESS — manual backup/restore production accepted; bounded automation implemented, production enablement pending**
+Status: **COMPLETE — local backup/restore automation production verified 2026-09-25**
 
 Runbook: [PHASE_H2_SQLITE_BACKUP_RESTORE.md](PHASE_H2_SQLITE_BACKUP_RESTORE.md)
 
@@ -520,12 +520,12 @@ Runbook: [PHASE_H2_SQLITE_BACKUP_RESTORE.md](PHASE_H2_SQLITE_BACKUP_RESTORE.md)
 - [x] Add bounded retention that deletes only complete H2 automatic backup/manifest pairs and leaves manual/Phase F/Phase G/orphan files untouched
 - [x] Add hardened systemd oneshot/timer units with low process/I/O priority and no Payment Platform downtime
 - [x] Add deterministic retention/low-disk/failure-boundary tests
-- [ ] Deploy the automation increment to VM-B, run the oneshot manually, then enable/verify the timer
+- [x] Deploy the automation increment to VM-B, run the corrected oneshot manually, then enable/verify the timer
 - [x] Diagnose the first VM-B automation acceptance failure: `ProtectSystem=strict` blocked SQLite WAL shared-memory coordination; timer remained disabled and production stayed healthy
 - [x] Correct the backup unit so the private mount namespace permits `-shm` coordination while pinning the authoritative DB/WAL/journal files read-only
 - [x] Add a regression test for the WAL-compatible systemd sandbox policy
-- [ ] Re-run VM-B manual oneshot acceptance with the corrected unit before enabling the timer
-- [ ] Evaluate a simple off-host second copy without introducing a continuously running backup service
+- [x] Re-run VM-B manual oneshot acceptance with the corrected unit before enabling the timer
+- [ ] Follow-up reliability item: evaluate a simple off-host second copy without introducing a continuously running backup service
 
 H2 first-increment production closeout (2026-09-25):
 
@@ -547,6 +547,22 @@ H2 automation acceptance attempt 1 (2026-09-25):
 - existing manual/Phase F/Phase G backups were preserved and no unrelated files were deleted
 - `pepew-pay.service`, the ElectrumX tunnel, local/public health, and watcher all remained healthy
 - timer stayed disabled; no production configuration changed and VM-A was not touched
+
+H2 automation retry closeout (2026-09-25):
+
+- VM-B deployed corrected main `e208c8e`
+- corrected WAL-compatible sandbox loaded successfully
+- manual backup oneshot completed successfully and created an automatic backup/manifest pair
+- backup and manifest were both mode `0600`
+- automatic restore drill and an independent second restore drill both passed
+- `pepew-pay.service` and the localhost ElectrumX tunnel remained active
+- local/public health remained healthy; watcher remained healthy, connected, running, non-degraded, and non-stale
+- timer was enabled and active only after the corrected manual oneshot passed
+- next scheduled activation observed at `2026-09-26 03:28:07 UTC`
+- no Persistent catch-up run was observed during acceptance
+- live database was not replaced, production configuration was unchanged, existing backups were preserved, and VM-A was not touched
+
+H2 local backup/restore exit criteria are satisfied. Off-host second-copy resilience is tracked as a follow-up reliability item rather than a blocker for the completed local H2 scope.
 
 Planned later H increments:
 
