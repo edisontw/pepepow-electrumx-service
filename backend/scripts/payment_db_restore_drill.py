@@ -74,8 +74,12 @@ def load_manifest(path: Path) -> dict[str, Any]:
 
     if data.get("format_version") != MANIFEST_VERSION:
         raise RuntimeError("unsupported backup manifest version")
+    if not isinstance(data.get("backup_file"), str):
+        raise RuntimeError("backup manifest is missing backup filename")
     if not isinstance(data.get("sha256"), str):
         raise RuntimeError("backup manifest is missing sha256")
+    if not isinstance(data.get("size_bytes"), int):
+        raise RuntimeError("backup manifest is missing byte size")
     if not isinstance(data.get("table_counts"), dict):
         raise RuntimeError("backup manifest is missing table counts")
     return data
@@ -85,6 +89,11 @@ def verify_against_manifest(
     backup: Path,
     manifest: dict[str, Any],
 ) -> dict[str, Any]:
+    if backup.name != manifest["backup_file"]:
+        raise RuntimeError("backup filename does not match manifest")
+    if backup.stat().st_size != manifest["size_bytes"]:
+        raise RuntimeError("backup byte size does not match manifest")
+
     checksum = sha256_file(backup)
     if checksum.lower() != manifest["sha256"].lower():
         raise RuntimeError("backup SHA-256 does not match manifest")
