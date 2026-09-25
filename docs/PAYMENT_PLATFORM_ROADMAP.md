@@ -622,7 +622,7 @@ examples/merchant-node/
 - [x] Keep merchant durable order storage, event-ID deduplication, and fulfillment state application-owned
 - [x] Add framework-neutral durable-store composition examples under `examples/merchant-node/`
 - [x] Add CI build/tests and preserve the PepewPay browser bundle Node-shim guard
-- [x] Verify devkit PR CI: `pepew-js` 23/23, merchant SDK 10/10, PepewPay 11/11, build and bundle guard PASS
+- [x] Verify devkit main CI: `pepew-js` 23/23, merchant SDK 10/10, PepewPay 11/11, static build/browser-bundle guard PASS, deployment-branch publish PASS
 
 H4 adds no production runtime dependency and does not move mnemonic, private
 keys, transaction signing, merchant API keys, or webhook signing secrets into
