@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import shutil
 import sys
 
@@ -13,11 +14,14 @@ from payment_db_restore_drill import run_restore_drill
 
 AUTO_PREFIX = "payment-auto-"
 AUTO_SUFFIX = ".sqlite3"
+AUTO_NAME_RE = re.compile(r"^payment-auto-\d{8}T\d{6}Z\.sqlite3$")
 
 
 def complete_auto_backups(directory: Path) -> list[tuple[Path, Path]]:
     pairs: list[tuple[Path, Path]] = []
     for database in sorted(directory.glob(f"{AUTO_PREFIX}*{AUTO_SUFFIX}")):
+        if not AUTO_NAME_RE.fullmatch(database.name):
+            continue
         manifest = Path(str(database) + ".manifest.json")
         if manifest.exists():
             pairs.append((database, manifest))
