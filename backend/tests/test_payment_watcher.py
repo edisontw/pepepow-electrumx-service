@@ -2,9 +2,10 @@ import asyncio
 import time
 
 from app.config import get_settings
+from app.electrumx.errors import ElectrumXConnectionError
 from app.services.payment_state import PaymentTransactionObservation
 from app.services.payment_store import PaymentStore
-from app.services.payment_watcher import PaymentWatcher
+from app.services.payment_watcher import PaymentWatcher, PaymentWatcherHealth
 
 ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 SCRIPTHASH = "11" * 32
@@ -192,3 +193,134 @@ def test_duplicate_reconciliation_does_not_increment_version(tmp_path):
         "payment.created",
         "payment.paid_confirmed",
     ]
+
+
+class FakeClock:
+    def __init__(self, value=1000):
+        self.value = value
+
+    def __call__(self):
+        return self.value
+
+    def advance(self, seconds):
+        self.value += seconds
+
+
+def make_health(clock, *, stale_after_seconds=60):
+    return PaymentWatcherHealth(
+        enabled=True,
+        stale_after_seconds=stale_after_seconds,
+        clock=clock,
+    )
+
+
+def test_watcher_health_healthy_state_tracks_bounded_activity():
+    clock = FakeClock()
+    health = make_health(clock)
+    health.mark_started()
+    health.mark_connection_attempt()
+    health.mark_connected()
+    health.mark_header(12345)
+    health.mark_reconciliation(7)
+    health.mark_recovered()
+
+    snapshot = health.snapshot()
+
+    assert snapshot["state"] == "healthy"
+    assert snapshot["running"] is True
+    assert snapshot["connected"] is True
+    assert snapshot["degraded"] is False
+    assert snapshot["stale"] is False
+    assert snapshot["chain_tip_height"] == 12345
+    assert snapshot["subscribed_count"] == 7
+    assert snapshot["last_successful_connection_at"] == 1000
+    assert snapshot["last_header_at"] == 1000
+    assert snapshot["last_reconciliation_at"] == 1000
+    assert "address" not in snapshot
+    assert "payment_id" not in snapshot
+
+
+def test_watcher_health_disconnected_state_records_safe_error():
+    clock = FakeClock()
+    health = make_health(clock)
+    health.mark_started()
+    health.mark_connection_attempt()
+    health.mark_connected()
+    clock.advance(5)
+    error_code, failures = health.mark_failure(
+        ElectrumXConnectionError("electrumx_connection_closed")
+    )
+
+    snapshot = health.snapshot()
+
+    assert error_code == "electrumx_connection_closed"
+    assert failures == 1
+    assert snapshot["state"] == "disconnected"
+    assert snapshot["connected"] is False
+    assert snapshot["degraded"] is True
+    assert snapshot["last_error"] == "electrumx_connection_closed"
+    assert snapshot["last_failure_at"] == 1005
+    assert snapshot["last_disconnected_at"] == 1005
+
+
+def test_watcher_health_marks_connected_state_stale_after_threshold():
+    clock = FakeClock()
+    health = make_health(clock, stale_after_seconds=60)
+    health.mark_started()
+    health.mark_connection_attempt()
+    health.mark_connected()
+    health.mark_reconciliation(0)
+    health.mark_recovered()
+
+    clock.advance(61)
+    snapshot = health.snapshot()
+
+    assert snapshot["state"] == "stale"
+    assert snapshot["stale"] is True
+    assert snapshot["degraded"] is True
+    assert snapshot["last_activity_age_seconds"] == 61
+
+
+def test_watcher_health_counts_reconnect_attempts():
+    clock = FakeClock()
+    health = make_health(clock)
+    health.mark_started()
+    health.mark_connection_attempt()
+    health.mark_failure(ElectrumXConnectionError("electrumx_unavailable"))
+    health.mark_reconnect()
+    health.mark_connection_attempt()
+
+    snapshot = health.snapshot()
+
+    assert snapshot["state"] == "disconnected"
+    assert snapshot["connection_attempts"] == 2
+    assert snapshot["reconnect_count"] == 1
+    assert snapshot["failure_count"] == 1
+    assert snapshot["consecutive_failures"] == 1
+
+
+def test_watcher_health_recovers_after_reconnect():
+    clock = FakeClock()
+    health = make_health(clock)
+    health.mark_started()
+    health.mark_connection_attempt()
+    health.mark_failure(ElectrumXConnectionError("electrumx_unavailable"))
+    health.mark_reconnect()
+
+    clock.advance(10)
+    health.mark_connection_attempt()
+    health.mark_connected()
+    assert health.snapshot()["state"] == "recovering"
+
+    health.mark_header(12346)
+    health.mark_reconciliation(2)
+    recovered_failures = health.mark_recovered()
+    snapshot = health.snapshot()
+
+    assert recovered_failures == 1
+    assert snapshot["state"] == "healthy"
+    assert snapshot["connected"] is True
+    assert snapshot["reconnect_count"] == 1
+    assert snapshot["consecutive_failures"] == 0
+    assert snapshot["last_error"] is None
+    assert snapshot["chain_tip_height"] == 12346
