@@ -261,6 +261,35 @@ Do not enable these units until the second-increment production acceptance has
 verified the unit files, a manual oneshot run, retention behavior, free-space
 guardrail visibility, and unchanged Payment Platform health.
 
+### WAL-mode systemd sandbox note
+
+The first VM-B automation acceptance attempt on 2026-09-25 failed safely before
+creating an automatic backup. `pepew-pay.service` and the ElectrumX tunnel
+remained healthy, the timer stayed disabled, and no production configuration or
+database contents changed.
+
+Root cause: the initial hardened backup unit exposed only the backup directory as
+writable under `ProtectSystem=strict`. The authoritative SQLite database runs in
+WAL mode, and a read-only SQLite connection may still need to create or update
+the `payments.sqlite3-shm` coordination sidecar. The sandbox therefore prevented
+SQLite from opening the live WAL database and the oneshot exited with
+`unable to open database file`.
+
+The corrected unit keeps the VM-B state directory writable only inside the
+backup service's private mount namespace so SQLite can coordinate via `-shm`,
+while explicitly pinning these authoritative files read-only in that namespace:
+
+```text
+payments.sqlite3
+payments.sqlite3-wal       # when present
+payments.sqlite3-journal   # when present
+```
+
+The `-shm` sidecar is intentionally not read-only. This change does not alter
+the real filesystem permissions seen by `pepew-pay.service`, and it does not
+make the live database writable through the backup script itself; the script
+continues opening the source with SQLite `mode=ro`.
+
 ## 7. Off-host recovery copy
 
 H2 does not yet add an object-storage dependency or another backup daemon.

@@ -521,6 +521,10 @@ Runbook: [PHASE_H2_SQLITE_BACKUP_RESTORE.md](PHASE_H2_SQLITE_BACKUP_RESTORE.md)
 - [x] Add hardened systemd oneshot/timer units with low process/I/O priority and no Payment Platform downtime
 - [x] Add deterministic retention/low-disk/failure-boundary tests
 - [ ] Deploy the automation increment to VM-B, run the oneshot manually, then enable/verify the timer
+- [x] Diagnose the first VM-B automation acceptance failure: `ProtectSystem=strict` blocked SQLite WAL shared-memory coordination; timer remained disabled and production stayed healthy
+- [x] Correct the backup unit so the private mount namespace permits `-shm` coordination while pinning the authoritative DB/WAL/journal files read-only
+- [x] Add a regression test for the WAL-compatible systemd sandbox policy
+- [ ] Re-run VM-B manual oneshot acceptance with the corrected unit before enabling the timer
 - [ ] Evaluate a simple off-host second copy without introducing a continuously running backup service
 
 H2 first-increment production closeout (2026-09-25):
@@ -532,6 +536,17 @@ H2 first-increment production closeout (2026-09-25):
 - local/public health remained healthy and the payment watcher remained healthy, connected, non-degraded, and non-stale
 - no recent SQLite/service errors were observed; production configuration was unchanged
 - VM-A was not touched and no automatic timer/retention was installed during this acceptance
+
+H2 automation acceptance attempt 1 (2026-09-25):
+
+- VM-B was on `0130aab`, Python 3.10.12, with 237 backend tests passing
+- `systemd-analyze verify` passed aside from unrelated host warnings
+- backup filesystem was `0750 ubuntu:ubuntu` with 28 GiB free
+- the manual backup oneshot failed safely with `unable to open database file`; no automatic backup was created
+- root cause was the hardened unit blocking SQLite WAL `-shm` coordination under `ProtectSystem=strict`
+- existing manual/Phase F/Phase G backups were preserved and no unrelated files were deleted
+- `pepew-pay.service`, the ElectrumX tunnel, local/public health, and watcher all remained healthy
+- timer stayed disabled; no production configuration changed and VM-A was not touched
 
 Planned later H increments:
 
