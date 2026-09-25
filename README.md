@@ -320,8 +320,9 @@ See [docs/PHASE_H2_SQLITE_BACKUP_RESTORE.md](docs/PHASE_H2_SQLITE_BACKUP_RESTORE
 
 The bounded H2 automation policy is daily local backup, 14 verified automatic
 backup/manifest pairs, a 512 MiB pre-backup free-space guardrail, and a
-non-destructive restore drill after every automatic backup. The systemd timer is
-not enabled until its VM-B production acceptance is complete.
+non-destructive restore drill after every automatic backup. The WAL-compatible
+systemd timer was production-accepted and enabled on VM-B on 2026-09-25 after a
+corrected manual oneshot and independent restore drill both passed.
 
 ---
 
