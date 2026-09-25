@@ -78,6 +78,7 @@ def test_status_endpoint_failure_returns_200(monkeypatch):
 
 def test_status_service_cache(monkeypatch):
     calls = {"count": 0}
+    watcher_states = iter(["healthy", "disconnected"])
     status_service.clear_status_cache()
 
     class FakeSettings:
@@ -99,6 +100,11 @@ def test_status_service_cache(monkeypatch):
         return {"height": 456, "hex": "00"}
 
     monkeypatch.setattr(status_service, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(
+        status_service,
+        "get_payment_watcher_status",
+        lambda: {"state": next(watcher_states)},
+    )
     monkeypatch.setattr(status_service, "server_version", fake_server_version)
     monkeypatch.setattr(status_service, "server_features", fake_server_features)
     monkeypatch.setattr(status_service, "headers_subscribe", fake_headers_subscribe)
@@ -113,6 +119,8 @@ def test_status_service_cache(monkeypatch):
     assert first["cache_ttl_seconds"] == 10
     assert first["cache_age_seconds"] == 0
     assert second["cache"]["hit"] is True
+    assert first["payment_watcher"]["state"] == "healthy"
+    assert second["payment_watcher"]["state"] == "disconnected"
     assert second["cache_ttl_seconds"] == 10
     assert second["cache_age_seconds"] >= 0
     assert calls["count"] == 1
