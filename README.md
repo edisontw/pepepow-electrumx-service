@@ -363,12 +363,18 @@ application.
 Merchant API keys and webhook signing secrets remain server-side and are not
 part of `@pepepow/pepew-js` or the PepewPay browser bundle.
 
-Phase I is now in progress. The first increment defines the merchant SDK
-distribution contract and validates that the Node merchant package can be
-packed and installed by a clean consumer before any public registry release.
-The DevKit SDKs are now MIT-licensed and public-release-ready. Actual npm
-publication remains an explicit release action and is gated only on confirming
-the npm `@pepepow` scope / first-publish ownership path. See
+Phase I is now in progress. I1-I3 are complete: the DevKit SDKs are
+MIT-licensed and public-release-ready, a runnable Node/SQLite merchant sample
+is available, and the production merchant Quick Start covers create/recovery,
+checkout capability handoff, webhook registration/verification, durable
+deduplication, reorg-safe `payment_version` ordering, fulfillment boundaries,
+and framework raw-body patterns.
+
+Actual npm publication remains an explicit release action and is gated only on
+confirming the npm `@pepepow` scope / first-publish ownership path. The next
+planned increment is I4 sandbox/test integration strategy; this should not
+weaken production webhook SSRF protections or introduce unnecessary always-on
+infrastructure. See
 [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
 
 ---
