@@ -668,10 +668,23 @@ Release policy:
 
 #### I2 — Runnable Merchant Sample Application
 
-- [ ] Add one complete Node.js sample merchant application with a small durable SQLite order/event store
-- [ ] Demonstrate order creation, stable idempotency, checkout redirect/link generation, uncertain-create recovery, raw-body webhook verification, event-ID deduplication, and `payment_version` ordering
-- [ ] Keep the sample intentionally small and framework-light so the payment lifecycle remains visible
-- [ ] Add deterministic local tests and a one-command development start path
+Status: **COMPLETE — runnable Node/SQLite reference app and CI verified 2026-09-26**
+
+Implementation: `pepepow-devkit/examples/merchant-app/`
+
+- [x] Add one complete Node.js sample merchant application with a small durable SQLite order/event store
+- [x] Demonstrate order creation, stable idempotency, checkout URL generation, uncertain-create recovery, raw-body webhook verification, event-ID deduplication, and `payment_version` ordering
+- [x] Keep the sample intentionally small and framework-light: Node HTTP + SQLite + merchant SDK, with no Redis/PostgreSQL/queue
+- [x] Add deterministic local tests and a one-command development start path after normal dependency setup
+- [x] Keep the internal order-create route localhost/trusted-backend oriented rather than presenting it as an unauthenticated public checkout API
+- [x] Keep fulfillment policy application-owned; the sample stores payment state but does not auto-ship goods
+
+I2 verification:
+
+- devkit commit `ccc162fa8361bb90f1902e25fca9889fb1292b76`
+- dedicated Node 22 merchant-sample CI job passed SQLite install, local SDK build, store/service tests, and server syntax check
+- existing Node 20 DevKit/SDK/PepewPay regression job remained green
+- existing `pepewpay-dist` publish job remained green
 
 #### I3 — Production Integration Guide
 
