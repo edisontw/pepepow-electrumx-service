@@ -746,7 +746,7 @@ I4 verification:
 
 #### I5 — Platform Integrations
 
-Start only after the generic onboarding baseline is usable.
+Status: **IN PROGRESS — WooCommerce I5.1 classic gateway skeleton complete 2026-09-26**
 
 Planned order:
 
@@ -756,9 +756,59 @@ WooCommerce
   -> Discord
 ```
 
-- [ ] Build WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
-- [ ] Reuse the generic Payment API/SDK contracts; do not fork payment authority into the plugin
-- [ ] Keep Telegram and Discord integrations deferred until the WooCommerce lifecycle establishes the adapter pattern
+WooCommerce implementation:
+
+```text
+pepepow-devkit/integrations/woocommerce/pepew-payments/
+```
+
+##### I5.1 — WooCommerce classic gateway skeleton
+
+- [x] Add PEPEW currency and 8-decimal pricing support
+- [x] Add classic `WC_Payment_Gateway`
+- [x] Persist deterministic `merchant_reference`, stable `Idempotency-Key`, and exact amount snapshot before remote create
+- [x] Create Payment API v1 intents and recover uncertain creates by exact merchant reference
+- [x] Persist payment capability/version/status and redirect to PepewPay
+- [x] Fail closed if the Woo order amount changes after PEPEW create identity/payment binding
+- [x] Use WooCommerce order CRUD only; CI rejects direct post/order-storage writes
+- [x] Keep Checkout Blocks unsupported rather than overstating compatibility
+- [x] Add PHP lint and deterministic order-identity tests
+- [ ] Declare HPOS compatibility only after a real WooCommerce runtime matrix passes
+
+I5.1 verification:
+
+- devkit commits `abb67d5c9e8cbab98196b9f204c2bbe56154dad7`, `7d7bdbeeacc3354c9ce2e14d943d3dbb70e91d60`, and `522c0fea18b85003ffe0f6e3cc5d707f9f3eea3f`
+- GitHub Actions run `36223238329` completed successfully
+- WooCommerce adapter job passed PHP lint, deterministic order identity tests, and no-direct-order-storage guard
+- existing merchant-sample, DevKit/SDK/PepewPay, and `pepewpay-dist` jobs remained green
+- no production VM/runtime change was required
+
+##### I5.2 — WooCommerce webhook and order lifecycle
+
+- [ ] Verify Webhook v1 HMAC against exact raw request bytes in PHP
+- [ ] Persist webhook signing configuration server-side only
+- [ ] Resolve Woo order from merchant reference/payment ID
+- [ ] Durably deduplicate/order updates by `event_id` and `payment_version`
+- [ ] Accept higher-version reorg rollback instead of ranking status strings monotonically
+- [ ] Map verified PEPEW state to Woo order lifecycle without making WordPress a second payment authority
+- [ ] Keep secrets and full capability URLs out of logs/order notes
+
+##### I5.3 — Checkout Blocks + HPOS acceptance
+
+- [ ] Add WooCommerce Checkout Block payment-method integration
+- [ ] Test HPOS enabled/disabled in a real WooCommerce environment
+- [ ] Only then declare `cart_checkout_blocks` and `custom_order_tables` compatibility
+
+##### I5.4 — distributable WooCommerce plugin
+
+- [ ] Produce and install-test plugin ZIP
+- [ ] Add setup/upgrade/uninstall guidance
+- [ ] Exercise duplicate webhook/retry/reorg and process recovery
+- [ ] Complete one staging/live Woo checkout E2E before production-ready status
+
+- [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
+- [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
+- [x] Keep Telegram and Discord integrations deferred until the WooCommerce lifecycle establishes the adapter pattern
 
 Phase I exit criteria:
 
