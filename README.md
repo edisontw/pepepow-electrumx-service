@@ -371,10 +371,14 @@ lifecycle policy while keeping Payment Platform authoritative.
 
 I5.3 passed a pinned WordPress 7.1.2 / WooCommerce 11.1.2 runtime matrix with
 both legacy order storage and HPOS enabled, so the plugin now declares
-`cart_checkout_blocks` and `custom_order_tables` compatibility. The next
-planned increment is I5.4: produce/install-test the plugin ZIP, finish merchant
-setup/upgrade/uninstall guidance, and complete staging/live Woo checkout
-acceptance before production-ready status. Actual npm publication remains
+`cart_checkout_blocks` and `custom_order_tables` compatibility.
+
+I5.4 automated acceptance is also complete: CI builds and clean-installs an
+allowlist WooCommerce ZIP, verifies dependency/upgrade/uninstall behavior, and
+exercises checkout retry, uncertain-create recovery, signed webhook
+duplicate/stale handling, and reorg rollback in both legacy and HPOS runtime
+modes. One externally reachable staging/live paid WooCommerce E2E remains
+before the adapter is called production-ready. Actual npm publication remains
 independently gated on confirming the npm `@pepepow` scope / first-publish
 ownership path. See
 [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
