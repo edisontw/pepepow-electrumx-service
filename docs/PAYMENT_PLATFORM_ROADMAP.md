@@ -812,9 +812,24 @@ I5.2 verification:
 
 ##### I5.3 — Checkout Blocks + HPOS acceptance
 
-- [ ] Add WooCommerce Checkout Block payment-method integration
-- [ ] Test HPOS enabled/disabled in a real WooCommerce environment
-- [ ] Only then declare `cart_checkout_blocks` and `custom_order_tables` compatibility
+Status: **COMPLETE — Checkout Blocks + legacy/HPOS runtime matrix verified 2026-09-26**
+
+- [x] Add WooCommerce Checkout Block payment-method integration using server-side `AbstractPaymentMethodType` and client-side `registerPaymentMethod()`
+- [x] Keep payment execution on the existing `WC_Payment_Gateway` path rather than creating a second payment flow
+- [x] Pin acceptance runtime to WordPress 7.1.2 / WooCommerce 11.1.2 / PHP 8.1
+- [x] Test gateway registration, Blocks hook/script/settings, Woo order CRUD/meta reload, and `payment_complete()` with legacy order storage
+- [x] Run the same runtime smoke with HPOS enabled
+- [x] Declare `cart_checkout_blocks` compatibility only after runtime acceptance
+- [x] Declare `custom_order_tables` compatibility only after runtime acceptance
+- [x] Set `WC tested up to: 11.1.2`
+
+I5.3 verification:
+
+- devkit implementation/acceptance commits include `a0e8e8552cdb60344a5c4f5dd753d3ce3d106c83`, `19a4a9ddd9efea2299dd901a58656a6a34be230b`, `2fefa5ee40212b0cc8a52ddcd1f5114293ddf4fe`, and `02a30dd441335e3b50aba397f2443c20f9ffc4a8`
+- GitHub Actions run `36231075337` completed successfully after compatibility declarations were enabled
+- `WooCommerce runtime (legacy)` and `WooCommerce runtime (hpos)` both passed the pinned wp-env smoke matrix
+- existing Woo unit/static checks, merchant-sample, DevKit/SDK/PepewPay, and `pepewpay-dist` jobs remained green
+- no production Payment Platform or VM runtime change was required
 
 ##### I5.4 — distributable WooCommerce plugin
 
