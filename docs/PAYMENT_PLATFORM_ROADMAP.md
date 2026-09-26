@@ -833,10 +833,30 @@ I5.3 verification:
 
 ##### I5.4 — distributable WooCommerce plugin
 
-- [ ] Produce and install-test plugin ZIP
-- [ ] Add setup/upgrade/uninstall guidance
-- [ ] Exercise duplicate webhook/retry/reorg and process recovery
-- [ ] Complete one staging/live Woo checkout E2E before production-ready status
+Status: **IN PROGRESS — automated packaging/runtime acceptance complete; staging/live paid E2E remains**
+
+- [x] Produce an allowlist-based installable plugin ZIP
+- [x] Verify package integrity and exclude test/dev/environment/repository files
+- [x] Clean-install the exact CI-built ZIP in a fresh WordPress/WooCommerce runtime
+- [x] Verify activation with WooCommerce present and rejection when the required dependency is inactive/absent
+- [x] Verify overwrite upgrade preserves merchant settings
+- [x] Verify deactivation preserves settings and explicit uninstall removes merchant API/webhook secrets
+- [x] Preserve historical Woo order payment metadata on uninstall for reconciliation/audit continuity
+- [x] Add setup/upgrade/uninstall, webhook secret rotation, rollback, and production acceptance guidance
+- [x] Exercise repeated checkout/back-button behavior without a second create
+- [x] Exercise transport-loss create recovery by exact merchant reference
+- [x] Exercise duplicate/stale webhook handling and higher-version reorg rollback in both legacy and HPOS runtime modes
+- [x] Publish CI artifact `pepew-payments-woocommerce` containing the ZIP and SHA-256 checksum
+- [ ] Complete one externally reachable staging/live Woo -> PepewPay -> wallet -> Payment Platform -> webhook -> Woo order paid E2E before production-ready status
+
+I5.4 automated verification:
+
+- devkit implementation commit `58c6e300d392e3a0a9ae581bbdebd9869b3d90e3`
+- CI/package fixes include `e67768b074f6aadd446c125fe35e07b7f15ae835`, `fa7614d26f38d62a368fb5a6e2c6cf3c3443fff6`, `e8fa4ccd879a90d93e63bebf4f2d0a662627055b`, and `51f8601b591f5e252172ae8078e96cd0a5dda041`
+- GitHub Actions run `36244246216` completed successfully
+- `woocommerce-package`, `WooCommerce runtime (legacy)`, and `WooCommerce runtime (hpos)` all passed
+- deployment/acceptance runbook: `pepepow-devkit/docs/WOOCOMMERCE_DEPLOYMENT.md`
+- no production VM-A/VM-B runtime change was required
 
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
