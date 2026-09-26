@@ -18,7 +18,12 @@ Production:
 Current cross-repository development priority:
 
 ```text
-pepew-js -> PEPEW Payment URI -> PepewPay -> Payment/Event Gateway -> Webhook
+Phase I merchant onboarding / distribution
+  -> public SDK release baseline
+  -> runnable merchant sample
+  -> production integration guide
+  -> sandbox/test strategy
+  -> WooCommerce first platform adapter
 ```
 
 See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
@@ -357,6 +362,13 @@ application.
 
 Merchant API keys and webhook signing secrets remain server-side and are not
 part of `@pepepow/pepew-js` or the PepewPay browser bundle.
+
+Phase I is now in progress. The first increment defines the merchant SDK
+distribution contract and validates that the Node merchant package can be
+packed and installed by a clean consumer before any public registry release.
+Public npm publication remains explicitly gated until package licensing and
+npm scope/release ownership are confirmed. See
+[docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
 
 ---
 

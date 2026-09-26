@@ -1,6 +1,6 @@
 # PEPEW Payment Platform Roadmap
 
-Last updated: 2026-09-25
+Last updated: 2026-09-26
 
 This document is the canonical cross-repository roadmap for the PEPEW Payment Platform. GitHub `main` remains the source of truth for implementation state. Update this file when architecture, phase status, API boundaries, deployment assumptions, or major decisions change.
 
@@ -629,6 +629,84 @@ keys, transaction signing, merchant API keys, or webhook signing secrets into
 customer/browser code.
 
 Phase H exit criteria are satisfied for the planned H1-H4 baseline.
+
+### Phase I — Merchant Developer Onboarding / Distribution
+
+Status: **IN PROGRESS — I1 distribution baseline started 2026-09-26**
+
+Primary repository: `edisontw/pepepow-devkit`
+
+Supporting repository: `edisontw/pepepow-electrumx-service` for canonical API,
+security, production-integration, and webhook contract documentation.
+
+Goal: make the production-validated Payment Platform straightforward for an
+ordinary merchant developer to install, understand, test, and integrate before
+building platform-specific adapters.
+
+Development sequence:
+
+#### I1 — SDK Distribution Baseline
+
+- [x] Keep browser/protocol utilities in `@pepepow/pepew-js` and merchant-secret handling in `@pepepow/pepewpay-merchant`
+- [x] Keep package versions independent and SemVer-based; pre-1.0 breaking changes require a minor-version bump, while compatible fixes/additions use patch releases where practical
+- [x] Select the public npm registry as the intended canonical package-distribution channel for reusable SDK packages
+- [x] Keep `pepewpay-dist` as the static checkout artifact path; PepewPay itself is not a merchant runtime dependency
+- [x] Add package metadata and a clean-consumer tarball install/import test for `@pepepow/pepewpay-merchant`
+- [x] Keep the package `private: true` as an explicit release gate until public-package licensing and npm scope ownership/release credentials are confirmed
+- [ ] Confirm the public package license and npm `@pepepow` scope ownership
+- [ ] Remove the private release gate, publish the first tagged public SDK release, and verify installation from the registry in a clean consumer
+
+Release policy:
+
+- GitHub `main` remains development source of truth.
+- Registry releases must come from a tested, tagged commit rather than an arbitrary working tree.
+- Merchant API keys, webhook secrets, mnemonic/private keys, and signing code must never be packaged into examples or published artifacts.
+- Release automation must use registry/GitHub secret facilities; package credentials must never be committed.
+- A registry release is not required on production VM-A or VM-B and must add no production Node.js runtime dependency.
+
+#### I2 — Runnable Merchant Sample Application
+
+- [ ] Add one complete Node.js sample merchant application with a small durable SQLite order/event store
+- [ ] Demonstrate order creation, stable idempotency, checkout redirect/link generation, uncertain-create recovery, raw-body webhook verification, event-ID deduplication, and `payment_version` ordering
+- [ ] Keep the sample intentionally small and framework-light so the payment lifecycle remains visible
+- [ ] Add deterministic local tests and a one-command development start path
+
+#### I3 — Production Integration Guide
+
+- [ ] Add a short merchant Quick Start from API key/webhook setup through the first checkout
+- [ ] Add production configuration, timeout/retry, secret-storage, webhook, reorg, fulfillment, logging/privacy, and recovery guidance
+- [ ] Add copyable webhook examples that preserve exact raw-body verification
+- [ ] Document upgrade/version compatibility expectations between SDK releases and Payment API v1
+
+#### I4 — Sandbox / Test Integration Strategy
+
+- [ ] Define a developer test path before introducing a separate always-on sandbox service
+- [ ] Prefer deterministic local/mock contract tests plus an explicitly bounded live smoke path where appropriate
+- [ ] Document test merchant credentials/data isolation and how webhook retry/reorg cases are exercised
+- [ ] Only add dedicated sandbox infrastructure if real integration demand justifies its operational cost
+
+#### I5 — Platform Integrations
+
+Start only after the generic onboarding baseline is usable.
+
+Planned order:
+
+```text
+WooCommerce
+  -> Telegram Bot
+  -> Discord
+```
+
+- [ ] Build WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
+- [ ] Reuse the generic Payment API/SDK contracts; do not fork payment authority into the plugin
+- [ ] Keep Telegram and Discord integrations deferred until the WooCommerce lifecycle establishes the adapter pattern
+
+Phase I exit criteria:
+
+- a new merchant developer can reach a working integration from current docs and released packages without reading backend source
+- the reference sample survives restart/retry/webhook-duplicate/reorg-state scenarios correctly
+- production integration guidance keeps all merchant secrets server-side and exposes only intended payment capabilities to browsers
+- at least the first real platform adapter can be built on the generic integration contract without changing authoritative payment semantics
 
 ## 11. Testing policy
 
