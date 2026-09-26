@@ -688,10 +688,32 @@ I2 verification:
 
 #### I3 — Production Integration Guide
 
-- [ ] Add a short merchant Quick Start from API key/webhook setup through the first checkout
-- [ ] Add production configuration, timeout/retry, secret-storage, webhook, reorg, fulfillment, logging/privacy, and recovery guidance
-- [ ] Add copyable webhook examples that preserve exact raw-body verification
-- [ ] Document upgrade/version compatibility expectations between SDK releases and Payment API v1
+Status: **COMPLETE — production onboarding guide and framework patterns verified 2026-09-26**
+
+Implementation in `pepepow-devkit`:
+
+```text
+docs/MERCHANT_QUICK_START.md
+examples/merchant-app/scripts/register-webhook.mjs
+examples/webhooks/express.mjs
+examples/webhooks/fastify.mjs
+```
+
+- [x] Add a short merchant Quick Start from API key/webhook setup through the first checkout
+- [x] Add production configuration, timeout/retry, secret-storage, webhook, reorg, fulfillment, logging/privacy, and recovery guidance
+- [x] Add copyable Express/Fastify webhook examples that preserve exact raw-body verification
+- [x] Document upgrade/version compatibility expectations between SDK releases and Payment API v1
+- [x] Add a webhook registration helper that keeps the Bearer API key out of command-line arguments, does not print the one-time signing secret, and writes it to a restrictive local file for transfer into server-side secret storage
+- [x] Ignore local `.env`, merchant SQLite state, and one-time webhook registration files in Git
+- [x] Keep webhook testing compatible with production SSRF policy; do not weaken HTTPS/public-network target validation for local development
+
+I3 verification:
+
+- devkit commits `0ba372f4e4638350276498ca332aa7818146b676` and `b79f7cc5c7676f4d101f77832e2101bb40b9df68`
+- GitHub Actions run `36211575239` completed successfully
+- merchant-sample job passed registration-helper and Express/Fastify syntax checks plus the existing SQLite merchant tests
+- Node 20 DevKit/SDK/PepewPay regression job remained green
+- existing `pepewpay-dist` publish job remained green
 
 #### I4 — Sandbox / Test Integration Strategy
 
