@@ -785,13 +785,30 @@ I5.1 verification:
 
 ##### I5.2 — WooCommerce webhook and order lifecycle
 
-- [ ] Verify Webhook v1 HMAC against exact raw request bytes in PHP
-- [ ] Persist webhook signing configuration server-side only
-- [ ] Resolve Woo order from merchant reference/payment ID
-- [ ] Durably deduplicate/order updates by `event_id` and `payment_version`
-- [ ] Accept higher-version reorg rollback instead of ranking status strings monotonically
-- [ ] Map verified PEPEW state to Woo order lifecycle without making WordPress a second payment authority
-- [ ] Keep secrets and full capability URLs out of logs/order notes
+Status: **COMPLETE — implementation and CI verified 2026-09-26**
+
+- [x] Verify Webhook v1 HMAC against exact raw request bytes in PHP
+- [x] Persist webhook signing configuration server-side only
+- [x] Resolve Woo order from deterministic merchant reference and validate stored payment identity/amount
+- [x] Bind `payment_id` safely if webhook delivery wins the create-response race
+- [x] Durably order updates by `event_id` and `payment_version`; same-event retries are idempotent and lower versions cannot overwrite newer state
+- [x] Accept higher-version reorg rollback instead of ranking status strings monotonically
+- [x] Use a short-lived per-event WordPress lock to suppress concurrent duplicate handling without external queue infrastructure
+- [x] Map verified PEPEW state to Woo order lifecycle while keeping Payment Platform authoritative
+- [x] Use WooCommerce `payment_complete()` for normal confirmed/overpaid transitions
+- [x] Move processing orders to on-hold + review if a higher-version reorg reduces confirmation
+- [x] Do not automatically resurrect cancelled/refunded orders; conflicting later payment state requires manual review
+- [x] Preserve large JSON atom values through `JSON_BIGINT_AS_STRING`
+- [x] Keep secrets and full capability URLs out of webhook error responses/order notes
+
+I5.2 verification:
+
+- devkit commits `a4f990540db814a1e632719155d5c3a8890ad61b`, `9bb982191cb727a955e6e50b675baaa29407f412`, `9ccf70928b44bdb3d3afdcadbe77efebca2a2fad`, `ef400850a443753a2a0bde1e010737b5bd31646b`, and `62f9a1f1f8d7a23c81f45fcdad1b25005522807c`
+- GitHub Actions run `36225272365` completed successfully
+- WooCommerce adapter job passed PHP lint, order-identity parsing, exact-body webhook/tamper/replay tests, large atom parsing, order-state/reorg policy tests, and no-direct-order-storage guard
+- existing merchant-sample, DevKit/SDK/PepewPay, and `pepewpay-dist` jobs remained green
+- real WordPress/WooCommerce + HPOS runtime acceptance is intentionally deferred to I5.3
+- no production VM/runtime change was required
 
 ##### I5.3 — Checkout Blocks + HPOS acceptance
 
