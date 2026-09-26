@@ -362,17 +362,19 @@ application.
 Merchant API keys and webhook signing secrets remain server-side and are not
 part of `@pepepow/pepew-js` or the PepewPay browser bundle.
 
-Phase I is now in progress with I1-I4 complete and WooCommerce I5.1
-implemented in `pepepow-devkit`. The first adapter increment provides a
-classic WooCommerce gateway with stable order/payment identity, exact amount
-snapshotting, Payment API create/recovery, WooCommerce-CRUD persistence, and
-PepewPay redirect while keeping Payment Platform authoritative.
+Phase I is now in progress with I1-I4 and WooCommerce I5.1-I5.2
+implemented in `pepepow-devkit`. The adapter now covers classic checkout,
+stable order/payment identity, exact amount snapshotting, Payment API
+create/recovery, PepewPay redirect, exact-body signed webhook verification,
+durable event/version ordering, and reorg-safe Woo order lifecycle policy while
+keeping Payment Platform authoritative.
 
-Checkout Blocks, webhook-driven Woo order transitions, and formal HPOS
-compatibility are intentionally not claimed yet. The next planned increment is
-I5.2: signed webhook receipt plus reorg-safe WooCommerce order lifecycle
-updates. Actual npm publication remains independently gated on confirming the
-npm `@pepepow` scope / first-publish ownership path. See
+Checkout Blocks and formal HPOS compatibility are intentionally not claimed
+yet. The next planned increment is I5.3: add the current WooCommerce Checkout
+Block payment-method integration and run a real WordPress/WooCommerce matrix
+with HPOS enabled/disabled before declaring compatibility. Actual npm
+publication remains independently gated on confirming the npm `@pepepow`
+scope / first-publish ownership path. See
 [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
 
 ---
