@@ -717,10 +717,32 @@ I3 verification:
 
 #### I4 — Sandbox / Test Integration Strategy
 
-- [ ] Define a developer test path before introducing a separate always-on sandbox service
-- [ ] Prefer deterministic local/mock contract tests plus an explicitly bounded live smoke path where appropriate
-- [ ] Document test merchant credentials/data isolation and how webhook retry/reorg cases are exercised
-- [ ] Only add dedicated sandbox infrastructure if real integration demand justifies its operational cost
+Status: **COMPLETE — deterministic contract harness and bounded live smoke verified 2026-09-26**
+
+Implementation in `pepepow-devkit`:
+
+```text
+docs/TESTING_AND_SANDBOX.md
+examples/merchant-app/test-support/mock-payment-platform.mjs
+examples/merchant-app/tests/contract-harness.test.mjs
+examples/merchant-app/scripts/live-smoke.mjs
+```
+
+- [x] Define a developer test path before introducing a separate always-on sandbox service
+- [x] Prefer deterministic local/mock contract tests plus an explicitly bounded live smoke path where appropriate
+- [x] Document test merchant credentials/data isolation and how webhook retry/reorg cases are exercised
+- [x] Keep CI credential-free and zero-network for merchant contract behavior
+- [x] Keep live smoke explicit/operator-only, one short-lived payment intent per invocation, and never run it automatically in CI
+- [x] Preserve production webhook HTTPS/SSRF protections instead of weakening them for localhost testing
+- [x] Defer dedicated sandbox infrastructure until real integration demand justifies its operational cost
+
+I4 verification:
+
+- devkit commits `9b83334c61ed7e800ab94ecdb6911cd33c1fec34` and `591e153e4ad24af458bd02adb08873c5f061e407`
+- GitHub Actions run `36219255658` completed successfully
+- merchant-sample CI covered real `MerchantClient` behavior against deterministic mock API, lost-response recovery, idempotency conflict, signed webhook verification, duplicate `event_id`, and higher-version reorg rollback
+- existing Node 20 DevKit/SDK/PepewPay regression and `pepewpay-dist` publish jobs remained green
+- no production VM/runtime change was required
 
 #### I5 — Platform Integrations
 
