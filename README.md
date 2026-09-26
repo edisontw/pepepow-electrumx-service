@@ -19,11 +19,10 @@ Current cross-repository development priority:
 
 ```text
 Phase I merchant onboarding / distribution
-  -> public SDK release baseline
-  -> runnable merchant sample
-  -> production integration guide
-  -> sandbox/test strategy
+  -> I1-I4 generic onboarding baseline complete
   -> WooCommerce first platform adapter
+  -> Telegram Bot
+  -> Discord
 ```
 
 See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
@@ -363,18 +362,17 @@ application.
 Merchant API keys and webhook signing secrets remain server-side and are not
 part of `@pepepow/pepew-js` or the PepewPay browser bundle.
 
-Phase I is now in progress. I1-I3 are complete: the DevKit SDKs are
-MIT-licensed and public-release-ready, a runnable Node/SQLite merchant sample
-is available, and the production merchant Quick Start covers create/recovery,
-checkout capability handoff, webhook registration/verification, durable
-deduplication, reorg-safe `payment_version` ordering, fulfillment boundaries,
-and framework raw-body patterns.
+Phase I is now in progress with I1-I4 complete. The generic merchant
+baseline now includes MIT/public-ready SDK packaging, a runnable Node/SQLite
+merchant sample, the production Quick Start, safe webhook registration/raw-body
+patterns, and deterministic zero-network contract tests plus a guarded
+operator-only live smoke. No dedicated always-on sandbox is required yet.
 
 Actual npm publication remains an explicit release action and is gated only on
 confirming the npm `@pepepow` scope / first-publish ownership path. The next
-planned increment is I4 sandbox/test integration strategy; this should not
-weaken production webhook SSRF protections or introduce unnecessary always-on
-infrastructure. See
+planned increment is I5, starting with a WooCommerce adapter that reuses the
+generic Payment API/SDK contracts and does not become a second payment
+authority. See
 [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
 
 ---
