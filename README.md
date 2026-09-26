@@ -366,8 +366,9 @@ part of `@pepepow/pepew-js` or the PepewPay browser bundle.
 Phase I is now in progress. The first increment defines the merchant SDK
 distribution contract and validates that the Node merchant package can be
 packed and installed by a clean consumer before any public registry release.
-Public npm publication remains explicitly gated until package licensing and
-npm scope/release ownership are confirmed. See
+The DevKit SDKs are now MIT-licensed and public-release-ready. Actual npm
+publication remains an explicit release action and is gated only on confirming
+the npm `@pepepow` scope / first-publish ownership path. See
 [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
 
 ---

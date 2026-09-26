@@ -651,17 +651,19 @@ Development sequence:
 - [x] Keep package versions independent and SemVer-based; pre-1.0 breaking changes require a minor-version bump, while compatible fixes/additions use patch releases where practical
 - [x] Select the public npm registry as the intended canonical package-distribution channel for reusable SDK packages
 - [x] Keep `pepewpay-dist` as the static checkout artifact path; PepewPay itself is not a merchant runtime dependency
-- [x] Add package metadata and a clean-consumer tarball install/import test for `@pepepow/pepewpay-merchant`
-- [x] Keep the package `private: true` as an explicit release gate until public-package licensing and npm scope ownership/release credentials are confirmed
-- [ ] Confirm the public package license and npm `@pepepow` scope ownership
-- [ ] Remove the private release gate, publish the first tagged public SDK release, and verify installation from the registry in a clean consumer
+- [x] Add package metadata and clean-consumer tarball install/import tests for both reusable SDK packages
+- [x] Adopt the MIT License for the DevKit and reusable SDK artifacts
+- [x] Make `@pepepow/pepew-js` and `@pepepow/pepewpay-merchant` public-release-ready while keeping registry publication an explicit release action
+- [x] Keep package tarballs allowlisted to built output plus package metadata/README/LICENSE; do not ship source/test trees by accident
+- [ ] Confirm npm `@pepepow` scope ownership and first-publish authentication
+- [ ] Publish the first tagged public SDK releases and verify clean registry installation/import
 
 Release policy:
 
 - GitHub `main` remains development source of truth.
 - Registry releases must come from a tested, tagged commit rather than an arbitrary working tree.
 - Merchant API keys, webhook secrets, mnemonic/private keys, and signing code must never be packaged into examples or published artifacts.
-- Release automation must use registry/GitHub secret facilities; package credentials must never be committed.
+- Release automation must use registry/GitHub secret facilities; package credentials must never be committed. Prefer npm trusted publishing/OIDC after initial package ownership is established.
 - A registry release is not required on production VM-A or VM-B and must add no production Node.js runtime dependency.
 
 #### I2 — Runnable Merchant Sample Application
