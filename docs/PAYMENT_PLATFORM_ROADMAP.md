@@ -746,7 +746,7 @@ I4 verification:
 
 #### I5 — Platform Integrations
 
-Status: **IN PROGRESS — WooCommerce I5.1 classic gateway skeleton complete 2026-09-26**
+Status: **IN PROGRESS — WooCommerce functional staging path exercised; Telegram adapter contract baseline started 2026-09-27**
 
 Planned order:
 
@@ -857,6 +857,43 @@ I5.4 automated verification:
 - `woocommerce-package`, `WooCommerce runtime (legacy)`, and `WooCommerce runtime (hpos)` all passed
 - deployment/acceptance runbook: `pepepow-devkit/docs/WOOCOMMERCE_DEPLOYMENT.md`
 - no production VM-A/VM-B runtime change was required
+
+I5.4 manual staging progress (2026-09-27):
+
+- externally reachable Windows/Local WordPress staging verified through temporary Cloudflare HTTPS
+- exact CI-built plugin ZIP install/overwrite-upgrade succeeded
+- Payment API Bearer access from WordPress returned HTTP 200
+- public Woo webhook receiver was registered and moved from expected unconfigured HTTP 503 to expected signature-validation HTTP 400 for an unsigned probe
+- real payment creation reached the authoritative Payment Platform and exposed a decimal-format comparison bug (`0.10000000` vs `0.1`); the plugin now compares exact atoms and CI regression coverage was added
+- a second edge case was found while evaluating self-payment: `overpaid` may still be below the configured confirmation policy; Woo now keeps such orders on hold until `policy_confirmed_sats` covers the requested amount
+- after upgrading the plugin, the checkout successfully redirected through PepewPay to the PEPEW Light web wallet
+- final paid webhook/confirmation closeout remains open because the representative test must use a payer address different from the merchant receiving address
+
+##### I5.5 — Telegram Bot adapter
+
+Status: **IN PROGRESS — deterministic adapter contract baseline implemented 2026-09-27**
+
+Implementation:
+
+```text
+pepepow-devkit/integrations/telegram/
+```
+
+- [x] keep `TELEGRAM_BOT_TOKEN`, merchant API key, and Payment Platform webhook signing secret server-side only
+- [x] derive stable Telegram payment identity from bot/chat/message identity while hashing raw Telegram identifiers before `merchant_reference`
+- [x] derive a stable Idempotency-Key for duplicate/retried Telegram updates
+- [x] create Payment API intents through the existing server-side merchant SDK rather than duplicating payment authority
+- [x] recover uncertain create outcomes by exact merchant reference
+- [x] build a Telegram `sendMessage` payload with an HTTPS PepewPay inline URL button
+- [x] apply updates by increasing `payment_version`, not status ranking
+- [x] keep unconfirmed `overpaid` state pending until `policy_confirmed_sats` covers the requested amount
+- [x] add deterministic no-network/no-secret contract tests
+- [ ] run one Telegram dedicated test-environment transport smoke with a test bot token
+- [ ] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address
+
+The first Telegram increment intentionally uses no production bot token and no
+new production daemon. Telegram's dedicated test environment should be used for
+the first external transport smoke before a normal production bot environment.
 
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
