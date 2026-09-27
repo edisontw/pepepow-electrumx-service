@@ -1,6 +1,6 @@
 # PEPEW Payment Platform Roadmap
 
-Last updated: 2026-09-26
+Last updated: 2026-09-27
 
 This document is the canonical cross-repository roadmap for the PEPEW Payment Platform. GitHub `main` remains the source of truth for implementation state. Update this file when architecture, phase status, API boundaries, deployment assumptions, or major decisions change.
 
@@ -871,7 +871,7 @@ I5.4 manual staging progress (2026-09-27):
 
 ##### I5.5 — Telegram merchant/payment adapter
 
-Status: **IN PROGRESS — deterministic adapter contract baseline implemented 2026-09-27**
+Status: **IN PROGRESS — contract baseline + Test Bot API transport smoke harness implemented 2026-09-27**
 
 Implementation:
 
@@ -900,12 +900,16 @@ Architecture boundary:
 - [x] apply updates by increasing `payment_version`, not status ranking
 - [x] keep unconfirmed `overpaid` state pending until `policy_confirmed_sats` covers the requested amount
 - [x] add deterministic no-network/no-secret contract tests
+- [x] add a bounded operator-only Telegram Test Bot API transport harness limited to `getMe`, `getUpdates`, and `sendMessage`; no Payment API create/webhook/transaction
 - [ ] run one Telegram dedicated test-environment transport smoke with a test bot token
 - [ ] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address
 
 The first Telegram increment intentionally uses no production bot token and no
 new production daemon. Telegram's dedicated test environment should be used for
 the first external transport smoke before a normal production bot environment.
+The operator-only smoke harness was added in `pepepow-devkit` commit
+`4e91a179d4cfabe041255fa6b19fab55fd38b3fb`; the external run remains open
+until an operator supplies a dedicated test-environment bot token locally.
 
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
