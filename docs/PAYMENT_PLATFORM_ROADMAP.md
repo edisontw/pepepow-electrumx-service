@@ -752,7 +752,7 @@ Planned order:
 
 ```text
 WooCommerce
-  -> Telegram Bot
+  -> Telegram merchant/payment adapter
   -> Discord
 ```
 
@@ -869,7 +869,7 @@ I5.4 manual staging progress (2026-09-27):
 - after upgrading the plugin, the checkout successfully redirected through PepewPay to the PEPEW Light web wallet
 - final paid webhook/confirmation closeout remains open because the representative test must use a payer address different from the merchant receiving address
 
-##### I5.5 — Telegram Bot adapter
+##### I5.5 — Telegram merchant/payment adapter
 
 Status: **IN PROGRESS — deterministic adapter contract baseline implemented 2026-09-27**
 
@@ -878,6 +878,18 @@ Implementation:
 ```text
 pepepow-devkit/integrations/telegram/
 ```
+
+Architecture boundary:
+
+- this is not a second PEPEW wallet bot and does not replace the Telegram
+  Bot/Mini App in `edisontw/pepepow-wallet-suite`
+- `pepepow-wallet-suite` remains payer-side wallet UX and client-side signing
+- I5.5 is merchant-side payment acceptance: Payment API create/recovery,
+  PepewPay checkout link delivery, authoritative webhook state, and Telegram
+  message/status updates
+- no mnemonic/private-key/signing code belongs in the merchant adapter
+- a merchant may embed the adapter into its own Telegram bot; only transport
+  testing requires a temporary/dedicated test bot if convenient
 
 - [x] keep `TELEGRAM_BOT_TOKEN`, merchant API key, and Payment Platform webhook signing secret server-side only
 - [x] derive stable Telegram payment identity from bot/chat/message identity while hashing raw Telegram identifiers before `merchant_reference`
