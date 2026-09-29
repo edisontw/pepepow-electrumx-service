@@ -352,7 +352,7 @@ https://light.pepepow.net/pay/
 
 This change is implemented and covered by devkit tests. After the completed cutover, `pay.pepepow.net` resolves directly to VM-B authority without a host-specific API URL baked into the frontend, while the Light-host compatibility proxy preserves existing capability links.
 
-The native/web-wallet handoff remains on the existing PEPEW Light wallet and does not move mnemonic, private-key, or signing logic server-side.
+The preferred web-wallet handoff now targets the integrated Wallet at `https://wallet.pepepow.net/send`. The standalone PEPEW Light Wallet at `https://light.pepepow.net/wallet/` remains independently supported as a backup/standalone wallet. Neither path moves mnemonic, private-key, or signing logic server-side.
 
 ## 9. Secret policy during split
 
