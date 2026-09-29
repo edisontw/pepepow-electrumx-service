@@ -871,7 +871,7 @@ I5.4 manual staging progress (2026-09-27):
 
 ##### I5.5 — Telegram merchant/payment adapter
 
-Status: **IN PROGRESS — contract baseline + Test Bot API transport smoke harness implemented; integrated Wallet payment compatibility aligned 2026-09-29**
+Status: **IN PROGRESS — Telegram Test Environment transport smoke PASS; real payment/webhook E2E remains 2026-09-29**
 
 Implementation:
 
@@ -912,15 +912,14 @@ Wallet handoff alignment (2026-09-29):
 - [x] add a bounded operator-only Telegram Test Bot API transport harness limited to `getMe`, `getUpdates`, and `sendMessage`; no Payment API create/webhook/transaction
 - [x] deploy/verify integrated Wallet payment compatibility from `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12`, including one representative sub-1-PEPEW send (production acceptance PASS 2026-09-29)
 - [x] update PepewPay's preferred web-wallet handoff from the standalone Light Wallet to `wallet.pepepow.net` while keeping the standalone wallet independently usable (devkit commit `64903ab98fa8d7ab8a042747437ef8c384311648`; final static artifact source `e59f194683b1150be5af50e242fd62cd665e521a`; VM-B deploy + production browser handoff acceptance PASS 2026-09-29)
-- [ ] run one Telegram dedicated test-environment transport smoke with a test bot token
+- [x] run one Telegram dedicated test-environment transport smoke with a test bot token (operator acceptance PASS 2026-09-29; token remained local and was not stored in GitHub/chat)
 - [ ] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address
 
 The first Telegram increment intentionally uses no production bot token and no
 new production daemon. Telegram's dedicated test environment should be used for
 the first external transport smoke before a normal production bot environment.
 The operator-only smoke harness was added in `pepepow-devkit` commit
-`4e91a179d4cfabe041255fa6b19fab55fd38b3fb`; the external run remains open
-until an operator supplies a dedicated test-environment bot token locally.
+`4e91a179d4cfabe041255fa6b19fab55fd38b3fb`; the dedicated Telegram Test Environment transport run passed on 2026-09-29 without exposing the bot token.
 
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
