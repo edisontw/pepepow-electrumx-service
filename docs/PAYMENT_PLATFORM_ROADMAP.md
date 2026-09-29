@@ -871,7 +871,7 @@ I5.4 manual staging progress (2026-09-27):
 
 ##### I5.5 — Telegram merchant/payment adapter
 
-Status: **IN PROGRESS — contract baseline + Test Bot API transport smoke harness implemented 2026-09-27**
+Status: **IN PROGRESS — contract baseline + Test Bot API transport smoke harness implemented; integrated Wallet payment compatibility aligned 2026-09-29**
 
 Implementation:
 
@@ -891,6 +891,14 @@ Architecture boundary:
 - a merchant may embed the adapter into its own Telegram bot; only transport
   testing requires a temporary/dedicated test bot if convenient
 
+Wallet handoff alignment (2026-09-29):
+
+- `https://wallet.pepepow.net` is the primary integrated payer Wallet for Telegram, PepewPay, merchant-payment handoff, and future platform integrations
+- `https://light.pepepow.net/wallet/` remains a supported standalone/backup PEPEW Light Wallet and is not being retired or redirected
+- both wallets remain non-custodial and use PEPEW Light API for chain access
+- `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12` removes the legacy 1 PEPEW send floor, aligns the integrated Wallet with the standalone Light Wallet's dust-based send policy, and adds payment-handoff regression coverage
+- before the real Telegram payment E2E, deploy/verify that Wallet commit and confirm one representative sub-1-PEPEW client-signed send path; then move PepewPay's preferred web-wallet handoff to `wallet.pepepow.net`
+
 - [x] keep `TELEGRAM_BOT_TOKEN`, merchant API key, and Payment Platform webhook signing secret server-side only
 - [x] derive stable Telegram payment identity from bot/chat/message identity while hashing raw Telegram identifiers before `merchant_reference`
 - [x] derive a stable Idempotency-Key for duplicate/retried Telegram updates
@@ -901,6 +909,8 @@ Architecture boundary:
 - [x] keep unconfirmed `overpaid` state pending until `policy_confirmed_sats` covers the requested amount
 - [x] add deterministic no-network/no-secret contract tests
 - [x] add a bounded operator-only Telegram Test Bot API transport harness limited to `getMe`, `getUpdates`, and `sendMessage`; no Payment API create/webhook/transaction
+- [ ] deploy/verify integrated Wallet payment compatibility from `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12`, including one representative sub-1-PEPEW send
+- [ ] update PepewPay's preferred web-wallet handoff from the standalone Light Wallet to `wallet.pepepow.net` while keeping the standalone wallet independently usable
 - [ ] run one Telegram dedicated test-environment transport smoke with a test bot token
 - [ ] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address
 
