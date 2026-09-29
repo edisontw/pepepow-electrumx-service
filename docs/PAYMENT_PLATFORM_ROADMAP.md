@@ -898,7 +898,7 @@ Wallet handoff alignment (2026-09-29):
 - both wallets remain non-custodial and use PEPEW Light API for chain access
 - `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12` removes the legacy 1 PEPEW send floor, aligns the integrated Wallet with the standalone Light Wallet's dust-based send policy, and adds payment-handoff regression coverage
 - integrated Wallet commit `87cfd2969742023e755c7ac82d507dfe9a63be12` passed production acceptance on 2026-09-29, including the representative sub-1-PEPEW handoff/send path
-- PepewPay source commit `64903ab98fa8d7ab8a042747437ef8c384311648` changes the preferred web-wallet handoff to `wallet.pepepow.net/send`; CI/deploy acceptance remains required before marking that checklist item complete
+- PepewPay source commit `64903ab98fa8d7ab8a042747437ef8c384311648` changes the preferred web-wallet handoff to `wallet.pepepow.net/send`; PepewPay tests/build and the static `publish-pepewpay` job passed in CI run `36588126233`; production static deployment/verification is the next operator step
 
 - [x] keep `TELEGRAM_BOT_TOKEN`, merchant API key, and Payment Platform webhook signing secret server-side only
 - [x] derive stable Telegram payment identity from bot/chat/message identity while hashing raw Telegram identifiers before `merchant_reference`
@@ -911,7 +911,7 @@ Wallet handoff alignment (2026-09-29):
 - [x] add deterministic no-network/no-secret contract tests
 - [x] add a bounded operator-only Telegram Test Bot API transport harness limited to `getMe`, `getUpdates`, and `sendMessage`; no Payment API create/webhook/transaction
 - [x] deploy/verify integrated Wallet payment compatibility from `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12`, including one representative sub-1-PEPEW send (production acceptance PASS 2026-09-29)
-- [ ] update PepewPay's preferred web-wallet handoff from the standalone Light Wallet to `wallet.pepepow.net` while keeping the standalone wallet independently usable
+- [x] update PepewPay's preferred web-wallet handoff from the standalone Light Wallet to `wallet.pepepow.net` while keeping the standalone wallet independently usable (devkit commit `64903ab98fa8d7ab8a042747437ef8c384311648`; PepewPay tests/build + `publish-pepewpay` PASS in CI run `36588126233`)
 - [ ] run one Telegram dedicated test-environment transport smoke with a test bot token
 - [ ] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address
 
