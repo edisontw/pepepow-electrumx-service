@@ -913,7 +913,9 @@ Wallet handoff alignment (2026-09-29):
 - [x] deploy/verify integrated Wallet payment compatibility from `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12`, including one representative sub-1-PEPEW send (production acceptance PASS 2026-09-29)
 - [x] update PepewPay's preferred web-wallet handoff from the standalone Light Wallet to `wallet.pepepow.net` while keeping the standalone wallet independently usable (devkit commit `64903ab98fa8d7ab8a042747437ef8c384311648`; final static artifact source `e59f194683b1150be5af50e242fd62cd665e521a`; VM-B deploy + production browser handoff acceptance PASS 2026-09-29)
 - [x] run one Telegram dedicated test-environment transport smoke with a test bot token (operator acceptance PASS 2026-09-29; token remained local and was not stored in GitHub/chat)
-- [ ] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address
+- [ ] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address (operator harness implemented in `pepepow-devkit` commits `1c17748fecdcddd68a3999b096cf8b1cce659f2b` and `180ab00e957e1546318db2063e556649bfb473d4`; live acceptance still required)
+
+The payment/webhook E2E operator harness now creates one bounded real payment, registers a temporary filtered webhook endpoint, verifies exact-body webhook HMAC, applies only increasing payment versions, updates the Telegram Test Environment message, and disables the temporary endpoint during normal cleanup. It still requires a public HTTPS callback tunnel and a real payment from a payer address different from the merchant receiving address.
 
 The first Telegram increment intentionally uses no production bot token and no
 new production daemon. Telegram's dedicated test environment should be used for
