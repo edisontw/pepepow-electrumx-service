@@ -632,7 +632,7 @@ Phase H exit criteria are satisfied for the planned H1-H4 baseline.
 
 ### Phase I — Merchant Developer Onboarding / Distribution
 
-Status: **IN PROGRESS — I1 distribution baseline started 2026-09-26**
+Status: **IN PROGRESS — platform integrations functionally accepted; I1 first public SDK release and Discord I5.6 cleanup closure remain**
 
 Primary repository: `edisontw/pepepow-devkit`
 
@@ -746,7 +746,7 @@ I4 verification:
 
 #### I5 — Platform Integrations
 
-Status: **IN PROGRESS — WooCommerce and Telegram complete; Discord adapter contract baseline started 2026-09-30**
+Status: **CLOSURE IN PROGRESS — WooCommerce and Telegram complete; Discord paid flow accepted, final temporary-infrastructure cleanup audit pending**
 
 Planned order:
 
@@ -924,7 +924,7 @@ The first Telegram transport increment intentionally created no Payment Platform
 
 ##### I5.6 — Discord merchant/payment adapter
 
-Status: **COMPLETE — live Discord payment/webhook E2E verified 2026-10-01**
+Status: **FUNCTIONAL ACCEPTANCE COMPLETE — final runtime/temporary-infrastructure cleanup audit pending**
 
 Implementation:
 
@@ -981,16 +981,40 @@ DevKit commit `80d9acafd24a786cf55d5240f8756a2f4825f417` added the bounded opera
 
 Final I5.6 acceptance passed on 2026-10-01 with a real 0.1 PEPEW payment from a payer address different from the merchant receiving address. The Payment Platform advanced through `paid_unconfirmed` and `paid_confirmed`, and the same ordinary Discord bot message was updated to confirmed. The first live real-payment attempt exposed a redundant operator-supplied Discord application-ID mismatch after the request had already passed Ed25519 verification; DevKit commit `dfe6ca346ca48d6b9c724c40d15cddfdaeeb0941` removed that extra operator check and uses the authenticated `application_id` from the verified interaction instead.
 
+Discord closure evidence boundary (audit 2026-10-01): the retained operator evidence proves the authoritative `paid_unconfirmed` -> `paid_confirmed` progression and same-message Discord update. It does **not** retain the final harness lines `Discord payment E2E terminal state: paid` and `Temporary Payment Platform webhook endpoint disabled.` Do not infer temporary-infrastructure cleanup from the Discord UI alone.
+
+I5.6 cleanup closure checklist:
+
+- [x] real 0.1 PEPEW invoice reached `paid_unconfirmed` then `paid_confirmed`
+- [x] same ordinary Discord bot message updated to confirmed
+- [ ] confirm nothing is listening on `127.0.0.1:8789` on the temporary test host
+- [ ] confirm the temporary Payment Platform webhook endpoint is disabled
+- [ ] remove any remaining temporary Apache `ProxyPass` / `ProxyPassReverse` entries for the Discord E2E routes
+- [ ] run `apache2ctl configtest`, reload Apache, and verify normal `pepepow.net` service
+- [ ] clear the Discord Developer Portal Interactions Endpoint URL if it still points at the deleted temporary route
+- [ ] unset temporary Discord/Payment E2E shell environment variables and secrets
+
+These cleanup items are host/operator tasks and do not change the accepted adapter contract, Payment Platform authority, or client-side signing boundary.
+
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
 - [x] Use the completed WooCommerce lifecycle as the adapter pattern, then complete Telegram and proceed to Discord without changing authoritative payment semantics
 
 Phase I exit criteria:
 
-- a new merchant developer can reach a working integration from current docs and released packages without reading backend source
-- the reference sample survives restart/retry/webhook-duplicate/reorg-state scenarios correctly
-- production integration guidance keeps all merchant secrets server-side and exposes only intended payment capabilities to browsers
-- at least the first real platform adapter can be built on the generic integration contract without changing authoritative payment semantics
+- [ ] a new merchant developer can reach a working integration from current docs and released packages without reading backend source — **blocked on I1 first public npm release + clean registry install/import verification**
+- [x] the reference sample survives restart/retry/webhook-duplicate/reorg-state scenarios correctly
+- [x] production integration guidance keeps all merchant secrets server-side and exposes only intended payment capabilities to browsers
+- [x] at least the first real platform adapter can be built on the generic integration contract without changing authoritative payment semantics
+
+Phase I closure audit (2026-10-01):
+
+- I5.4 WooCommerce: functional/paid E2E complete; DevKit stale acceptance docs corrected
+- I5.5 Telegram: complete, including terminal `paid` and temporary webhook cleanup evidence
+- I5.6 Discord: functional/paid E2E complete through `paid_confirmed` + same-message update; temporary runtime cleanup evidence remains open as listed above
+- current `main` CI for DevKit (`36755037819`) and backend (`36755068410`) is green
+- security architecture remains non-custodial and transaction-level: wallet signing stays client-side, Payment Platform remains authoritative, and ElectrumX remains private
+- **Phase I is not closed yet. Do not start a new Payment Platform phase until the I5.6 cleanup checklist and I1 public SDK release/install criterion are closed.**
 
 ## 11. Testing policy
 
