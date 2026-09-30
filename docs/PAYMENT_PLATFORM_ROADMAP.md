@@ -954,9 +954,10 @@ Current baseline:
 - [x] keep unconfirmed `overpaid` pending until `policy_confirmed_sats` covers the requested amount
 - [x] keep baseline tests credential-free and network-free
 - [x] wire Discord adapter contract tests into DevKit CI
-- [ ] verify Discord interaction request signatures against exact raw request bytes
-- [ ] add bounded PING + slash-command transport smoke without creating a real PEPEW payment
-- [ ] send and edit one normal bot channel message through Discord REST
+- [x] verify Discord interaction request signatures against exact raw request bytes
+- [x] implement a bounded PING + slash-command transport smoke harness that creates no real PEPEW payment
+- [x] implement normal bot channel message create/edit helpers through Discord REST; live transport acceptance remains
+- [ ] run the Discord transport smoke against a dedicated Discord application/test server and verify one ordinary bot channel message
 - [ ] add authoritative signed Payment Platform webhook -> Discord message update E2E
 - [ ] complete one real payment with payer address different from merchant receiving address before I5.6 is marked complete
 
@@ -973,7 +974,7 @@ Discord slash command
   -> Discord message update by payment_version
 ```
 
-The first Discord increment intentionally uses no Discord credential, no production Payment API call, and no new VM daemon. The next increment is transport/authentication only; real payment creation remains disabled until that smoke passes.
+The first Discord increment uses no production Payment API call and no new VM daemon. DevKit now includes exact-raw-body Ed25519 interaction verification, PING/PONG handling, a guild-scoped `/pepew-pay` registration helper, ordinary bot channel message create/edit helpers, and a bounded transport-smoke harness. The harness itself creates no Payment Platform invoice. Live Discord application/test-server transport acceptance remains required before real payment creation is enabled.
 
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
