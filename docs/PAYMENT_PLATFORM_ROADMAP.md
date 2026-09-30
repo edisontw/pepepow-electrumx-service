@@ -1,6 +1,6 @@
 # PEPEW Payment Platform Roadmap
 
-Last updated: 2026-09-29
+Last updated: 2026-09-30
 
 This document is the canonical cross-repository roadmap for the PEPEW Payment Platform. GitHub `main` remains the source of truth for implementation state. Update this file when architecture, phase status, API boundaries, deployment assumptions, or major decisions change.
 
@@ -871,7 +871,7 @@ I5.4 manual staging progress (2026-09-27):
 
 ##### I5.5 — Telegram merchant/payment adapter
 
-Status: **IN PROGRESS — Telegram Test Environment transport smoke PASS; real payment/webhook E2E remains 2026-09-29**
+Status: **COMPLETE — production Telegram payment/webhook E2E verified 2026-09-30**
 
 Implementation:
 
@@ -913,17 +913,13 @@ Wallet handoff alignment (2026-09-29):
 - [x] deploy/verify integrated Wallet payment compatibility from `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12`, including one representative sub-1-PEPEW send (production acceptance PASS 2026-09-29)
 - [x] update PepewPay's preferred web-wallet handoff from the standalone Light Wallet to `wallet.pepepow.net` while keeping the standalone wallet independently usable (devkit commit `64903ab98fa8d7ab8a042747437ef8c384311648`; final static artifact source `e59f194683b1150be5af50e242fd62cd665e521a`; VM-B deploy + production browser handoff acceptance PASS 2026-09-29)
 - [x] run Telegram transport smoke acceptance: dedicated Test Environment PASS 2026-09-29 and normal production Bot API PASS 2026-09-30 using the dedicated merchant/payment bot; tokens remained local and were not stored in GitHub
-- [ ] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address (operator harness implemented in `pepepow-devkit` commits `1c17748fecdcddd68a3999b096cf8b1cce659f2b`, `180ab00e957e1546318db2063e556649bfb473d4`, and production Bot API mode commit `45ca4969547312f3bc979afe5aa0691230eed267`; live acceptance still required)
+- [x] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address (production acceptance PASS 2026-09-30: real 0.1 PEPEW invoice -> paid_unconfirmed -> paid_confirmed -> terminal paid; exact-body signed webhook accepted; Telegram message updated; temporary webhook endpoint disabled during cleanup)
 
 The normal Telegram production Bot API transport smoke passed on 2026-09-30 with the dedicated merchant/payment bot. The Telegram transport layer now also supports a separate normal Telegram production Bot API environment through `TELEGRAM_API_ENV=production`; this keeps the existing Wallet Bot webhook/control-plane untouched while allowing the dedicated merchant/payment bot to be exercised directly.
 
-The payment/webhook E2E operator harness now creates one bounded real payment, registers a temporary filtered webhook endpoint, verifies exact-body webhook HMAC, applies only increasing payment versions, updates the Telegram Test Environment message, and disables the temporary endpoint during normal cleanup. It still requires a public HTTPS callback tunnel and a real payment from a payer address different from the merchant receiving address.
+The payment/webhook E2E operator harness creates one bounded real payment, registers a temporary filtered webhook endpoint, verifies exact-body webhook HMAC, applies only increasing payment versions, updates the Telegram message, and disables the temporary endpoint during normal cleanup. Production acceptance passed on 2026-09-30 using the dedicated normal Telegram merchant/payment bot, a payer address different from the merchant receiving address, and a temporary public HTTPS Apache reverse-proxy route to the localhost receiver. The invoice progressed through `paid_unconfirmed` to `paid_confirmed`, the terminal state was `paid`, and the temporary Payment Platform webhook endpoint was disabled successfully.
 
-The first Telegram increment intentionally uses no production bot token and no
-new production daemon. Telegram's dedicated test environment should be used for
-the first external transport smoke before a normal production bot environment.
-The operator-only smoke harness was added in `pepepow-devkit` commit
-`4e91a179d4cfabe041255fa6b19fab55fd38b3fb`; the dedicated Telegram Test Environment transport run passed on 2026-09-29 without exposing the bot token.
+The first Telegram transport increment intentionally created no Payment Platform invoice. The operator-only smoke harness was added in `pepepow-devkit` commit `4e91a179d4cfabe041255fa6b19fab55fd38b3fb`; the dedicated Telegram Test Environment transport run passed on 2026-09-29, and the dedicated normal production merchant/payment bot transport plus real payment/webhook E2E passed on 2026-09-30. The existing Wallet Bot webhook/control-plane remained untouched and no bot token or merchant secret was stored in GitHub/chat.
 
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
