@@ -746,7 +746,7 @@ I4 verification:
 
 #### I5 — Platform Integrations
 
-Status: **IN PROGRESS — WooCommerce functional staging path exercised; Telegram adapter contract baseline started 2026-09-27**
+Status: **IN PROGRESS — WooCommerce and Telegram complete; Discord adapter contract baseline started 2026-09-30**
 
 Planned order:
 
@@ -773,7 +773,7 @@ pepepow-devkit/integrations/woocommerce/pepew-payments/
 - [x] Use WooCommerce order CRUD only; CI rejects direct post/order-storage writes
 - [x] Keep Checkout Blocks unsupported rather than overstating compatibility
 - [x] Add PHP lint and deterministic order-identity tests
-- [ ] Declare HPOS compatibility only after a real WooCommerce runtime matrix passes
+- [x] Declare HPOS compatibility only after a real WooCommerce runtime matrix passes
 
 I5.1 verification:
 
@@ -833,7 +833,7 @@ I5.3 verification:
 
 ##### I5.4 — distributable WooCommerce plugin
 
-Status: **IN PROGRESS — automated packaging/runtime acceptance complete; staging/live paid E2E remains**
+Status: **COMPLETE — packaged plugin and externally reachable paid E2E verified 2026-09-30**
 
 - [x] Produce an allowlist-based installable plugin ZIP
 - [x] Verify package integrity and exclude test/dev/environment/repository files
@@ -847,7 +847,7 @@ Status: **IN PROGRESS — automated packaging/runtime acceptance complete; stagi
 - [x] Exercise transport-loss create recovery by exact merchant reference
 - [x] Exercise duplicate/stale webhook handling and higher-version reorg rollback in both legacy and HPOS runtime modes
 - [x] Publish CI artifact `pepew-payments-woocommerce` containing the ZIP and SHA-256 checksum
-- [ ] Complete one externally reachable staging/live Woo -> PepewPay -> wallet -> Payment Platform -> webhook -> Woo order paid E2E before production-ready status
+- [x] Complete one externally reachable staging/live Woo -> PepewPay -> wallet -> Payment Platform -> webhook -> Woo order paid E2E before production-ready status
 
 I5.4 automated verification:
 
@@ -867,7 +867,7 @@ I5.4 manual staging progress (2026-09-27):
 - real payment creation reached the authoritative Payment Platform and exposed a decimal-format comparison bug (`0.10000000` vs `0.1`); the plugin now compares exact atoms and CI regression coverage was added
 - a second edge case was found while evaluating self-payment: `overpaid` may still be below the configured confirmation policy; Woo now keeps such orders on hold until `policy_confirmed_sats` covers the requested amount
 - after upgrading the plugin, the checkout successfully redirected through PepewPay to the PEPEW Light web wallet
-- final paid webhook/confirmation closeout remains open because the representative test must use a payer address different from the merchant receiving address
+- final externally reachable paid E2E passed on 2026-09-30 using a payer address different from the merchant receiving address: Woo checkout -> PepewPay -> integrated Wallet -> authoritative Payment Platform -> signed webhook -> Woo order paid
 
 ##### I5.5 — Telegram merchant/payment adapter
 
@@ -921,9 +921,63 @@ The payment/webhook E2E operator harness creates one bounded real payment, regis
 
 The first Telegram transport increment intentionally created no Payment Platform invoice. The operator-only smoke harness was added in `pepepow-devkit` commit `4e91a179d4cfabe041255fa6b19fab55fd38b3fb`; the dedicated Telegram Test Environment transport run passed on 2026-09-29, and the dedicated normal production merchant/payment bot transport plus real payment/webhook E2E passed on 2026-09-30. The existing Wallet Bot webhook/control-plane remained untouched and no bot token or merchant secret was stored in GitHub/chat.
 
+
+##### I5.6 — Discord merchant/payment adapter
+
+Status: **IN PROGRESS — credential-free contract baseline started 2026-09-30**
+
+Implementation:
+
+```text
+pepepow-devkit/integrations/discord/
+```
+
+Architecture boundary:
+
+- Discord is a merchant/payment adapter, not a wallet; mnemonic, private keys, UTXO selection, and transaction signing remain client-side only
+- Payment Platform remains authoritative for payment state
+- v1 request identity is derived from `application_id + channel_id + interaction_id`, hashed before entering `merchant_reference` or `Idempotency-Key`
+- no Discord user ID is required for payment authority
+- the intended transport is a slash-command interaction for request initiation, followed by an ordinary bot channel message for the durable PepewPay/status surface
+- using a normal bot channel message avoids depending on a short-lived interaction token for later confirmation updates
+- Discord-visible payment buttons expose only the public PepewPay capability URL
+- `DISCORD_BOT_TOKEN`, merchant API key, and Payment Platform webhook signing secret remain server-side only
+
+Current baseline:
+
+- [x] add isolated `integrations/discord` package with Node 20+ contract tests
+- [x] derive stable hashed Discord merchant reference and idempotency key
+- [x] create Payment API intents through `@pepepow/pepewpay-merchant`
+- [x] recover uncertain create outcomes by exact merchant reference
+- [x] build Discord message payload with an HTTPS PepewPay link button and mentions suppressed
+- [x] apply authoritative updates only by increasing `payment_version`
+- [x] keep unconfirmed `overpaid` pending until `policy_confirmed_sats` covers the requested amount
+- [x] keep baseline tests credential-free and network-free
+- [x] wire Discord adapter contract tests into DevKit CI
+- [ ] verify Discord interaction request signatures against exact raw request bytes
+- [ ] add bounded PING + slash-command transport smoke without creating a real PEPEW payment
+- [ ] send and edit one normal bot channel message through Discord REST
+- [ ] add authoritative signed Payment Platform webhook -> Discord message update E2E
+- [ ] complete one real payment with payer address different from merchant receiving address before I5.6 is marked complete
+
+Planned transport sequence:
+
+```text
+Discord slash command
+  -> exact-body Discord signature verification
+  -> immediate defer/ack
+  -> Payment Platform create/recovery
+  -> normal bot channel message + PepewPay link button
+  -> integrated Wallet
+  -> signed Payment Platform webhook
+  -> Discord message update by payment_version
+```
+
+The first Discord increment intentionally uses no Discord credential, no production Payment API call, and no new VM daemon. The next increment is transport/authentication only; real payment creation remains disabled until that smoke passes.
+
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
-- [x] Keep Telegram and Discord integrations deferred until the WooCommerce lifecycle establishes the adapter pattern
+- [x] Use the completed WooCommerce lifecycle as the adapter pattern, then complete Telegram and proceed to Discord without changing authoritative payment semantics
 
 Phase I exit criteria:
 
