@@ -924,7 +924,7 @@ The first Telegram transport increment intentionally created no Payment Platform
 
 ##### I5.6 — Discord merchant/payment adapter
 
-Status: **IN PROGRESS — credential-free contract baseline started 2026-09-30**
+Status: **IN PROGRESS — live Discord transport accepted; real payment/webhook E2E harness ready 2026-09-30**
 
 Implementation:
 
@@ -956,9 +956,10 @@ Current baseline:
 - [x] wire Discord adapter contract tests into DevKit CI
 - [x] verify Discord interaction request signatures against exact raw request bytes
 - [x] implement a bounded PING + slash-command transport smoke harness that creates no real PEPEW payment
-- [x] implement normal bot channel message create/edit helpers through Discord REST; live transport acceptance remains
-- [ ] run the Discord transport smoke against a dedicated Discord application/test server and verify one ordinary bot channel message
-- [ ] add authoritative signed Payment Platform webhook -> Discord message update E2E
+- [x] implement normal bot channel message create/edit helpers through Discord REST
+- [x] run the Discord transport smoke against a dedicated Discord application/test server: signed PING -> PONG, `/pepew-pay amount:0.1`, immediate test-only acknowledgement, ordinary bot channel message, HTTPS PepewPay test button; no Payment Platform invoice was created
+- [x] add a bounded real-payment E2E harness with temporary filtered webhook registration, exact-body HMAC verification, increasing `payment_version` application, and same-message Discord REST edits
+- [ ] run the authoritative signed Payment Platform webhook -> Discord same-message update E2E
 - [ ] complete one real payment with payer address different from merchant receiving address before I5.6 is marked complete
 
 Planned transport sequence:
@@ -974,7 +975,9 @@ Discord slash command
   -> Discord message update by payment_version
 ```
 
-The first Discord increment uses no production Payment API call and no new VM daemon. DevKit now includes exact-raw-body Ed25519 interaction verification, PING/PONG handling, a guild-scoped `/pepew-pay` registration helper, ordinary bot channel message create/edit helpers, and a bounded transport-smoke harness. The harness itself creates no Payment Platform invoice. Live Discord application/test-server transport acceptance remains required before real payment creation is enabled.
+The credential-free Discord transport increment uses no production Payment API call and no new VM daemon. Live transport acceptance passed on 2026-09-30 with the dedicated Discord application: Discord's signed PING was acknowledged, `/pepew-pay amount:0.1` was accepted, and an ordinary bot channel message with the HTTPS PepewPay test button was delivered without creating a Payment Platform invoice. The first live smoke exposed a harness-only HTTP keep-alive shutdown issue after delivery; DevKit commit `4b508ee4e0b3dfe4af2e530db406e2e17d495c92` hardened bounded listener shutdown without changing the transport contract.
+
+DevKit commit `80d9acafd24a786cf55d5240f8756a2f4825f417` adds the next bounded operator harness for the real acceptance run. It keeps `127.0.0.1:8789` localhost-only, uses separate exact paths for Discord interactions and Payment Platform webhooks, registers a temporary filtered webhook endpoint, creates one configured small invoice only after a valid slash command, verifies webhook HMAC over the exact raw body, applies only increasing payment versions, edits the same ordinary Discord message, and disables the temporary webhook endpoint during normal cleanup. No mnemonic/private key/signing code is added to the server. Final I5.6 acceptance still requires the real paid flow from a payer address different from the merchant receiving address.
 
 - [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
 - [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
