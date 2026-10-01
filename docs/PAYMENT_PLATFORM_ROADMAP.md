@@ -655,7 +655,8 @@ Development sequence:
 - [x] Adopt the MIT License for the DevKit and reusable SDK artifacts
 - [x] Make `@pepepow/pepew-js` and `@pepepow/pepewpay-merchant` public-release-ready while keeping registry publication an explicit release action
 - [x] Keep package tarballs allowlisted to built output plus package metadata/README/LICENSE; do not ship source/test trees by accident
-- [ ] Confirm npm `@pepepow` scope ownership and first-publish authentication
+- [x] Add a first-release runbook plus a tokenless GitHub Actions OIDC workflow for subsequent trusted-publishing releases (`pepepow-devkit` commit `87dd9199ebc79be156c27d0fab3df4967d762346`)
+- [ ] Confirm npm `@pepepow` organization/scope ownership and interactive first-publish access with account 2FA
 - [ ] Publish the first tagged public SDK releases and verify clean registry installation/import
 
 Release policy:
@@ -663,7 +664,7 @@ Release policy:
 - GitHub `main` remains development source of truth.
 - Registry releases must come from a tested, tagged commit rather than an arbitrary working tree.
 - Merchant API keys, webhook secrets, mnemonic/private keys, and signing code must never be packaged into examples or published artifacts.
-- Release automation must use registry/GitHub secret facilities; package credentials must never be committed. Prefer npm trusted publishing/OIDC after initial package ownership is established.
+- The bootstrap `0.1.0` publish is intentionally interactive with npm account 2FA from an exact tested/tagged commit; do not introduce a long-lived CI write token solely for first publish. After each package exists, configure npm trusted publishing/OIDC against `.github/workflows/npm-release.yml` for subsequent releases.
 - A registry release is not required on production VM-A or VM-B and must add no production Node.js runtime dependency.
 
 #### I2 — Runnable Merchant Sample Application
