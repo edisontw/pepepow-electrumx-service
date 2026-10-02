@@ -45,8 +45,9 @@ async def list_payments(
     before_payment_id: str | None = Query(default=None, min_length=8, max_length=96),
 ):
     try:
-        require_payment_merchant_auth(authorization)
+        merchant = require_payment_merchant_auth(authorization)
         return await list_persisted_payments(
+            merchant_id=merchant.merchant_id,
             status=payment_status,
             merchant_reference=merchant_reference,
             limit=limit,
@@ -81,9 +82,10 @@ async def create_payment(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     try:
-        require_payment_create_auth(authorization)
+        merchant = require_payment_create_auth(authorization)
         return await create_persisted_payment(
             address=request.address,
+            merchant_id=merchant.merchant_id,
             amount=request.amount,
             confirmations=request.confirmations,
             expires_in=request.expires_in,
