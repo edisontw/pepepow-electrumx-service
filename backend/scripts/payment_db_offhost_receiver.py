@@ -121,7 +121,11 @@ def _fsync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
-def receive_stream(\n    stream: BinaryIO,\n    destination_dir: Path,\n    keep: int | None = None,\n) -> tuple[dict, list[str]]:
+def receive_stream(
+    stream: BinaryIO,
+    destination_dir: Path,
+    keep: int | None = None,
+) -> tuple[dict, list[str]]:
     header = read_header(stream)
     destination_dir = destination_dir.expanduser()
     destination_dir.mkdir(parents=True, exist_ok=True)
