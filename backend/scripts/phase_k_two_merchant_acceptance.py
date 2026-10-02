@@ -203,7 +203,12 @@ def verify_payment_event_owner(
 def verify_global_ownership(db_path: Path) -> None:
     connection = open_readonly(db_path)
     try:
-        summary = database_summary(connection)
+        try:
+            summary = database_summary(connection)
+        except RuntimeError as exc:
+            raise AcceptanceError(
+                "merchant ownership consistency check failed"
+            ) from exc
     finally:
         connection.close()
     require(
