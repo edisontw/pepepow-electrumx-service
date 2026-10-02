@@ -12,6 +12,7 @@ from ..electrumx.client import ElectrumXClient
 from ..electrumx.errors import ElectrumXError
 from ..electrumx.methods import headers_subscribe, scripthash_get_history
 from .address_service import _identify_client, _normalize_history, _safe_address_parts
+from .merchant_store import LEGACY_MERCHANT_ID
 from .payment_service import (
     InvalidPaymentAmountError,
     InvalidPaymentParameterError,
@@ -193,6 +194,7 @@ async def _snapshot_creation_state(settings: Any, scripthash: str) -> tuple[int,
 async def create_persisted_payment(
     *,
     address: str,
+    merchant_id: str = LEGACY_MERCHANT_ID,
     amount: str,
     confirmations: int | None = None,
     expires_in: int | None = None,
@@ -243,6 +245,7 @@ async def create_persisted_payment(
             store.get_payment_by_idempotency_key,
             normalized_idempotency_key,
             request_hash=request_hash,
+            merchant_id=merchant_id,
         )
         if replay is not None:
             return _merchant_payment_response(
@@ -255,6 +258,7 @@ async def create_persisted_payment(
         reference_existing = await asyncio.to_thread(
             store.get_payment_by_merchant_reference,
             normalized_merchant_reference,
+            merchant_id=merchant_id,
         )
         if reference_existing is not None:
             raise PaymentMerchantReferenceConflictError(normalized_merchant_reference)
@@ -272,6 +276,7 @@ async def create_persisted_payment(
     payment = await asyncio.to_thread(
         store.create_payment,
         payment_id=payment_id,
+        merchant_id=merchant_id,
         address=normalized_address,
         scripthash=scripthash,
         amount_sats=amount_sats,
@@ -307,6 +312,7 @@ async def get_persisted_payment(payment_id: str) -> dict[str, Any]:
 
 async def list_persisted_payments(
     *,
+    merchant_id: str = LEGACY_MERCHANT_ID,
     status: str | None = None,
     merchant_reference: str | None = None,
     limit: int = 50,
@@ -347,6 +353,7 @@ async def list_persisted_payments(
     store = _store_for_path(settings.payment_db_path)
     rows, has_more = await asyncio.to_thread(
         store.list_payments,
+        merchant_id=merchant_id,
         status=status,
         merchant_reference=normalized_merchant_reference,
         limit=limit,
