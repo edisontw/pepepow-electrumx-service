@@ -1014,9 +1014,62 @@ Phase I closure audit (2026-10-02):
 - I5.5 Telegram: complete, including terminal `paid` and temporary webhook cleanup evidence
 - I5.6 Discord: complete through `paid_confirmed` + same-message update, with separate temporary runtime/infrastructure cleanup audit PASS
 - I1 SDK distribution: npm `@pepepow` scope ownership confirmed; `@pepepow/pepew-js@0.1.0` and `@pepepow/pepewpay-merchant@0.1.0` published from exact Git tags; clean public-registry install/import smoke PASS
-- current post-audit `main` CI remains required to stay green
+- npm Trusted Publisher configuration for both packages completed 2026-10-02 against DevKit workflow `npm-release.yml`; future releases use GitHub Actions OIDC without a long-lived npm write token, with first OIDC publish verification deferred to the next legitimate version release
+- current post-audit `main` CI is green for both Phase I closure commits
 - security architecture remains non-custodial and transaction-level: wallet signing stays client-side, Payment Platform remains authoritative, and ElectrumX remains private
 - **Phase I is CLOSED. All Phase I exit criteria are satisfied. Future npm releases should use the prepared trusted-publishing/OIDC workflow after npm Trusted Publisher configuration; that hardening is not a Phase I blocker.**
+
+
+### Phase J — Operational Resilience
+
+Status: **PLANNED — next phase after Phase I closure**
+
+Primary repository: `edisontw/pepepow-electrumx-service`
+
+Goal: remove the remaining single-host backup failure domain around the
+authoritative VM-B SQLite state without adding an always-on backup service,
+new database, queue, or high-background-CPU infrastructure.
+
+This phase deliberately starts with the one explicit follow-up item left from
+H2. It does not add new merchant/payment authority or change wallet signing
+boundaries.
+
+#### J1 — Off-host second copy
+
+Initial design constraints:
+
+- [ ] copy only a completed H2 backup + sidecar manifest after the local backup and restore drill have passed; never copy the live SQLite database directly
+- [ ] keep the transfer passive and bounded (for example a scheduled one-shot transfer); do not introduce a continuously running backup daemon
+- [ ] choose an off-host destination deliberately and document its trust/failure-domain assumptions before deployment
+- [ ] preserve restrictive permissions and avoid exposing payment data, merchant metadata, filesystem paths, or credentials in logs
+- [ ] verify destination SHA-256/size/manifest against the source before treating the second copy as valid
+- [ ] make transfer failure non-authoritative: it must not stop the Payment Platform or invalidate a successful local H2 backup
+- [ ] apply bounded retention on the off-host destination without deleting unrelated/manual/Phase F/Phase G/H2 artifacts
+- [ ] add a non-destructive restore drill from the off-host copy before marking J1 complete
+- [ ] keep CPU/I/O/network use low enough for the existing single-core production hosts
+- [ ] add deterministic tests for transfer selection, checksum mismatch, partial-copy cleanup, retention boundaries, and failure isolation
+- [ ] deploy only after the destination and credential boundary are reviewed; no VM-A/VM-B runtime authority change is required
+
+Preferred implementation order:
+
+```text
+J1a  destination/trust-boundary decision + runbook
+  -> J1b one-shot copy + verification tooling
+  -> J1c retention + failure-isolation tests
+  -> J1d production acceptance
+  -> J1e off-host restore drill
+```
+
+Exit criteria:
+
+- at least one verified recent authoritative backup exists outside VM-B;
+- a failed off-host transfer cannot affect payment creation, watcher/webhook
+  operation, or the successful local H2 backup;
+- checksum/manifest verification detects corruption or partial transfer;
+- an off-host copy can be restored non-destructively and pass SQLite integrity
+  and required-schema checks;
+- no new continuously running infrastructure is introduced.
+
 
 ## 11. Testing policy
 
