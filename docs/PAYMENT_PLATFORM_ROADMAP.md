@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K3 complete; K4 migration/recovery/operator hardening next**
+Status: **IN PROGRESS — K0-K3 complete; K4 implemented pending final CI closeout; K5 production acceptance next after closure**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1112,13 +1112,15 @@ K0 baseline/contract freeze (COMPLETE)
   -> K1 merchant identity + credential storage (COMPLETE; 268 backend tests PASS)
   -> K2 payment ownership isolation (COMPLETE; 270 backend tests PASS)
   -> K3 webhook ownership isolation (COMPLETE; 272 backend tests PASS)
-  -> K4 migration/recovery/operator hardening
+  -> K4 migration/recovery/operator hardening (IMPLEMENTED; final CI closeout pending)
   -> K5 production acceptance
   -> K6 DevKit/onboarding alignment
 ```
 
 
-## 11. Testing policy\n\nAuthoritative payment logic must be unit-testable without requiring the production ElectrumX instance.
+## 11. Testing policy
+
+Authoritative payment logic must be unit-testable without requiring the production ElectrumX instance.
 
 Minimum coverage should include:
 
