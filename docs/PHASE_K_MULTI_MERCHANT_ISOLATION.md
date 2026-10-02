@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K3 complete; K4 implemented pending final CI closeout**
+Status: **IN PROGRESS — K0-K4 complete; K5 production acceptance next**
 
 Last updated: 2026-10-02
 
@@ -264,7 +264,7 @@ K3 implementation notes:
 
 ### K4 — Migration / recovery / operational hardening
 
-Status: **IMPLEMENTED — final CI closeout pending**
+Status: **COMPLETE — 279 backend tests PASS on Python 3.10**
 
 - [x] add full pre-K SQLite migration fixture with row-count, relationship, index, historical-event-byte, and restart-safety assertions
 - [x] update H2/J1 verification with automatic legacy_payment_v1 / phase_k_merchant_v1 schema profiles and merchant ownership consistency checks
@@ -275,7 +275,7 @@ Status: **IMPLEMENTED — final CI closeout pending**
 - [x] document overlap rotation and emergency revoke ([PHASE_K_CREDENTIAL_OPERATIONS.md](PHASE_K_CREDENTIAL_OPERATIONS.md))
 - [x] keep low CPU/background activity and no new daemon
 
-K4 deliberately does not enable PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED in production. That gate remains part of K5 acceptance after a fresh local + off-host recovery point and production ownership migration.
+K4 closure: full pre-K migration, H2/J1 Phase K schema-profile verification, fail-closed credential delivery, and credential operations all pass in CI (279 tests). K4 deliberately does not enable PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED in production. That gate remains part of K5 acceptance after a fresh local + off-host recovery point and production ownership migration.
 
 ### K5 — Production acceptance
 
