@@ -1113,11 +1113,11 @@ K0 baseline/contract freeze (COMPLETE)
   -> K2 payment ownership isolation (COMPLETE; 270 backend tests PASS)
   -> K3 webhook ownership isolation (COMPLETE; 272 backend tests PASS)
   -> K4 migration/recovery/operator hardening (COMPLETE; 279 backend tests PASS)
-  -> K5 production acceptance (TOOLING READY; VM-B execution pending)
+  -> K5 production acceptance (TOOLING READY; 289 backend tests PASS; VM-B execution pending)
   -> K6 DevKit/onboarding alignment
 ```
 
-K5 repository-side preparation is complete: explicit stopped-service migration, read-only post-migration legacy acceptance, safe scoped-auth gate enable/disable, and bounded two-merchant production isolation smoke are documented in `docs/PHASE_K_PRODUCTION_ACCEPTANCE.md`. No production feature gate has been changed yet.
+K5 repository-side preparation is complete: explicit stopped-service migration, read-only post-migration legacy acceptance, safe scoped-auth gate enable/disable, and bounded two-merchant production isolation smoke are documented in `docs/PHASE_K_PRODUCTION_ACCEPTANCE.md`. Latest backend CI is 289 passed with production helper compilation PASS. No production feature gate has been changed yet.
 
 
 ## 11. Testing policy

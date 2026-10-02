@@ -279,7 +279,7 @@ K4 closure: full pre-K migration, H2/J1 Phase K schema-profile verification, fai
 
 ### K5 — Production acceptance
 
-K5 repository tooling: **READY**
+K5 repository tooling: **READY — 289 backend tests PASS on Python 3.10**
 
 Prepared tooling/runbook:
 
@@ -290,6 +290,8 @@ Prepared tooling/runbook:
 - [PHASE_K_PRODUCTION_ACCEPTANCE.md](PHASE_K_PRODUCTION_ACCEPTANCE.md)
 
 These helpers do not deploy themselves. VM-B production execution remains pending.
+
+Latest K5 tooling CI: **289 passed, 1 warning**; production helper compilation PASS.
 
 - [ ] create pre-migration verified H2 + off-host recovery point
 - [ ] migrate VM-B while preserving single-writer authority
