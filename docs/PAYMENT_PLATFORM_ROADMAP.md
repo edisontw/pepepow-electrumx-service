@@ -1044,10 +1044,10 @@ Initial design constraints:
 - [ ] preserve restrictive permissions and avoid exposing payment data, merchant metadata, filesystem paths, or credentials in logs
 - [x] receiver verifies destination SHA-256/size/manifest plus SQLite integrity/schema/counts and a non-destructive restore drill before promoting the second copy
 - [ ] make transfer failure non-authoritative: it must not stop the Payment Platform or invalidate a successful local H2 backup
-- [ ] apply bounded retention on the off-host destination without deleting unrelated/manual/Phase F/Phase G/H2 artifacts (J1c)
+- [x] apply bounded retention on the off-host destination without deleting unrelated/manual/orphan artifacts; receiver defaults to 14 complete exact-name J1 pairs
 - [ ] add a non-destructive restore drill from the off-host copy before marking J1 complete
 - [ ] keep CPU/I/O/network use low enough for the existing single-core production hosts
-- [ ] add deterministic tests for transfer selection, checksum mismatch, partial-copy cleanup, retention boundaries, and failure isolation — J1b covers selection/checksum/partial cleanup; J1c remains for timeout/process failure + retention
+- [x] add deterministic tests for transfer selection, checksum mismatch, partial-copy cleanup, retention boundaries, receiver process failure, timeout, and source-backup preservation
 - [ ] deploy only after the destination and credential boundary are reviewed; no VM-A/VM-B runtime authority change is required
 
 Preferred implementation order:

@@ -1,6 +1,6 @@
 # Phase J1 — Off-host Payment Backup
 
-Status: **J1b TOOLING IMPLEMENTED ON MAIN — production deployment not yet started**
+Status: **J1c TOOLING/FAILURE-ISOLATION IMPLEMENTED ON MAIN — production deployment not yet started**
 
 Last updated: 2026-10-02
 
@@ -268,6 +268,12 @@ instead. Confirm actual OpenSSH behavior on VM-A before installing the key.
 The destination directory must be non-public, owned by the forced-command user,
 and mode `0700` (or equivalently restrictive). The receiver writes recovery
 files mode `0600`.
+
+The receiver defaults to `--keep 14`. Retention is deliberately narrow: only
+complete exact-name `payment-auto-*.sqlite3` + manifest pairs are eligible.
+Manual files, malformed names, and orphan database/manifest files are ignored.
+Retention runs only after the new pair has passed destination verification and
+promotion.
 
 No key is installed and no production SSH configuration is changed by the J1b
 repository increment.

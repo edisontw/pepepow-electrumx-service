@@ -91,7 +91,8 @@ def test_transfer_protocol_round_trip_runs_destination_restore_drill(tmp_path):
 
     destination = tmp_path / "destination"
     payload.seek(0)
-    metadata = receiver.receive_stream(payload, destination)
+    metadata, removed = receiver.receive_stream(payload, destination)
+    assert removed == []
 
     copied_database = destination / database.name
     copied_manifest = destination / manifest.name
@@ -199,3 +200,111 @@ def test_ssh_command_uses_dedicated_noninteractive_hardening(tmp_path):
     assert "KbdInteractiveAuthentication=no" in command
     assert "StrictHostKeyChecking=yes" in command
     assert command[-2:] == ["backup@192.0.2.10", "receive"]
+
+
+
+def test_receiver_retention_prunes_only_old_complete_managed_pairs(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    destination = tmp_path / "destination"
+    destination.mkdir()
+
+    manual = destination / "payment-manual.sqlite3"
+    manual.write_bytes(b"manual")
+    orphan = destination / "payment-auto-20260901T000000Z.sqlite3"
+    orphan.write_bytes(b"orphan")
+    malformed = destination / "payment-auto-manual.sqlite3"
+    malformed.write_bytes(b"x")
+    Path(str(malformed) + ".manifest.json").write_text("{}", encoding="utf-8")
+
+    for stamp in (
+        "20261001T010000Z",
+        "20261001T020000Z",
+        "20261001T030000Z",
+    ):
+        database, manifest = create_pair(source_dir, stamp)
+        payload = io.BytesIO()
+        sender.write_transfer_stream(database, manifest, payload)
+        payload.seek(0)
+        receiver.receive_stream(payload, destination, keep=2)
+
+    pairs = receiver.complete_received_pairs(destination)
+    assert [database.name for database, _ in pairs] == [
+        "payment-auto-20261001T020000Z.sqlite3",
+        "payment-auto-20261001T030000Z.sqlite3",
+    ]
+    assert manual.exists()
+    assert orphan.exists()
+    assert malformed.exists()
+    assert Path(str(malformed) + ".manifest.json").exists()
+
+
+def test_sender_receiver_process_failure_preserves_source_pair(tmp_path):
+    database, manifest = create_pair(tmp_path, "20261002T060000Z")
+    database_before = database.read_bytes()
+    manifest_before = manifest.read_bytes()
+    command = [
+        sys.executable,
+        "-c",
+        "import sys; sys.stdin.buffer.read(); raise SystemExit(7)",
+    ]
+
+    try:
+        sender.send_pair(
+            database=database,
+            manifest_path=manifest,
+            command=command,
+            timeout=5,
+        )
+    except RuntimeError as exc:
+        assert "receiver exited 7" in str(exc)
+    else:
+        raise AssertionError("receiver process failure must fail the off-host step")
+
+    assert database.read_bytes() == database_before
+    assert manifest.read_bytes() == manifest_before
+
+
+def test_sender_timeout_preserves_source_pair(tmp_path):
+    database, manifest = create_pair(tmp_path, "20261002T070000Z")
+    database_before = database.read_bytes()
+    manifest_before = manifest.read_bytes()
+    command = [
+        sys.executable,
+        "-c",
+        "import sys,time; sys.stdin.buffer.read(); time.sleep(2)",
+    ]
+
+    try:
+        sender.send_pair(
+            database=database,
+            manifest_path=manifest,
+            command=command,
+            timeout=1,
+        )
+    except subprocess.TimeoutExpired:
+        pass
+    else:
+        raise AssertionError("transfer timeout must fail the off-host step")
+
+    assert database.read_bytes() == database_before
+    assert manifest.read_bytes() == manifest_before
+
+
+def test_retention_rejects_invalid_keep_without_deleting(tmp_path):
+    destination = tmp_path / "destination"
+    destination.mkdir()
+    database = destination / "payment-auto-20261001T010000Z.sqlite3"
+    manifest = Path(str(database) + ".manifest.json")
+    database.write_bytes(b"db")
+    manifest.write_text("{}", encoding="utf-8")
+
+    try:
+        receiver.prune_complete_received_pairs(destination, keep=0)
+    except RuntimeError as exc:
+        assert "retention" in str(exc)
+    else:
+        raise AssertionError("invalid retention must fail closed")
+
+    assert database.exists()
+    assert manifest.exists()

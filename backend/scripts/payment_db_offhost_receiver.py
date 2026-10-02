@@ -22,6 +22,33 @@ MAX_BACKUP_BYTES = 8 * 1024 * 1024 * 1024
 COPY_CHUNK_BYTES = 1024 * 1024
 
 
+def complete_received_pairs(directory: Path) -> list[tuple[Path, Path]]:
+    pairs: list[tuple[Path, Path]] = []
+    for database in sorted(directory.glob("payment-auto-*.sqlite3")):
+        if not AUTO_NAME_RE.fullmatch(database.name):
+            continue
+        manifest = Path(str(database) + ".manifest.json")
+        if manifest.is_file():
+            pairs.append((database, manifest))
+    return pairs
+
+
+def prune_complete_received_pairs(directory: Path, keep: int) -> list[str]:
+    if keep < 1:
+        raise RuntimeError("off-host retention count must be at least 1")
+    pairs = complete_received_pairs(directory)
+    if len(pairs) <= keep:
+        return []
+
+    removed: list[str] = []
+    for database, manifest in pairs[: len(pairs) - keep]:
+        database.unlink()
+        manifest.unlink()
+        removed.append(database.name)
+    _fsync_directory(directory)
+    return removed
+
+
 def _positive_int(value: object, name: str, maximum: int) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise RuntimeError(f"{name} is invalid")
@@ -94,7 +121,7 @@ def _fsync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
-def receive_stream(stream: BinaryIO, destination_dir: Path) -> dict:
+def receive_stream(\n    stream: BinaryIO,\n    destination_dir: Path,\n    keep: int | None = None,\n) -> tuple[dict, list[str]]:
     header = read_header(stream)
     destination_dir = destination_dir.expanduser()
     destination_dir.mkdir(parents=True, exist_ok=True)
@@ -140,7 +167,12 @@ def receive_stream(stream: BinaryIO, destination_dir: Path) -> dict:
             final_manifest,
         )
         _fsync_directory(destination_dir)
-        return manifest
+        removed = (
+            prune_complete_received_pairs(destination_dir, keep)
+            if keep is not None
+            else []
+        )
+        return manifest, removed
     finally:
         shutil.rmtree(staging, ignore_errors=True)
 
@@ -157,6 +189,12 @@ def main() -> int:
         default="/var/lib/pepew-pay-offhost",
         help="Dedicated non-public VM-A directory for J1 backup pairs.",
     )
+    parser.add_argument(
+        "--keep",
+        type=int,
+        default=14,
+        help="Retain this many complete J1-managed automatic backup pairs.",
+    )
     args = parser.parse_args()
 
     original_command = os.environ.get("SSH_ORIGINAL_COMMAND")
@@ -165,7 +203,11 @@ def main() -> int:
         return 1
 
     try:
-        metadata = receive_stream(sys.stdin.buffer, Path(args.destination_dir))
+        metadata, removed = receive_stream(
+            sys.stdin.buffer,
+            Path(args.destination_dir),
+            keep=args.keep,
+        )
     except FileExistsError:
         print(
             "OFFHOST RECEIVE: FAIL: destination backup or manifest already exists",
@@ -180,6 +222,8 @@ def main() -> int:
     print(f"size_bytes={metadata['size_bytes']}")
     print(f"sha256={metadata['sha256']}")
     print("destination_restore_drill=pass")
+    print(f"retained_complete_backups={len(complete_received_pairs(Path(args.destination_dir)))}")
+    print(f"pruned_complete_backups={len(removed)}")
     print("OFFHOST RECEIVE: PASS")
     return 0
 
