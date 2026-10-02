@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0/K1 complete; K2 payment ownership isolation next**
+Status: **IN PROGRESS — K0-K2 complete; K3 webhook ownership isolation next**
 
 Last updated: 2026-10-02
 
@@ -219,13 +219,25 @@ K1 implementation notes:
 
 ### K2 — Payment ownership isolation
 
-- [ ] add/backfill `payments.merchant_id`
-- [ ] scope idempotency mappings by merchant
-- [ ] scope `merchant_reference` uniqueness and recovery by merchant
-- [ ] scope authenticated payment listing by merchant
-- [ ] preserve public capability status response shape/privacy
-- [ ] test cross-merchant same-reference and same-idempotency-key independence
-- [ ] test cross-merchant listing/recovery denial
+Status: **COMPLETE — 270 backend tests PASS on Python 3.10**
+
+- [x] add/backfill `payments.merchant_id`
+- [x] scope idempotency mappings by merchant
+- [x] scope `merchant_reference` uniqueness and recovery by merchant
+- [x] scope authenticated payment listing by merchant
+- [x] preserve public capability status response shape/privacy
+- [x] test cross-merchant same-reference and same-idempotency-key independence
+- [x] test cross-merchant listing/recovery denial
+
+K2 implementation notes:
+
+- existing pre-K payment rows are assigned to the reserved legacy merchant
+- the idempotency table is rebuilt transactionally from the legacy global-key schema to a composite `(merchant_id, idempotency_key)` primary key
+- merchant-reference uniqueness is now `(merchant_id, merchant_reference)`
+- authenticated create/list routes propagate the resolved merchant auth context
+- the same reference and idempotency key may coexist for two independent merchants
+- public `GET /api/v1/payments/{payment_id}` remains a capability response and does not expose `merchant_id`
+- scoped DB credential acceptance remains disabled by default until K3 webhook ownership isolation is complete
 
 ### K3 — Webhook ownership isolation
 

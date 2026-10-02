@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0/K1 complete; K2 payment ownership isolation next**
+Status: **IN PROGRESS — K0-K2 complete; K3 webhook ownership isolation next**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1110,7 +1110,7 @@ Development order:
 ```text
 K0 baseline/contract freeze (COMPLETE)
   -> K1 merchant identity + credential storage (COMPLETE; 268 backend tests PASS)
-  -> K2 payment ownership isolation
+  -> K2 payment ownership isolation (COMPLETE; 270 backend tests PASS)
   -> K3 webhook ownership isolation
   -> K4 migration/recovery/operator hardening
   -> K5 production acceptance
