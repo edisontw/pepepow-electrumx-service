@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 
 from app.api import payment_v1
@@ -5,11 +7,20 @@ from app.main import app
 
 ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 
+def _merchant(merchant_id: str = "mrc_test"):
+    return SimpleNamespace(
+        merchant_id=merchant_id,
+        credential_id="test",
+        source="test",
+    )
+
+
 
 def test_create_payment_v1_returns_201(monkeypatch):
     async def fake_create(**kwargs):
         assert kwargs["idempotency_key"] == "order-1-attempt-1"
         assert kwargs["merchant_reference"] == "ORDER-1"
+        assert kwargs["merchant_id"] == "mrc_test"
         return {
             "ok": True,
             "payment_id": "pay_example",
@@ -32,7 +43,7 @@ def test_create_payment_v1_returns_201(monkeypatch):
         }
 
     monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
-    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: _merchant())
     client = TestClient(app)
     response = client.post(
         "/api/v1/payments",
@@ -131,7 +142,7 @@ def test_create_payment_v1_returns_conflict_for_reused_idempotency_key(monkeypat
         raise payment_v1.PaymentIdempotencyConflictError("order-1-attempt-1")
 
     monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
-    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: _merchant())
 
     client = TestClient(app)
     response = client.post(
@@ -152,7 +163,7 @@ def test_create_payment_v1_rejects_invalid_idempotency_key(monkeypatch):
         )
 
     monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
-    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: _merchant())
 
     client = TestClient(app)
     response = client.post(
@@ -181,9 +192,11 @@ def test_list_payments_v1_requires_merchant_auth(monkeypatch):
 def test_list_payments_v1_passes_bounded_filters_and_cursor(monkeypatch):
     def accept(authorization):
         assert authorization == "Bearer merchant-test"
+        return _merchant("mrc_test")
 
     async def fake_list(**kwargs):
         assert kwargs == {
+            "merchant_id": "mrc_test",
             "status": "paid_confirmed",
             "merchant_reference": "ORDER-1",
             "limit": 25,
@@ -291,7 +304,7 @@ def test_create_payment_v1_returns_merchant_reference_conflict(monkeypatch):
         raise payment_v1.PaymentMerchantReferenceConflictError("ORDER-1")
 
     monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
-    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: _merchant())
 
     client = TestClient(app)
     response = client.post(
@@ -315,7 +328,7 @@ def test_create_payment_v1_rejects_invalid_merchant_reference(monkeypatch):
         )
 
     monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
-    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: None)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: _merchant())
 
     client = TestClient(app)
     response = client.post(
