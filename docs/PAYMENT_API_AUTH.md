@@ -1,8 +1,16 @@
 # Payment API Authentication v1
 
-Status: **selected for initial Payment Platform rollout**
+Status: **production legacy credential + Phase K scoped-credential implementation; scoped DB auth remains disabled until K5 acceptance**
 
 ## Policy
+
+### Phase K compatibility state
+
+The current production compatibility credential remains PAYMENT_CREATE_API_KEY and resolves to reserved merchant mrc_legacy_v1.
+
+Phase K also supports database-backed, merchant-scoped, revocable credentials, but they are accepted only when PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED=true. Repository/K4 defaults keep this flag false until K5 migration and two-merchant isolation acceptance.
+
+Bearer transport is unchanged, so merchant SDK HTTP authentication does not need a new protocol.
 
 Payment creation and merchant payment recovery are server-to-server actions using the same current single-merchant credential:
 
@@ -93,3 +101,9 @@ Therefore:
 The authenticated payment list does not change this public capability model: it is a separate merchant-only enumeration surface protected by the Bearer credential.
 
 A future multi-merchant system may add scoped API credentials or account ownership, but that complexity is not required for the current SQLite-based rollout.
+
+## Phase K credential lifecycle
+
+Operator provisioning, one-time secret delivery, rotation, and emergency revoke are defined in [PHASE_K_CREDENTIAL_OPERATIONS.md](PHASE_K_CREDENTIAL_OPERATIONS.md).
+
+Database-backed credentials store only a hash of the complete high-entropy token plus bounded metadata. Multiple active credentials per merchant are allowed during rotation. The generated secret is not recoverable from the list API/tool or SQLite.
