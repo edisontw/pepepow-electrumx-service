@@ -1022,7 +1022,7 @@ Phase I closure audit (2026-10-02):
 
 ### Phase J — Operational Resilience
 
-Status: **IN PROGRESS — J1a-J1c complete; J1d-A VM-A receiver prep complete; J1d-B VM-B key/transfer acceptance pending**
+Status: **IN PROGRESS — J1a-J1c complete; J1d-A complete; J1d-B1 dedicated VM-B key complete; VM-A forced-key install pending**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1057,7 +1057,9 @@ J1a  destination/trust-boundary decision + runbook (COMPLETE 2026-10-02)
   -> J1b one-shot copy + verification tooling (COMPLETE; CI PASS)
   -> J1c retention + failure-isolation tests (COMPLETE; 259 backend tests PASS)
   -> J1d-A VM-A receiver preparation (COMPLETE 2026-10-02)
-  -> J1d-B VM-B dedicated key + fresh H2 backup + one-shot transfer acceptance (PENDING)
+  -> J1d-B1 VM-B dedicated J1 key + source-IP verification (COMPLETE 2026-10-02)
+  -> J1d-B2 VM-A forced receive-only public-key install (PENDING)
+  -> J1d-B3 fresh H2 backup + one-shot transfer + health acceptance (PENDING)
   -> J1e off-host restore drill
 ```
 

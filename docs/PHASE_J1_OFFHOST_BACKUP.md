@@ -331,6 +331,27 @@ J1d-B  VM-B local Codex:
 Do not grant the J1 key unrestricted shell access merely to make deployment
 easier.
 
+
+J1d-B1 VM-B dedicated key preparation completed on 2026-10-02:
+
+- VM-B SHA: `13a40b83f774a52b719ad886a115d2dc6e523e08`
+- Python 3.10.12
+- `pepew-pay.service`: active
+- ElectrumX tunnel: active
+- H2 backup timer: active
+- health: PASS
+- watcher health: PASS
+- new dedicated J1 Ed25519 key created
+- private key mode `0600`; public key mode `0644`
+- J1 public-key fingerprint: `SHA256:EA02WJKZNUTXv9AjKQWvblkeF9WcZMVYPaHN7O79u98`
+- ElectrumX tunnel fingerprint: `SHA256:wI3/kdmzXly35io6Z0J+Lv7c6ho1J0kcpPPPtPZIpug`
+- fingerprints differ: PASS
+- verified VM-B public source IP: `192.9.179.139`
+- no backup transfer performed
+- no feature-gate or timer change
+
+The public key itself is operational configuration and is not committed to GitHub.
+
 ### 12.1 Common preflight
 
 On both VM-A and VM-B:
