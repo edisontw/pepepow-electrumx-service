@@ -3,6 +3,7 @@ import time
 
 import pytest
 
+from app.services.merchant_store import LEGACY_MERCHANT_ID, MerchantStore
 from app.services.payment_state import PaymentTransactionObservation
 from app.services.payment_store import (
     PaymentIdempotencyConflictError,
@@ -563,3 +564,172 @@ def test_initialize_migrates_existing_payments_table_for_merchant_reference(tmp_
         merchant_reference="ORDER-AFTER-MIGRATION",
     )
     assert payment["merchant_reference"] == "ORDER-AFTER-MIGRATION"
+
+
+
+def test_payment_namespaces_are_isolated_by_merchant(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    merchants = MerchantStore(str(path))
+    merchant_a = merchants.create_merchant(
+        merchant_id="mrc_scope_a",
+        display_name="Merchant A",
+        now=100,
+    )
+    merchant_b = merchants.create_merchant(
+        merchant_id="mrc_scope_b",
+        display_name="Merchant B",
+        now=100,
+    )
+
+    store = PaymentStore(str(path))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    common = {
+        "address": "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        "amount_sats": 100,
+        "confirmations_required": 3,
+        "created_height": 500,
+        "expires_at": 1900,
+        "merchant_reference": "ORDER-SAME",
+        "idempotency_key": "retry-same",
+        "request_hash": "same-request",
+    }
+
+    created_a = store.create_payment(
+        payment_id="pay_scope_a",
+        merchant_id=merchant_a["merchant_id"],
+        scripthash="11" * 32,
+        created_at=1000,
+        **common,
+    )
+    created_b = store.create_payment(
+        payment_id="pay_scope_b",
+        merchant_id=merchant_b["merchant_id"],
+        scripthash="22" * 32,
+        created_at=1001,
+        **common,
+    )
+
+    assert created_a["merchant_id"] == merchant_a["merchant_id"]
+    assert created_b["merchant_id"] == merchant_b["merchant_id"]
+
+    assert store.get_payment_by_merchant_reference(
+        "ORDER-SAME",
+        merchant_id=merchant_a["merchant_id"],
+    )["payment_id"] == "pay_scope_a"
+    assert store.get_payment_by_merchant_reference(
+        "ORDER-SAME",
+        merchant_id=merchant_b["merchant_id"],
+    )["payment_id"] == "pay_scope_b"
+
+    replay_a = store.get_payment_by_idempotency_key(
+        "retry-same",
+        request_hash="same-request",
+        merchant_id=merchant_a["merchant_id"],
+    )
+    replay_b = store.get_payment_by_idempotency_key(
+        "retry-same",
+        request_hash="same-request",
+        merchant_id=merchant_b["merchant_id"],
+    )
+    assert replay_a["payment_id"] == "pay_scope_a"
+    assert replay_b["payment_id"] == "pay_scope_b"
+
+    rows_a, more_a = store.list_payments(
+        merchant_id=merchant_a["merchant_id"],
+        limit=10,
+    )
+    rows_b, more_b = store.list_payments(
+        merchant_id=merchant_b["merchant_id"],
+        limit=10,
+    )
+    assert [row["payment_id"] for row in rows_a] == ["pay_scope_a"]
+    assert [row["payment_id"] for row in rows_b] == ["pay_scope_b"]
+    assert more_a is False
+    assert more_b is False
+
+
+def test_initialize_backfills_pre_k_rows_to_legacy_merchant(tmp_path):
+    path = tmp_path / "pre-k.sqlite3"
+    with sqlite3.connect(path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE payments (
+                payment_id TEXT PRIMARY KEY,
+                address TEXT NOT NULL,
+                scripthash TEXT NOT NULL,
+                amount_sats INTEGER NOT NULL CHECK (amount_sats > 0),
+                confirmations_required INTEGER NOT NULL CHECK (confirmations_required >= 0),
+                created_at INTEGER NOT NULL,
+                created_height INTEGER NOT NULL CHECK (created_height >= 0),
+                expires_at INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
+                received_sats INTEGER NOT NULL DEFAULT 0,
+                confirmed_sats INTEGER NOT NULL DEFAULT 0,
+                policy_confirmed_sats INTEGER NOT NULL DEFAULT 0,
+                label TEXT,
+                message TEXT,
+                merchant_reference TEXT,
+                updated_at INTEGER NOT NULL
+            );
+
+            CREATE TABLE payment_idempotency_keys (
+                idempotency_key TEXT PRIMARY KEY,
+                request_hash TEXT NOT NULL,
+                payment_id TEXT NOT NULL UNIQUE,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY (payment_id) REFERENCES payments(payment_id) ON DELETE CASCADE
+            );
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO payments (
+                payment_id, address, scripthash, amount_sats,
+                confirmations_required, created_at, created_height,
+                expires_at, status, version, received_sats,
+                confirmed_sats, policy_confirmed_sats,
+                label, message, merchant_reference, updated_at
+            ) VALUES (
+                'pay_legacy', 'PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb', ?, 100,
+                3, 1000, 500, 1900, 'waiting', 1, 0, 0, 0,
+                NULL, NULL, 'ORDER-LEGACY', 1000
+            )
+            """,
+            ("11" * 32,),
+        )
+        connection.execute(
+            """
+            INSERT INTO payment_idempotency_keys (
+                idempotency_key, request_hash, payment_id, created_at
+            ) VALUES ('retry-legacy', 'hash', 'pay_legacy', 1000)
+            """
+        )
+
+    store = PaymentStore(str(path))
+    store.initialize()
+
+    with sqlite3.connect(path) as connection:
+        payment_owner = connection.execute(
+            "SELECT merchant_id FROM payments WHERE payment_id = 'pay_legacy'"
+        ).fetchone()[0]
+        idempotency = connection.execute(
+            """
+            SELECT merchant_id, idempotency_key, payment_id
+            FROM payment_idempotency_keys
+            WHERE idempotency_key = 'retry-legacy'
+            """
+        ).fetchone()
+        columns = {
+            row[1]: row[5]
+            for row in connection.execute(
+                "PRAGMA table_info(payment_idempotency_keys)"
+            ).fetchall()
+        }
+
+    assert payment_owner == LEGACY_MERCHANT_ID
+    assert idempotency == (LEGACY_MERCHANT_ID, "retry-legacy", "pay_legacy")
+    assert columns["merchant_id"] == 1
+    assert columns["idempotency_key"] == 2
+    assert MerchantStore(str(path)).get_merchant(LEGACY_MERCHANT_ID)["enabled"] is True
