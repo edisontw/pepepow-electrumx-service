@@ -24,6 +24,171 @@ OPTIONAL_TABLES = (
 )
 
 MANIFEST_VERSION = 1
+PHASE_K_SCHEMA_PROFILE = "phase_k_merchant_v1"
+LEGACY_SCHEMA_PROFILE = "legacy_payment_v1"
+
+PHASE_K_TABLES = (
+    "merchants",
+    "merchant_credentials",
+)
+
+PHASE_K_OWNERSHIP_COLUMNS = {
+    "payments": "merchant_id",
+    "payment_idempotency_keys": "merchant_id",
+    "events": "merchant_id",
+    "webhook_endpoints": "merchant_id",
+}
+
+
+def _table_columns(
+    connection: sqlite3.Connection,
+    table: str,
+) -> set[str]:
+    return {
+        str(row[1])
+        for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+
+
+def _phase_k_schema_present(
+    connection: sqlite3.Connection,
+    tables: set[str],
+) -> bool:
+    if any(table in tables for table in PHASE_K_TABLES):
+        return True
+    for table, column in PHASE_K_OWNERSHIP_COLUMNS.items():
+        if table in tables and column in _table_columns(connection, table):
+            return True
+    return False
+
+
+def _phase_k_summary(
+    connection: sqlite3.Connection,
+    tables: set[str],
+) -> dict[str, Any]:
+    missing_tables = [table for table in PHASE_K_TABLES if table not in tables]
+    if missing_tables:
+        raise RuntimeError(
+            "incomplete Phase K merchant schema: missing "
+            + ",".join(missing_tables)
+        )
+
+    missing_columns: list[str] = []
+    for table, column in PHASE_K_OWNERSHIP_COLUMNS.items():
+        if table not in tables:
+            missing_columns.append(f"{table}.{column}")
+            continue
+        if column not in _table_columns(connection, table):
+            missing_columns.append(f"{table}.{column}")
+    if missing_columns:
+        raise RuntimeError(
+            "incomplete Phase K merchant schema: missing "
+            + ",".join(missing_columns)
+        )
+
+    merchant_columns = _table_columns(connection, "merchants")
+    credential_columns = _table_columns(connection, "merchant_credentials")
+    for required in ("merchant_id", "enabled"):
+        if required not in merchant_columns:
+            raise RuntimeError(
+                f"incomplete Phase K merchant schema: missing merchants.{required}"
+            )
+    for required in ("credential_id", "merchant_id", "token_hash", "enabled"):
+        if required not in credential_columns:
+            raise RuntimeError(
+                "incomplete Phase K merchant schema: missing "
+                f"merchant_credentials.{required}"
+            )
+
+    checks = {
+        "payment_owner_orphans": connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM payments AS p
+            LEFT JOIN merchants AS m ON m.merchant_id = p.merchant_id
+            WHERE p.merchant_id IS NULL
+               OR p.merchant_id = ''
+               OR m.merchant_id IS NULL
+            """
+        ).fetchone()[0],
+        "idempotency_owner_orphans": connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM payment_idempotency_keys AS i
+            LEFT JOIN merchants AS m ON m.merchant_id = i.merchant_id
+            WHERE i.merchant_id IS NULL
+               OR i.merchant_id = ''
+               OR m.merchant_id IS NULL
+            """
+        ).fetchone()[0],
+        "idempotency_payment_owner_mismatch": connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM payment_idempotency_keys AS i
+            JOIN payments AS p ON p.payment_id = i.payment_id
+            WHERE i.merchant_id != p.merchant_id
+            """
+        ).fetchone()[0],
+        "event_owner_orphans": connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM events AS e
+            LEFT JOIN merchants AS m ON m.merchant_id = e.merchant_id
+            WHERE e.merchant_id IS NULL
+               OR e.merchant_id = ''
+               OR m.merchant_id IS NULL
+            """
+        ).fetchone()[0],
+        "event_payment_owner_mismatch": connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM events AS e
+            JOIN payments AS p ON p.payment_id = e.payment_id
+            WHERE e.merchant_id != p.merchant_id
+            """
+        ).fetchone()[0],
+        "endpoint_owner_orphans": connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM webhook_endpoints AS w
+            LEFT JOIN merchants AS m ON m.merchant_id = w.merchant_id
+            WHERE w.merchant_id IS NULL
+               OR w.merchant_id = ''
+               OR m.merchant_id IS NULL
+            """
+        ).fetchone()[0],
+        "credential_owner_orphans": connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM merchant_credentials AS c
+            LEFT JOIN merchants AS m ON m.merchant_id = c.merchant_id
+            WHERE c.merchant_id IS NULL
+               OR c.merchant_id = ''
+               OR m.merchant_id IS NULL
+            """
+        ).fetchone()[0],
+        "delivery_owner_mismatch": connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM webhook_deliveries AS d
+            JOIN events AS e ON e.event_id = d.event_id
+            JOIN webhook_endpoints AS w ON w.endpoint_id = d.endpoint_id
+            WHERE e.merchant_id != w.merchant_id
+            """
+        ).fetchone()[0],
+    }
+    failed = [name for name, count in checks.items() if int(count) != 0]
+    if failed:
+        raise RuntimeError(
+            "Phase K merchant ownership check failed: " + ",".join(failed)
+        )
+    return {
+        "schema_profile": PHASE_K_SCHEMA_PROFILE,
+        "merchant_ownership_checks": {
+            key: int(value)
+            for key, value in checks.items()
+        },
+    }
 
 
 def sha256_file(path: Path) -> str:
@@ -49,8 +214,17 @@ def database_summary(connection: sqlite3.Connection) -> dict[str, Any]:
     if missing:
         raise RuntimeError("missing required tables: " + ",".join(missing))
 
+    phase_k = _phase_k_schema_present(connection, tables)
+    profile_summary = (
+        _phase_k_summary(connection, tables)
+        if phase_k
+        else {"schema_profile": LEGACY_SCHEMA_PROFILE}
+    )
+
     counted = list(REQUIRED_TABLES)
     counted.extend(table for table in OPTIONAL_TABLES if table in tables)
+    if phase_k:
+        counted.extend(table for table in PHASE_K_TABLES if table in tables)
     counts = {
         table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         for table in counted
@@ -61,6 +235,7 @@ def database_summary(connection: sqlite3.Connection) -> dict[str, Any]:
 
     return {
         "integrity_check": "ok",
+        **profile_summary,
         "table_counts": counts,
         "enabled_webhook_endpoints": enabled_webhooks,
     }
@@ -82,6 +257,17 @@ def load_manifest(path: Path) -> dict[str, Any]:
         raise RuntimeError("backup manifest is missing byte size")
     if not isinstance(data.get("table_counts"), dict):
         raise RuntimeError("backup manifest is missing table counts")
+    profile = data.get("schema_profile")
+    if profile is not None and profile not in {
+        LEGACY_SCHEMA_PROFILE,
+        PHASE_K_SCHEMA_PROFILE,
+    }:
+        raise RuntimeError("unsupported backup schema profile")
+    if profile == PHASE_K_SCHEMA_PROFILE and not isinstance(
+        data.get("merchant_ownership_checks"),
+        dict,
+    ):
+        raise RuntimeError("Phase K backup manifest is missing ownership checks")
     return data
 
 
@@ -105,6 +291,12 @@ def verify_against_manifest(
     finally:
         connection.close()
 
+    manifest_profile = manifest.get("schema_profile")
+    if (
+        manifest_profile is not None
+        and summary["schema_profile"] != manifest_profile
+    ):
+        raise RuntimeError("backup schema profile does not match manifest")
     if summary["table_counts"] != manifest["table_counts"]:
         raise RuntimeError("backup table counts do not match manifest")
     if (
@@ -112,6 +304,12 @@ def verify_against_manifest(
         != manifest.get("enabled_webhook_endpoints")
     ):
         raise RuntimeError("backup webhook count does not match manifest")
+    if (
+        manifest_profile == PHASE_K_SCHEMA_PROFILE
+        and summary.get("merchant_ownership_checks")
+        != manifest.get("merchant_ownership_checks")
+    ):
+        raise RuntimeError("backup merchant ownership checks do not match manifest")
     return summary
 
 
@@ -188,6 +386,7 @@ def main() -> int:
 
     print("manifest_sha256=ok")
     print("integrity_check=ok")
+    print(f"schema_profile={summary['schema_profile']}")
     for table, count in summary["table_counts"].items():
         print(f"{table}={count}")
     print(f"enabled_webhook_endpoints={summary['enabled_webhook_endpoints']}")
