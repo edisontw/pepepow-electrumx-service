@@ -42,6 +42,7 @@ def test_create_then_get_payment_uses_sqlite_without_get_polling(tmp_path, monke
     assert created["status"] == "waiting"
     assert created["amount_sats"] == 125000000
     assert created["created_height"] == 500
+    assert "merchant_id" not in created
     assert calls["snapshot"] == 1
 
     async def forbidden_snapshot(_settings, _scripthash):
@@ -53,6 +54,7 @@ def test_create_then_get_payment_uses_sqlite_without_get_polling(tmp_path, monke
     assert loaded["payment_id"] == created["payment_id"]
     assert loaded["status"] == "waiting"
     assert loaded["amount_sats"] == 125000000
+    assert "merchant_id" not in loaded
     assert calls["snapshot"] == 1
 
 
