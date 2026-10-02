@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 production acceptance next**
+Status: **IN PROGRESS — K0-K4 complete; K5 repository tooling ready, production execution pending**
 
 Last updated: 2026-10-02
 
@@ -278,6 +278,18 @@ Status: **COMPLETE — 279 backend tests PASS on Python 3.10**
 K4 closure: full pre-K migration, H2/J1 Phase K schema-profile verification, fail-closed credential delivery, and credential operations all pass in CI (279 tests). K4 deliberately does not enable PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED in production. That gate remains part of K5 acceptance after a fresh local + off-host recovery point and production ownership migration.
 
 ### K5 — Production acceptance
+
+K5 repository tooling: **READY**
+
+Prepared tooling/runbook:
+
+- `backend/scripts/phase_k_production_migration.py`
+- `backend/scripts/phase_k_post_migration_acceptance.py`
+- `backend/scripts/configure_phase_k_scoped_auth.py`
+- `backend/scripts/phase_k_two_merchant_acceptance.py`
+- [PHASE_K_PRODUCTION_ACCEPTANCE.md](PHASE_K_PRODUCTION_ACCEPTANCE.md)
+
+These helpers do not deploy themselves. VM-B production execution remains pending.
 
 - [ ] create pre-migration verified H2 + off-host recovery point
 - [ ] migrate VM-B while preserving single-writer authority
