@@ -1,13 +1,24 @@
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 
 from app.api import webhook_v1
 from app.main import app
 
 
+def _merchant(merchant_id: str = "mrc_webhook_test"):
+    return SimpleNamespace(
+        merchant_id=merchant_id,
+        credential_id="test",
+        source="test",
+    )
+
+
 def test_create_webhook_endpoint_returns_signing_secret_once(monkeypatch):
-    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: None)
+    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: _merchant())
 
     async def fake_create(**kwargs):
+        assert kwargs["merchant_id"] == "mrc_webhook_test"
         return {
             "ok": True,
             "endpoint_id": "wh_example",
@@ -34,9 +45,10 @@ def test_create_webhook_endpoint_returns_signing_secret_once(monkeypatch):
 
 
 def test_list_webhook_endpoints_does_not_return_secret(monkeypatch):
-    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: None)
+    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: _merchant())
 
-    async def fake_list():
+    async def fake_list(**kwargs):
+        assert kwargs == {"merchant_id": "mrc_webhook_test"}
         return [{
             "endpoint_id": "wh_example",
             "url": "https://merchant.example/hook",
@@ -69,10 +81,11 @@ def test_webhook_endpoint_api_requires_merchant_auth(monkeypatch):
 
 
 def test_disable_webhook_endpoint(monkeypatch):
-    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: None)
+    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: _merchant())
 
-    async def fake_disable(endpoint_id):
+    async def fake_disable(endpoint_id, **kwargs):
         assert endpoint_id == "wh_example"
+        assert kwargs == {"merchant_id": "mrc_webhook_test"}
 
     monkeypatch.setattr(webhook_v1, "disable_webhook_endpoint", fake_disable)
     client = TestClient(app)
@@ -87,10 +100,14 @@ def test_disable_webhook_endpoint(monkeypatch):
 
 
 def test_list_webhook_delivery_log(monkeypatch):
-    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: None)
+    monkeypatch.setattr(webhook_v1, "require_payment_create_auth", lambda _value: _merchant())
 
     async def fake_list_deliveries(**kwargs):
-        assert kwargs == {"endpoint_id": "wh_example", "limit": 20}
+        assert kwargs == {
+            "merchant_id": "mrc_webhook_test",
+            "endpoint_id": "wh_example",
+            "limit": 20,
+        }
         return [{
             "delivery_id": "dlv_example",
             "event_id": "evt_example",
