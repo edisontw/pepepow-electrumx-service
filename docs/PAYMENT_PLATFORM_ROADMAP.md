@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 tooling ready, VM-B production acceptance pending**
+Status: **IN PROGRESS — K0-K4 complete; K5 migration/legacy acceptance PASS, two-scoped-merchant isolation smoke pending**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1113,11 +1113,13 @@ K0 baseline/contract freeze (COMPLETE)
   -> K2 payment ownership isolation (COMPLETE; 270 backend tests PASS)
   -> K3 webhook ownership isolation (COMPLETE; 272 backend tests PASS)
   -> K4 migration/recovery/operator hardening (COMPLETE; 279 backend tests PASS)
-  -> K5 production acceptance (TOOLING READY; 289 backend tests PASS; VM-B execution pending)
+  -> K5 production acceptance (PARTIAL PASS: migration + legacy acceptance complete; two-scoped-merchant isolation smoke pending)
   -> K6 DevKit/onboarding alignment
 ```
 
 K5 repository-side preparation is complete: explicit stopped-service migration, read-only post-migration legacy acceptance, safe scoped-auth gate enable/disable, and bounded two-merchant production isolation smoke are documented in `docs/PHASE_K_PRODUCTION_ACCEPTANCE.md`. Latest backend CI is 289 passed with production helper compilation PASS. No production feature gate has been changed yet.
+
+K5 first production execution on 2026-10-03 passed fresh H2/J1 recovery, lossless Phase K migration, legacy credential compatibility, public capability privacy, and final health at the safety stop. The initial two-merchant smoke intentionally refused to create test payments because an enabled legacy webhook endpoint existed; scoped auth was returned to false and the temporary credential was cleaned up. Follow-up tooling now uses two temporary scoped merchants so legacy webhook endpoints remain untouched.
 
 
 ## 11. Testing policy

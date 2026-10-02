@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 repository tooling ready, production execution pending**
+Status: **IN PROGRESS — K0-K4 complete; K5 migration + legacy production acceptance PASS; two-scoped-merchant isolation smoke pending**
 
 Last updated: 2026-10-02
 
@@ -289,20 +289,20 @@ Prepared tooling/runbook:
 - `backend/scripts/phase_k_two_merchant_acceptance.py`
 - [PHASE_K_PRODUCTION_ACCEPTANCE.md](PHASE_K_PRODUCTION_ACCEPTANCE.md)
 
-These helpers do not deploy themselves. VM-B production execution remains pending.
+VM-B production migration and post-migration legacy acceptance passed on 2026-10-03. The first two-merchant smoke stopped safely before test-payment creation because an enabled legacy webhook endpoint existed. The smoke has been hardened to use two temporary scoped merchants so existing legacy webhook endpoints remain untouched; follow-up production execution is pending.
 
 Latest K5 tooling CI: **289 passed, 1 warning**; production helper compilation PASS.
 
-- [ ] create pre-migration verified H2 + off-host recovery point
-- [ ] migrate VM-B while preserving single-writer authority
-- [ ] verify legacy merchant compatibility first
-- [ ] create a second test merchant with a distinct scoped credential
+- [x] create pre-migration verified H2 + off-host recovery point
+- [x] migrate VM-B while preserving single-writer authority
+- [x] verify legacy merchant compatibility first
+- [ ] create two temporary test merchants with distinct scoped credentials
 - [ ] verify same merchant reference/idempotency key can coexist across merchants
 - [ ] verify each merchant cannot list/recover/manage the other's private data
 - [ ] verify webhook events cannot cross merchant boundaries
-- [ ] verify public capability status remains compatible
-- [ ] verify watcher/webhook/backup health unchanged
-- [ ] retire the legacy environment credential only after scoped credential acceptance
+- [x] verify public capability status remains compatible through post-migration legacy acceptance
+- [ ] verify final watcher/webhook/backup health after scoped smoke + post-migration H2/J1 recovery
+- [ ] retire the legacy environment credential only after real legacy merchant consumers have scoped credentials
 
 ### K6 — DevKit / onboarding alignment
 
