@@ -1,6 +1,6 @@
 # Phase J1 — Off-host Payment Backup
 
-Status: **J1c TOOLING/FAILURE-ISOLATION IMPLEMENTED ON MAIN — production deployment not yet started**
+Status: **J1b/J1c COMPLETE — tooling and failure-isolation CI verified; J1d production acceptance pending**
 
 Last updated: 2026-10-02
 
@@ -236,6 +236,15 @@ Repository tests cover:
 - [ ] transfer timeout/process failure isolation (J1c)
 - [ ] bounded off-host retention that ignores unrelated/manual files (J1c)
 - [ ] production Payment API/watcher/webhook failure-isolation acceptance (J1d)
+
+CI closeout (2026-10-02):
+
+- J1b implementation commit: `c17b64f276a1a0e6124d9e643809aaf941ca8692`
+- J1c retention/failure-isolation implementation plus fixes culminated in `fd4d75b0945cfef1db2f5681919f8825b6c75920`
+- production helper script compilation: PASS on Python 3.10
+- full backend suite: **259 passed**
+- no production VM-A/VM-B configuration was changed
+
 
 Production acceptance must verify:
 
