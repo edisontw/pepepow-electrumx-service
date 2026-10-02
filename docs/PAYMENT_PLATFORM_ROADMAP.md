@@ -530,7 +530,7 @@ Runbook: [PHASE_H2_SQLITE_BACKUP_RESTORE.md](PHASE_H2_SQLITE_BACKUP_RESTORE.md)
 - [x] Correct the backup unit so the private mount namespace permits `-shm` coordination while pinning the authoritative DB/WAL/journal files read-only
 - [x] Add a regression test for the WAL-compatible systemd sandbox policy
 - [x] Re-run VM-B manual oneshot acceptance with the corrected unit before enabling the timer
-- [ ] Follow-up reliability item: evaluate a simple off-host second copy without introducing a continuously running backup service
+- [x] Follow-up reliability item: simple off-host second copy completed as Phase J1 without introducing a continuously running backup service (production acceptance 2026-10-02)
 
 H2 first-increment production closeout (2026-09-25):
 
@@ -1039,16 +1039,16 @@ boundaries.
 Initial design constraints:
 
 - [x] copy tooling accepts only a completed H2 backup + sidecar manifest and reruns the local restore drill immediately before transfer; it never copies the live SQLite database directly
-- [ ] keep the transfer passive and bounded (for example a scheduled one-shot transfer); do not introduce a continuously running backup daemon
+- [x] keep the transfer passive and bounded: production acceptance used a manual one-shot transfer; no continuously running backup daemon or J1 timer was introduced
 - [x] choose the first off-host destination deliberately: VM-A is the initial second-copy target, using a dedicated receive-only SSH credential and directory; do not reuse the ElectrumX tunnel key and do not use edison2 as production backup storage ([PHASE_J1_OFFHOST_BACKUP.md](PHASE_J1_OFFHOST_BACKUP.md))
-- [ ] preserve restrictive permissions and avoid exposing payment data, merchant metadata, filesystem paths, or credentials in logs
+- [x] preserve restrictive permissions and secret boundaries: VM-A destination is restricted, recovery files are mode `0600`, and acceptance output contains only bounded metadata/checksums rather than payment rows or credentials
 - [x] receiver verifies destination SHA-256/size/manifest plus SQLite integrity/schema/counts and a non-destructive restore drill before promoting the second copy
-- [ ] make transfer failure non-authoritative: it must not stop the Payment Platform or invalidate a successful local H2 backup
+- [x] make transfer failure non-authoritative: deterministic timeout/receiver-failure tests preserve the local H2 pair, and live J1d transfer left Payment API/watcher/webhook/tunnel health unchanged
 - [x] apply bounded retention on the off-host destination without deleting unrelated/manual/orphan artifacts; receiver defaults to 14 complete exact-name J1 pairs
-- [ ] add a non-destructive restore drill from the off-host copy before marking J1 complete
-- [ ] keep CPU/I/O/network use low enough for the existing single-core production hosts
+- [x] add a non-destructive restore drill from the off-host copy: independent VM-A J1e drill passed SHA-256, manifest, SQLite integrity, schema/count validation, and temporary restore without replacing any live DB
+- [x] keep CPU/I/O/network use low: one bounded transfer of the verified 794624-byte backup completed with both hosts healthy and no new service errors
 - [x] add deterministic tests for transfer selection, checksum mismatch, partial-copy cleanup, retention boundaries, receiver process failure, timeout, and source-backup preservation
-- [ ] deploy only after the destination and credential boundary are reviewed; J1d runbook is ready, and no VM-A/VM-B runtime authority change is required
+- [x] deploy only after destination/credential review: dedicated receive-only credential, forced command, source restriction, negative shell test, and unchanged VM-A/VM-B payment authority were production-verified
 
 Preferred implementation order:
 
@@ -1060,7 +1060,7 @@ J1a  destination/trust-boundary decision + runbook (COMPLETE 2026-10-02)
   -> J1d-B1 VM-B dedicated J1 key + source-IP verification (COMPLETE 2026-10-02)
   -> J1d-B2 VM-A forced receive-only public-key install (PENDING)
   -> J1d-B3 fresh H2 backup + one-shot transfer + health acceptance (COMPLETE 2026-10-02)
-  -> J1e off-host restore drill (PENDING)
+  -> J1e off-host restore drill (COMPLETE 2026-10-02)
 ```
 
 Exit criteria:
@@ -1072,6 +1072,19 @@ Exit criteria:
 - an off-host copy can be restored non-destructively and pass SQLite integrity
   and required-schema checks;
 - no new continuously running infrastructure is introduced.
+
+Phase J closure audit (2026-10-02):
+
+- J1a destination/trust-boundary design: COMPLETE
+- J1b sender/receiver verification tooling: COMPLETE
+- J1c retention/failure-isolation tests: COMPLETE; 259 backend tests PASS
+- J1d production off-host copy: COMPLETE; fresh H2 backup -> source restore drill -> receive-only SSH transfer -> destination verification -> shell-negative test -> host health PASS
+- J1e independent VM-A restore drill: COMPLETE; SHA-256, manifest, SQLite integrity, non-destructive restore PASS
+- verified recovery point: `payment-auto-20261002T145235Z.sqlite3`, 794624 bytes
+- VM-A Light/ElectrumX/PEPEPOWd private boundaries remained unchanged
+- VM-B Payment Platform/watcher/ElectrumX tunnel remained healthy
+- no Payment Platform feature-gate change, no live DB replacement, and no J1 timer/continuous backup daemon introduced
+- **Phase J is CLOSED.**
 
 
 ## 11. Testing policy

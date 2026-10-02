@@ -310,15 +310,26 @@ This completes the local H2 backup/restore automation scope.
 
 ## 7. Off-host recovery copy
 
-H2 does not yet add an object-storage dependency or another backup daemon.
+The H2 follow-up was completed as Phase J1 on 2026-10-02.
 
-Local automatic backups protect against application/database-level failures but
-do not protect against loss of VM-B or its boot/block volume. An off-host copy is
-therefore still a separate resilience decision.
+Production now has a verified second copy of a completed H2 automatic
+backup/manifest pair on VM-A using a dedicated receive-only SSH boundary.
+The live authoritative SQLite database is never copied directly.
 
-The preferred next evaluation is a simple encrypted or provider-native
-second-copy mechanism that does not add a continuously running service. It must
-be assessed against actual VM-B/OCI capabilities and storage costs before being
-enabled.
+Phase J1 production acceptance verified:
 
-No additional database or queue infrastructure is required.
+- fresh H2 local backup + restore drill on VM-B;
+- one bounded off-host transfer to VM-A;
+- destination checksum/manifest/integrity verification;
+- a dedicated key that cannot provide a normal shell;
+- independent VM-A non-destructive restore drill;
+- restrictive recovery-file permissions;
+- unchanged Payment Platform/Light/ElectrumX authority boundaries;
+- no continuously running off-host backup daemon and no J1 timer.
+
+The verified recovery point was
+`payment-auto-20261002T145235Z.sqlite3` (794624 bytes). See
+[PHASE_J1_OFFHOST_BACKUP.md](PHASE_J1_OFFHOST_BACKUP.md) for the final
+production record.
+
+No additional database or queue infrastructure was introduced.
