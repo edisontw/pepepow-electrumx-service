@@ -333,3 +333,24 @@ The verified recovery point was
 production record.
 
 No additional database or queue infrastructure was introduced.
+
+## Phase K schema-profile extension
+
+Phase K extends H2 verification without invalidating historical recovery points.
+
+New backup/restore helpers detect:
+
+```text
+legacy_payment_v1
+phase_k_merchant_v1
+```
+
+A database with no Phase K merchant markers remains a valid legacy recovery point. Historical manifests created before the schema_profile field also remain accepted.
+
+If any Phase K marker is present, verification fails closed unless the complete merchant ownership schema exists. The phase_k_merchant_v1 profile requires merchants and merchant_credentials, merchant_id ownership on payments/idempotency/events/webhook endpoints, and zero owner-orphan or cross-owner mismatch checks.
+
+In particular, H2 rejects an idempotency owner that differs from its payment, an event owner that differs from its payment, or a webhook delivery that connects an event to an endpoint owned by another merchant.
+
+The manifest stores only profile name, bounded counts, zero-valued ownership-check counters, size and SHA-256. It does not store merchant IDs, credential hashes, payment IDs, references, addresses, webhook URLs, or row contents.
+
+J1 sender and receiver already rerun this restore drill, so these checks automatically protect future off-host copies without a new daemon or transfer protocol.
