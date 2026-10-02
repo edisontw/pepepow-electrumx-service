@@ -1,6 +1,6 @@
 # Phase K — Production Acceptance
 
-Status: **READY FOR VM-B EXECUTION — repository tooling complete; production not yet changed**
+Status: **PARTIAL PRODUCTION PASS — migration/legacy acceptance complete; two-temporary-merchant isolation smoke pending**
 
 Last updated: 2026-10-03
 
@@ -100,30 +100,45 @@ PHASE K POST-MIGRATION ACCEPTANCE: PASS
 
 This acceptance is read-only. It verifies Phase K schema/ownership, all pre-existing rows owned by mrc_legacy_v1, foreign keys, pay health, ElectrumX connectivity, anonymous-list rejection, legacy Bearer compatibility, and public capability privacy while scoped auth remains disabled.
 
-## 6. Create second acceptance merchant + scoped credential
+## 6. Create two temporary acceptance merchants + scoped credentials
 
 Do this only after Step 5 passes.
+
+Create two distinct temporary merchants:
 
 ```bash
 python3 backend/scripts/merchant_credential_admin.py \
   create-merchant \
-  --display-name "Phase K acceptance merchant"
+  --display-name "Phase K acceptance merchant A"
+
+python3 backend/scripts/merchant_credential_admin.py \
+  create-merchant \
+  --display-name "Phase K acceptance merchant B"
 ```
 
-Record the returned merchant_id locally.
+Record both returned merchant IDs locally.
 
-Choose a temporary protected secret file outside the repository:
+Create two protected secret files outside the repository:
 
 ```bash
 umask 077
+
 python3 backend/scripts/merchant_credential_admin.py \
   create-credential \
-  --merchant-id <returned-merchant-id> \
-  --label phase-k-acceptance \
-  --secret-file /home/ubuntu/.pepew-phase-k-acceptance.secret
+  --merchant-id <merchant-a-id> \
+  --label phase-k-acceptance-a \
+  --secret-file /home/ubuntu/.pepew-phase-k-acceptance-a.secret
+
+python3 backend/scripts/merchant_credential_admin.py \
+  create-credential \
+  --merchant-id <merchant-b-id> \
+  --label phase-k-acceptance-b \
+  --secret-file /home/ubuntu/.pepew-phase-k-acceptance-b.secret
 ```
 
-Do not print or paste the file contents.
+Do not print or paste either file's contents.
+
+Using two temporary scoped merchants deliberately keeps the acceptance payment.created events out of the existing legacy merchant webhook namespace. Existing legacy enabled webhook endpoints therefore do not need to be disabled or modified.
 
 ## 7. Enable scoped DB auth
 
@@ -138,20 +153,24 @@ The config helper requires Phase K schema, a still-configured legacy API key, at
 
 ## 8. Two-merchant production isolation smoke
 
-First confirm there are no intentionally enabled merchant webhooks. The smoke refuses by default if any enabled endpoint exists, because its payment.created events must not be sent to a real merchant receiver.
-
 Run:
 
 ```bash
 python3 backend/scripts/phase_k_two_merchant_acceptance.py \
-  --scoped-secret-file /home/ubuntu/.pepew-phase-k-acceptance.secret
+  --scoped-secret-file-a /home/ubuntu/.pepew-phase-k-acceptance-a.secret \
+  --scoped-secret-file-b /home/ubuntu/.pepew-phase-k-acceptance-b.secret
 ```
 
-The script creates two unfunded one-atom payments with the same merchant_reference and the same Idempotency-Key, one through the legacy credential and one through the scoped credential.
+The script authenticates both temporary scoped credentials, requires that they belong to two different non-legacy merchants, and creates two unfunded one-atom payments with the same merchant_reference and the same Idempotency-Key.
+
+Before creating either payment, it checks only the two acceptance merchants for enabled webhook endpoints that would actually receive payment.created. Existing enabled endpoints owned by the legacy merchant or another merchant do not block the smoke because merchant ownership prevents those deliveries.
+
+If either acceptance merchant has a matching enabled webhook endpoint, the smoke fails before creating payments.
 
 Required checks:
 
 ```text
+acceptance_payment_created_webhook_recipients=0
 same_reference_across_merchants=pass
 same_idempotency_key_across_merchants=pass
 merchant_payment_recovery_isolation=pass
@@ -167,21 +186,30 @@ No merchant credential or payment capability ID is printed.
 
 ## 9. Acceptance credential cleanup
 
-After recording the credential_id from local operator metadata, disable the temporary acceptance credential:
+List and disable both temporary credentials:
 
 ```bash
 python3 backend/scripts/merchant_credential_admin.py \
   list-credentials \
-  --merchant-id <acceptance-merchant-id>
+  --merchant-id <merchant-a-id>
+
+python3 backend/scripts/merchant_credential_admin.py \
+  list-credentials \
+  --merchant-id <merchant-b-id>
 
 python3 backend/scripts/merchant_credential_admin.py \
   disable-credential \
-  --credential-id <acceptance-credential-id>
+  --credential-id <credential-a-id>
 
-rm -f /home/ubuntu/.pepew-phase-k-acceptance.secret
+python3 backend/scripts/merchant_credential_admin.py \
+  disable-credential \
+  --credential-id <credential-b-id>
+
+rm -f /home/ubuntu/.pepew-phase-k-acceptance-a.secret
+rm -f /home/ubuntu/.pepew-phase-k-acceptance-b.secret
 ```
 
-The test merchant row and two unfunded test payment records may remain as bounded acceptance evidence. The payments expire normally.
+The two temporary merchant rows and two unfunded test payment records may remain as bounded acceptance evidence. The payments expire normally.
 
 ## 10. Establish a post-migration recovery point
 
@@ -218,3 +246,25 @@ Do not remove PAYMENT_CREATE_API_KEY merely because the two-merchant smoke passe
 Retire it only after the current real merchant integrations have received and verified a DB-backed credential for mrc_legacy_v1. That is a separate final K5 cutover action because removing the environment key before merchant consumers are rotated would break existing integrations.
 
 Until that rotation is completed, the legacy key and scoped credentials may coexist. Independent merchants must never share the legacy key.
+
+
+## Production partial acceptance record — 2026-10-03
+
+First VM-B K5 execution reached the safety stop exactly as intended.
+
+Verified:
+
+- GitHub main `f757838f2fb7bfa66bf8c39d7035bd2dc8c91302`
+- 289 backend tests PASS
+- Payment Platform active, ElectrumX tunnel active, H2 timer active
+- fresh pre-migration H2 + J1 recovery PASS
+- recovery point `payment-auto-20261002T172505Z.sqlite3`
+- recovery SHA-256 `4c4d4831cf9fc870210dd033607aef184c62c87bf2eb87c21edb7e197fdf0eb4`
+- Phase K production migration PASS
+- post-migration legacy compatibility acceptance PASS
+- Payment Platform/watcher/public health remained healthy
+- legacy environment credential preserved
+
+The original two-merchant smoke stopped before creating its acceptance payments because an enabled webhook endpoint existed. The operator did not use the override. Scoped auth was returned to false, the temporary credential was disabled, and its secret file was removed. No post-migration H2/J1 recovery point was created because K5 had not completed.
+
+The follow-up smoke now uses two temporary scoped merchants instead of the legacy merchant. This preserves existing legacy webhook endpoints unchanged while still exercising two independent scoped credential namespaces.
