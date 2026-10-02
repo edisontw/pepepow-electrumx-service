@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K3 complete; K4 migration/recovery/operator hardening next**
+Status: **IN PROGRESS — K0-K3 complete; K4 implemented pending final CI closeout**
 
 Last updated: 2026-10-02
 
@@ -264,12 +264,18 @@ K3 implementation notes:
 
 ### K4 — Migration / recovery / operational hardening
 
-- [ ] add pre-K SQLite migration fixture and row-count/integrity assertions
-- [ ] update H2/J1 required-schema verification for merchant tables/ownership
-- [ ] add safe operator credential create/list-metadata/disable commands
-- [ ] ensure secrets never enter logs, manifests, backups metadata, or shell output
-- [ ] document credential rotation and emergency revoke
-- [ ] keep low CPU/background activity and no new daemon
+Status: **IMPLEMENTED — final CI closeout pending**
+
+- [x] add full pre-K SQLite migration fixture with row-count, relationship, index, historical-event-byte, and restart-safety assertions
+- [x] update H2/J1 verification with automatic legacy_payment_v1 / phase_k_merchant_v1 schema profiles and merchant ownership consistency checks
+- [x] keep historical pre-K manifests/restores compatible when no Phase K markers exist
+- [x] add safe operator credential create/list-metadata/disable commands
+- [x] fail closed by disabling a newly inserted credential if one-time secret-file delivery fails
+- [x] ensure secrets never enter logs, manifests, backup metadata, J1 transfer metadata, or normal command output
+- [x] document overlap rotation and emergency revoke ([PHASE_K_CREDENTIAL_OPERATIONS.md](PHASE_K_CREDENTIAL_OPERATIONS.md))
+- [x] keep low CPU/background activity and no new daemon
+
+K4 deliberately does not enable PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED in production. That gate remains part of K5 acceptance after a fresh local + off-host recovery point and production ownership migration.
 
 ### K5 — Production acceptance
 
