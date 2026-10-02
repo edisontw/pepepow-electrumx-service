@@ -1087,7 +1087,36 @@ Phase J closure audit (2026-10-02):
 - **Phase J is CLOSED.**
 
 
-## 11. Testing policy
+### Phase K — Multi-merchant Credential Isolation
+
+Status: **IN PROGRESS — K0 baseline/design complete; K1 implementation next**
+
+Primary repository: `edisontw/pepepow-electrumx-service`
+
+Supporting repository: `edisontw/pepepow-devkit` for merchant onboarding and
+SDK contract alignment after the server ownership model is stable.
+
+Detailed plan: [PHASE_K_MULTI_MERCHANT_ISOLATION.md](PHASE_K_MULTI_MERCHANT_ISOLATION.md)
+
+Rationale: the production API currently uses one global merchant Bearer key,
+global idempotency/reference namespaces, and unowned webhook endpoints. Phase K
+adds explicit merchant ownership and scoped, revocable credentials before the
+platform is opened to multiple independent real merchants. It keeps SQLite,
+Bearer transport, transaction-level payment authority, public capability status,
+and the client-side wallet signing boundary unchanged.
+
+Development order:
+
+```text
+K0 baseline/contract freeze (COMPLETE)
+  -> K1 merchant identity + credential storage
+  -> K2 payment ownership isolation
+  -> K3 webhook ownership isolation
+  -> K4 migration/recovery/operator hardening
+  -> K5 production acceptance
+  -> K6 DevKit/onboarding alignment
+```
+
 
 Authoritative payment logic must be unit-testable without requiring the production ElectrumX instance.
 

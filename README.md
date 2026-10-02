@@ -18,12 +18,16 @@ Production:
 Current cross-repository development priority:
 
 ```text
-Phase I merchant onboarding / distribution
-  -> I1-I4 generic onboarding baseline complete
-  -> WooCommerce first platform adapter
-  -> Telegram Bot
-  -> Discord
+Phase K multi-merchant credential isolation
+  -> merchant identity + scoped credentials
+  -> payment/idempotency/reference ownership isolation
+  -> webhook ownership isolation
+  -> migration + production acceptance
 ```
+
+Phases 0/A-J are complete. Phase K is deliberately backend-first; merchant
+dashboard/self-service account UI remains deferred until the ownership and
+credential model is production-validated.
 
 See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
 
@@ -362,8 +366,7 @@ application.
 Merchant API keys and webhook signing secrets remain server-side and are not
 part of `@pepepow/pepew-js` or the PepewPay browser bundle.
 
-Phase I is now in progress with I1-I4 and WooCommerce I5.1-I5.3
-implemented in `pepepow-devkit`. The adapter now covers classic checkout,
+Phase I is closed. Merchant onboarding/distribution, WooCommerce, Telegram, and Discord acceptance are complete in `pepepow-devkit`. The adapter now covers classic checkout,
 Checkout Blocks, stable order/payment identity, exact amount snapshotting,
 Payment API create/recovery, PepewPay redirect, exact-body signed webhook
 verification, durable event/version ordering, and reorg-safe Woo order
@@ -377,10 +380,7 @@ I5.4 automated acceptance is also complete: CI builds and clean-installs an
 allowlist WooCommerce ZIP, verifies dependency/upgrade/uninstall behavior, and
 exercises checkout retry, uncertain-create recovery, signed webhook
 duplicate/stale handling, and reorg rollback in both legacy and HPOS runtime
-modes. One externally reachable staging/live paid WooCommerce E2E remains
-before the adapter is called production-ready. Actual npm publication remains
-independently gated on confirming the npm `@pepepow` scope / first-publish
-ownership path. See
+modes. Externally reachable paid WooCommerce E2E is complete, and the first public npm releases for `@pepepow/pepew-js` and `@pepepow/pepewpay-merchant` are published and clean-install verified. See
 [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
 
 ---
