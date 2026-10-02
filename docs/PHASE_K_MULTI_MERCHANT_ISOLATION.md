@@ -279,7 +279,7 @@ K4 closure: full pre-K migration, H2/J1 Phase K schema-profile verification, fai
 
 ### K5 — Production acceptance
 
-K5 repository tooling: **READY — 289 backend tests PASS on Python 3.10**
+K5 repository tooling: **READY — 290 backend tests PASS on Python 3.10**
 
 Prepared tooling/runbook:
 
@@ -291,7 +291,7 @@ Prepared tooling/runbook:
 
 VM-B production migration and post-migration legacy acceptance passed on 2026-10-03. The first two-merchant smoke stopped safely before test-payment creation because an enabled legacy webhook endpoint existed. The smoke has been hardened to use two temporary scoped merchants so existing legacy webhook endpoints remain untouched; follow-up production execution is pending.
 
-Latest K5 tooling CI: **289 passed, 1 warning**; production helper compilation PASS.
+Latest K5 tooling CI: **290 passed, 1 warning**; production helper compilation PASS.
 
 - [x] create pre-migration verified H2 + off-host recovery point
 - [x] migrate VM-B while preserving single-writer authority
