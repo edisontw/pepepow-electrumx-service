@@ -1,6 +1,6 @@
 # Phase J1 — Off-host Payment Backup
 
-Status: **J1a DESIGN COMPLETE — implementation not yet deployed**
+Status: **J1b TOOLING IMPLEMENTED ON MAIN — production deployment not yet started**
 
 Last updated: 2026-10-02
 
@@ -196,17 +196,46 @@ compression is not initially justified.
 
 ## 10. J1b implementation acceptance
 
-Before production deployment, repository tests must cover at least:
+Implemented tooling:
 
-- selection of only complete automatic H2 pairs;
-- refusal of manifest/filename mismatch;
-- checksum/size mismatch;
-- transfer timeout/failure;
-- cleanup or quarantine of partial destination files;
-- destination verification before promotion;
-- bounded retention that ignores unrelated/manual files;
-- command/filename validation for the receive-only SSH boundary;
-- no change to Payment API/watcher/webhook behavior on transfer failure.
+```text
+backend/scripts/payment_db_offhost_sender.py
+backend/scripts/payment_db_offhost_receiver.py
+backend/tests/test_payment_db_offhost.py
+```
+
+The sender:
+
+- selects only exact complete `payment-auto-*.sqlite3` + manifest pairs;
+- chooses the newest complete pair;
+- reruns the existing H2 non-destructive restore drill before opening SSH;
+- uses a fixed non-interactive SSH command shape with a dedicated identity;
+- streams a bounded protocol over stdin rather than supplying remote paths.
+
+The forced receiver:
+
+- accepts only the exact automatic H2 filename shape;
+- rejects path-like/arbitrary names and unexpected SSH commands;
+- stages files with modes `0700` / `0600`;
+- checks manifest filename/size, SHA-256, SQLite integrity/schema/counts, and
+  performs a destination restore drill before promotion;
+- refuses overwrite of an existing recovery point;
+- removes staging/partial data on failure;
+- does not expose a shell or payment authority.
+
+Repository tests cover:
+
+- [x] selection of only complete automatic H2 pairs
+- [x] refusal of manifest/filename mismatch
+- [x] checksum corruption detection
+- [x] cleanup of partial/staging files after verification failure
+- [x] destination restore drill before successful promotion
+- [x] overwrite refusal
+- [x] command/filename validation for the receive-only SSH boundary
+- [x] hardened non-interactive sender SSH option construction
+- [ ] transfer timeout/process failure isolation (J1c)
+- [ ] bounded off-host retention that ignores unrelated/manual files (J1c)
+- [ ] production Payment API/watcher/webhook failure-isolation acceptance (J1d)
 
 Production acceptance must verify:
 
@@ -219,7 +248,31 @@ Production acceptance must verify:
 7. an independent non-destructive restore drill from the off-host copy passes;
 8. no temporary secret or unrestricted SSH access remains.
 
-## 11. Rollback
+## 11. VM-A forced-command setup shape
+
+J1b intentionally does not create a production key in GitHub.
+
+During deployment, generate a new dedicated Ed25519 key on VM-B and install only
+its public key on VM-A. Do not reuse the ElectrumX tunnel key.
+
+The VM-A authorized-key entry should use a forced command equivalent to:
+
+```text
+command="/usr/bin/python3 /home/ubuntu/pepepow-electrumx-service/backend/scripts/payment_db_offhost_receiver.py --destination-dir /var/lib/pepew-pay-offhost",restrict,from="<VM-B-source-IP>" ssh-ed25519 <PUBLIC_KEY> pepew-pay-offhost
+```
+
+If the deployed OpenSSH does not support `restrict`, use explicit
+`no-pty,no-agent-forwarding,no-X11-forwarding,no-port-forwarding` restrictions
+instead. Confirm actual OpenSSH behavior on VM-A before installing the key.
+
+The destination directory must be non-public, owned by the forced-command user,
+and mode `0700` (or equivalently restrictive). The receiver writes recovery
+files mode `0600`.
+
+No key is installed and no production SSH configuration is changed by the J1b
+repository increment.
+
+## 12. Rollback
 
 J1 adds no payment authority.
 

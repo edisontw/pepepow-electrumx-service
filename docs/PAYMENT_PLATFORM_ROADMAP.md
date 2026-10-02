@@ -1038,23 +1038,23 @@ boundaries.
 
 Initial design constraints:
 
-- [ ] copy only a completed H2 backup + sidecar manifest after the local backup and restore drill have passed; never copy the live SQLite database directly
+- [x] copy tooling accepts only a completed H2 backup + sidecar manifest and reruns the local restore drill immediately before transfer; it never copies the live SQLite database directly
 - [ ] keep the transfer passive and bounded (for example a scheduled one-shot transfer); do not introduce a continuously running backup daemon
 - [x] choose the first off-host destination deliberately: VM-A is the initial second-copy target, using a dedicated receive-only SSH credential and directory; do not reuse the ElectrumX tunnel key and do not use edison2 as production backup storage ([PHASE_J1_OFFHOST_BACKUP.md](PHASE_J1_OFFHOST_BACKUP.md))
 - [ ] preserve restrictive permissions and avoid exposing payment data, merchant metadata, filesystem paths, or credentials in logs
-- [ ] verify destination SHA-256/size/manifest against the source before treating the second copy as valid
+- [x] receiver verifies destination SHA-256/size/manifest plus SQLite integrity/schema/counts and a non-destructive restore drill before promoting the second copy
 - [ ] make transfer failure non-authoritative: it must not stop the Payment Platform or invalidate a successful local H2 backup
-- [ ] apply bounded retention on the off-host destination without deleting unrelated/manual/Phase F/Phase G/H2 artifacts
+- [ ] apply bounded retention on the off-host destination without deleting unrelated/manual/Phase F/Phase G/H2 artifacts (J1c)
 - [ ] add a non-destructive restore drill from the off-host copy before marking J1 complete
 - [ ] keep CPU/I/O/network use low enough for the existing single-core production hosts
-- [ ] add deterministic tests for transfer selection, checksum mismatch, partial-copy cleanup, retention boundaries, and failure isolation
+- [ ] add deterministic tests for transfer selection, checksum mismatch, partial-copy cleanup, retention boundaries, and failure isolation — J1b covers selection/checksum/partial cleanup; J1c remains for timeout/process failure + retention
 - [ ] deploy only after the destination and credential boundary are reviewed; no VM-A/VM-B runtime authority change is required
 
 Preferred implementation order:
 
 ```text
 J1a  destination/trust-boundary decision + runbook (COMPLETE 2026-10-02)
-  -> J1b one-shot copy + verification tooling
+  -> J1b one-shot copy + verification tooling (IMPLEMENTED; CI required)
   -> J1c retention + failure-isolation tests
   -> J1d production acceptance
   -> J1e off-host restore drill
