@@ -49,6 +49,7 @@ async def create_webhook_endpoint(
     *,
     url: str,
     event_types: list[str] | None = None,
+    merchant_id: str,
 ) -> dict[str, Any]:
     settings = get_settings()
     _require_enabled(settings)
@@ -71,6 +72,7 @@ async def create_webhook_endpoint(
         url=url,
         event_types=normalized_events,
         created_at=now,
+        merchant_id=merchant_id,
     )
     return {
         "ok": True,
@@ -79,14 +81,24 @@ async def create_webhook_endpoint(
     }
 
 
-async def list_webhook_endpoints() -> list[dict[str, Any]]:
+async def list_webhook_endpoints(
+    *,
+    merchant_id: str,
+) -> list[dict[str, Any]]:
     settings = get_settings()
     _require_enabled(settings)
     store = _store_for_path(settings.payment_db_path)
-    return await asyncio.to_thread(store.list_webhook_endpoints)
+    return await asyncio.to_thread(
+        store.list_webhook_endpoints,
+        merchant_id=merchant_id,
+    )
 
 
-async def disable_webhook_endpoint(endpoint_id: str) -> None:
+async def disable_webhook_endpoint(
+    endpoint_id: str,
+    *,
+    merchant_id: str,
+) -> None:
     settings = get_settings()
     _require_enabled(settings)
     store = _store_for_path(settings.payment_db_path)
@@ -94,11 +106,13 @@ async def disable_webhook_endpoint(endpoint_id: str) -> None:
         store.disable_webhook_endpoint,
         endpoint_id,
         updated_at=int(time.time()),
+        merchant_id=merchant_id,
     )
 
 
 async def list_webhook_deliveries(
     *,
+    merchant_id: str,
     endpoint_id: str | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
@@ -107,6 +121,7 @@ async def list_webhook_deliveries(
     store = _store_for_path(settings.payment_db_path)
     return await asyncio.to_thread(
         store.list_webhook_deliveries,
+        merchant_id=merchant_id,
         endpoint_id=endpoint_id,
         limit=limit,
     )

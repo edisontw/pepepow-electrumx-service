@@ -46,9 +46,10 @@ async def create_endpoint(
     authorization: str | None = Header(default=None),
 ):
     try:
-        require_payment_create_auth(authorization)
+        merchant = require_payment_create_auth(authorization)
         return await create_webhook_endpoint(
             url=request.url,
+            merchant_id=merchant.merchant_id,
             event_types=request.event_types,
         )
     except (PaymentAuthError, PaymentAuthUnconfiguredError) as exc:
@@ -83,10 +84,12 @@ async def list_endpoints(
     authorization: str | None = Header(default=None),
 ):
     try:
-        require_payment_create_auth(authorization)
+        merchant = require_payment_create_auth(authorization)
         return {
             "ok": True,
-            "endpoints": await list_webhook_endpoints(),
+            "endpoints": await list_webhook_endpoints(
+                merchant_id=merchant.merchant_id,
+            ),
         }
     except (PaymentAuthError, PaymentAuthUnconfiguredError) as exc:
         return _auth_error(exc)
@@ -108,8 +111,11 @@ async def delete_endpoint(
     authorization: str | None = Header(default=None),
 ):
     try:
-        require_payment_create_auth(authorization)
-        await disable_webhook_endpoint(endpoint_id)
+        merchant = require_payment_create_auth(authorization)
+        await disable_webhook_endpoint(
+            endpoint_id,
+            merchant_id=merchant.merchant_id,
+        )
         return {"ok": True, "endpoint_id": endpoint_id, "enabled": False}
     except (PaymentAuthError, PaymentAuthUnconfiguredError) as exc:
         return _auth_error(exc)
@@ -137,10 +143,11 @@ async def list_deliveries(
     limit: int = Query(default=100, ge=1, le=500),
 ):
     try:
-        require_payment_create_auth(authorization)
+        merchant = require_payment_create_auth(authorization)
         return {
             "ok": True,
             "deliveries": await list_webhook_deliveries(
+                merchant_id=merchant.merchant_id,
                 endpoint_id=endpoint_id,
                 limit=limit,
             ),
