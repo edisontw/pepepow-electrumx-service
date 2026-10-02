@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K2 complete; K3 webhook ownership isolation next**
+Status: **IN PROGRESS — K0-K3 complete; K4 migration/recovery/operator hardening next**
 
 Last updated: 2026-10-02
 
@@ -241,12 +241,26 @@ K2 implementation notes:
 
 ### K3 — Webhook ownership isolation
 
-- [ ] assign/backfill webhook endpoints to merchants
-- [ ] ensure event creation queues deliveries only to same-merchant endpoints
-- [ ] scope endpoint list/disable to authenticated merchant
-- [ ] scope delivery-log reads to authenticated merchant
-- [ ] preserve existing endpoint signing secrets through migration
-- [ ] add cross-merchant webhook isolation tests
+Status: **COMPLETE — 272 backend tests PASS on Python 3.10**
+
+- [x] assign/backfill webhook endpoints to merchants
+- [x] ensure event creation queues deliveries only to same-merchant endpoints
+- [x] scope endpoint list/disable to authenticated merchant
+- [x] scope delivery-log reads to authenticated merchant
+- [x] preserve existing endpoint signing secrets through migration
+- [x] add cross-merchant webhook isolation tests
+
+K3 implementation notes:
+
+- `events.merchant_id` is internal ownership metadata; historical/public event payload JSON is not rewritten
+- existing event ownership is derived from its payment owner during migration
+- existing webhook endpoints are assigned to the reserved legacy merchant
+- new delivery rows are created only when the endpoint owner matches the payment/event merchant
+- worker processing remains one bounded global queue; it does not need one watcher or worker per merchant
+- endpoint list/disable and delivery-log APIs are scoped by resolved merchant auth context
+- cross-merchant endpoint IDs do not reveal or disable another merchant's endpoint
+- webhook signing-secret derivation remains `master_key + endpoint_id`; migration does not change endpoint IDs or existing signing secrets
+- scoped DB credential acceptance remains disabled by default until K4/K5 production migration acceptance
 
 ### K4 — Migration / recovery / operational hardening
 
