@@ -1022,7 +1022,7 @@ Phase I closure audit (2026-10-02):
 
 ### Phase J — Operational Resilience
 
-Status: **IN PROGRESS — J1a-J1c complete; J1d production acceptance ready**
+Status: **IN PROGRESS — J1a-J1c complete; J1d split-host production acceptance in progress**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1054,9 +1054,9 @@ Preferred implementation order:
 
 ```text
 J1a  destination/trust-boundary decision + runbook (COMPLETE 2026-10-02)
-  -> J1b one-shot copy + verification tooling (IMPLEMENTED; CI required)
-  -> J1c retention + failure-isolation tests
-  -> J1d production acceptance
+  -> J1b one-shot copy + verification tooling (COMPLETE; CI PASS)
+  -> J1c retention + failure-isolation tests (COMPLETE; 259 backend tests PASS)
+  -> J1d production acceptance (SPLIT-HOST: VM-A receiver prep -> VM-B transfer; first VM-B attempt stopped safely before changes because VM-A admin access was unavailable)
   -> J1e off-host restore drill
 ```
 

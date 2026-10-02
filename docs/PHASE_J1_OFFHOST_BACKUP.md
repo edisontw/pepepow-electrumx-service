@@ -1,6 +1,6 @@
 # Phase J1 — Off-host Payment Backup
 
-Status: **J1b/J1c COMPLETE — tooling and failure-isolation CI verified; J1d production acceptance pending**
+Status: **J1b/J1c COMPLETE — J1d split-host production acceptance in progress; VM-B attempt stopped safely because VM-A administrative access was unavailable**
 
 Last updated: 2026-10-02
 
@@ -291,6 +291,32 @@ repository increment.
 
 J1d is intentionally a **manual one-shot acceptance**. Do not install or enable
 a timer during this step.
+
+First J1d attempt (2026-10-02) stopped safely before production changes:
+
+- VM-B SHA was `c90b8ecdab3434ec9ce2574655d7d50cd350a402`, Python 3.10.12;
+- VM-B baseline health passed;
+- VM-A administrative SSH access was unavailable from VM-B;
+- VM-A exposed only the existing restricted ElectrumX tunnel credential/path;
+- that credential was not reused because J1 requires a separate receive-only backup key;
+- H2 backup, J1 key creation, authorized-key changes, off-host transfer, and timer work were not started;
+- no production files, feature gates, SSH policy, or timers changed.
+
+This is an access/topology prerequisite, not a backup-tooling failure. J1d is
+therefore split into two host-local stages:
+
+```text
+J1d-A  VM-A local Codex:
+       prepare receiver directory, inspect OpenSSH restrictions, and install
+       the dedicated VM-B J1 public key as a forced receive-only key
+
+J1d-B  VM-B local Codex:
+       create/confirm the dedicated private key, run a fresh H2 backup,
+       perform the one-shot copy, negative shell test, and health acceptance
+```
+
+Do not grant the J1 key unrestricted shell access merely to make deployment
+easier.
 
 ### 12.1 Common preflight
 
