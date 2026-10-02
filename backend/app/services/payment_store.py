@@ -5,6 +5,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from .merchant_store import LEGACY_MERCHANT_ID, MerchantNotFoundError, MerchantStore
 from .payment_state import (
     PaymentEvaluation,
     PaymentTransactionObservation,
@@ -161,6 +162,7 @@ class PaymentStore:
         with self._init_lock:
             if self._initialized:
                 return
+            MerchantStore(self.path).initialize()
             with self._connect() as connection:
                 connection.execute("PRAGMA journal_mode = WAL")
                 connection.execute("PRAGMA synchronous = NORMAL")
@@ -168,6 +170,7 @@ class PaymentStore:
                     """
                     CREATE TABLE IF NOT EXISTS payments (
                         payment_id TEXT PRIMARY KEY,
+                        merchant_id TEXT NOT NULL DEFAULT 'mrc_legacy_v1',
                         address TEXT NOT NULL,
                         scripthash TEXT NOT NULL,
                         amount_sats INTEGER NOT NULL CHECK (amount_sats > 0),
@@ -196,10 +199,12 @@ class PaymentStore:
                     ON payments (created_at DESC, payment_id DESC);
 
                     CREATE TABLE IF NOT EXISTS payment_idempotency_keys (
-                        idempotency_key TEXT PRIMARY KEY,
+                        merchant_id TEXT NOT NULL DEFAULT 'mrc_legacy_v1',
+                        idempotency_key TEXT NOT NULL,
                         request_hash TEXT NOT NULL,
                         payment_id TEXT NOT NULL UNIQUE,
                         created_at INTEGER NOT NULL,
+                        PRIMARY KEY (merchant_id, idempotency_key),
                         FOREIGN KEY (payment_id) REFERENCES payments(payment_id) ON DELETE CASCADE
                     );
 
@@ -288,12 +293,70 @@ class PaymentStore:
                     connection.execute(
                         "ALTER TABLE payments ADD COLUMN merchant_reference TEXT"
                     )
-
+                if "merchant_id" not in payment_columns:
+                    connection.execute(
+                        "ALTER TABLE payments "
+                        "ADD COLUMN merchant_id TEXT NOT NULL DEFAULT 'mrc_legacy_v1'"
+                    )
                 connection.execute(
                     """
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_merchant_reference
-                    ON payments (merchant_reference)
+                    UPDATE payments
+                    SET merchant_id = ?
+                    WHERE merchant_id IS NULL OR merchant_id = ''
+                    """,
+                    (LEGACY_MERCHANT_ID,),
+                )
+
+                idempotency_columns = {
+                    str(row["name"])
+                    for row in connection.execute(
+                        "PRAGMA table_info(payment_idempotency_keys)"
+                    ).fetchall()
+                }
+                if "merchant_id" not in idempotency_columns:
+                    connection.executescript(
+                        """
+                        CREATE TABLE payment_idempotency_keys_k2 (
+                            merchant_id TEXT NOT NULL,
+                            idempotency_key TEXT NOT NULL,
+                            request_hash TEXT NOT NULL,
+                            payment_id TEXT NOT NULL UNIQUE,
+                            created_at INTEGER NOT NULL,
+                            PRIMARY KEY (merchant_id, idempotency_key),
+                            FOREIGN KEY (payment_id)
+                                REFERENCES payments(payment_id) ON DELETE CASCADE
+                        );
+                        """
+                    )
+                    connection.execute(
+                        """
+                        INSERT INTO payment_idempotency_keys_k2 (
+                            merchant_id, idempotency_key, request_hash,
+                            payment_id, created_at
+                        )
+                        SELECT ?, idempotency_key, request_hash, payment_id, created_at
+                        FROM payment_idempotency_keys
+                        """,
+                        (LEGACY_MERCHANT_ID,),
+                    )
+                    connection.execute("DROP TABLE payment_idempotency_keys")
+                    connection.execute(
+                        "ALTER TABLE payment_idempotency_keys_k2 "
+                        "RENAME TO payment_idempotency_keys"
+                    )
+
+                connection.execute("DROP INDEX IF EXISTS idx_payments_merchant_reference")
+                connection.execute(
+                    """
+                    CREATE UNIQUE INDEX idx_payments_merchant_reference
+                    ON payments (merchant_id, merchant_reference)
                     WHERE merchant_reference IS NOT NULL
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_payments_merchant_created
+                    ON payments (merchant_id, created_at DESC, payment_id DESC)
                     """
                 )
             self._initialized = True
@@ -309,6 +372,7 @@ class PaymentStore:
         created_at: int,
         created_height: int,
         expires_at: int,
+        merchant_id: str = LEGACY_MERCHANT_ID,
         label: str | None = None,
         message: str | None = None,
         merchant_reference: str | None = None,
@@ -317,6 +381,10 @@ class PaymentStore:
         request_hash: str | None = None,
     ) -> dict[str, Any]:
         self.initialize()
+        try:
+            MerchantStore(self.path).get_merchant(merchant_id)
+        except MerchantNotFoundError as exc:
+            raise PaymentStoreError("merchant does not exist") from exc
         if (idempotency_key is None) != (request_hash is None):
             raise PaymentStoreError("Idempotency key and request hash must be provided together.")
 
@@ -327,9 +395,9 @@ class PaymentStore:
                     """
                     SELECT request_hash, payment_id
                     FROM payment_idempotency_keys
-                    WHERE idempotency_key = ?
+                    WHERE merchant_id = ? AND idempotency_key = ?
                     """,
-                    (idempotency_key,),
+                    (merchant_id, idempotency_key),
                 ).fetchone()
                 if existing is not None:
                     if str(existing["request_hash"]) != str(request_hash):
@@ -347,9 +415,9 @@ class PaymentStore:
                     """
                     SELECT payment_id
                     FROM payments
-                    WHERE merchant_reference = ?
+                    WHERE merchant_id = ? AND merchant_reference = ?
                     """,
-                    (merchant_reference,),
+                    (merchant_id, merchant_reference),
                 ).fetchone()
                 if reference_existing is not None:
                     raise PaymentMerchantReferenceConflictError(merchant_reference)
@@ -357,15 +425,16 @@ class PaymentStore:
             connection.execute(
                 """
                 INSERT INTO payments (
-                    payment_id, address, scripthash, amount_sats,
+                    payment_id, merchant_id, address, scripthash, amount_sats,
                     confirmations_required, created_at, created_height,
                     expires_at, status, version, received_sats,
                     confirmed_sats, policy_confirmed_sats,
                     label, message, merchant_reference, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'waiting', 1, 0, 0, 0, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', 1, 0, 0, 0, ?, ?, ?, ?)
                 """,
                 (
                     payment_id,
+                    merchant_id,
                     address,
                     scripthash,
                     int(amount_sats),
@@ -402,10 +471,11 @@ class PaymentStore:
                 connection.execute(
                     """
                     INSERT INTO payment_idempotency_keys (
-                        idempotency_key, request_hash, payment_id, created_at
-                    ) VALUES (?, ?, ?, ?)
+                        merchant_id, idempotency_key, request_hash, payment_id, created_at
+                    ) VALUES (?, ?, ?, ?, ?)
                     """,
                     (
+                        merchant_id,
                         idempotency_key,
                         str(request_hash),
                         payment_id,
@@ -419,6 +489,7 @@ class PaymentStore:
         idempotency_key: str,
         *,
         request_hash: str,
+        merchant_id: str = LEGACY_MERCHANT_ID,
     ) -> dict[str, Any] | None:
         self.initialize()
         with self._connect() as connection:
@@ -426,9 +497,9 @@ class PaymentStore:
                 """
                 SELECT request_hash, payment_id
                 FROM payment_idempotency_keys
-                WHERE idempotency_key = ?
+                WHERE merchant_id = ? AND idempotency_key = ?
                 """,
-                (idempotency_key,),
+                (merchant_id, idempotency_key),
             ).fetchone()
         if row is None:
             return None
@@ -444,6 +515,8 @@ class PaymentStore:
     def get_payment_by_merchant_reference(
         self,
         merchant_reference: str,
+        *,
+        merchant_id: str = LEGACY_MERCHANT_ID,
     ) -> dict[str, Any] | None:
         self.initialize()
         with self._connect() as connection:
@@ -451,9 +524,9 @@ class PaymentStore:
                 """
                 SELECT *
                 FROM payments
-                WHERE merchant_reference = ?
+                WHERE merchant_id = ? AND merchant_reference = ?
                 """,
-                (merchant_reference,),
+                (merchant_id, merchant_reference),
             ).fetchone()
         return None if row is None else dict(row)
 
@@ -471,6 +544,7 @@ class PaymentStore:
     def list_payments(
         self,
         *,
+        merchant_id: str = LEGACY_MERCHANT_ID,
         status: str | None = None,
         merchant_reference: str | None = None,
         limit: int = 50,
@@ -484,8 +558,8 @@ class PaymentStore:
             )
 
         bounded_limit = min(100, max(1, int(limit)))
-        where_parts: list[str] = []
-        params: list[Any] = []
+        where_parts: list[str] = ["p.merchant_id = ?"]
+        params: list[Any] = [merchant_id]
 
         if status is not None:
             where_parts.append("p.status = ?")
