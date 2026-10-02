@@ -5,6 +5,7 @@ import pytest
 from app.services.merchant_store import LEGACY_MERCHANT_ID, MerchantStore
 from app.services.payment_state import PaymentTransactionObservation
 from app.services.payment_store import PaymentNotFoundError, PaymentStore
+from app.services.webhook_signing import derive_webhook_secret
 
 
 def _payment(store: PaymentStore, payment_id: str, now: int = 1000):
@@ -295,6 +296,7 @@ def test_webhook_ownership_migration_backfills_legacy_without_rewriting_payload(
         merchant_reference="ORDER-LEGACY",
     )
     original_payload = store.list_events(payment_id="pay_legacy")[0]["payload"]
+    original_secret = derive_webhook_secret("m" * 48, "wh_legacy")
 
     with sqlite3.connect(path) as connection:
         # Model a pre-K3 database while preserving K2 payment ownership.
@@ -340,3 +342,5 @@ def test_webhook_ownership_migration_backfills_legacy_without_rewriting_payload(
     assert event_owner == LEGACY_MERCHANT_ID
     assert endpoint_owner == LEGACY_MERCHANT_ID
     assert migrated.list_events(payment_id="pay_legacy")[0]["payload"] == original_payload
+    migrated_secret = derive_webhook_secret("m" * 48, "wh_legacy")
+    assert migrated_secret == original_secret
