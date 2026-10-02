@@ -302,6 +302,19 @@ First J1d attempt (2026-10-02) stopped safely before production changes:
 - H2 backup, J1 key creation, authorized-key changes, off-host transfer, and timer work were not started;
 - no production files, feature gates, SSH policy, or timers changed.
 
+J1d-A VM-A receiver preparation completed on 2026-10-02:
+
+- VM-A SHA: `a019653b747e2fc19b0a11fefafd988669feed35`
+- Python 3.10.12; OpenSSH 8.9p1 with `restrict` support
+- `pepew-light.service` active
+- ElectrumX remained private at `127.0.0.1:50001`
+- PEPEPOWd RPC remained private at `127.0.0.1:8834`
+- receiver script compile PASS
+- `/var/lib/pepew-pay-offhost` prepared as `ubuntu:ubuntu` mode `0700`, empty
+- Payment API/watcher/webhook feature gates remained disabled on VM-A
+- no timer installed
+- no J1 public key installed yet
+
 This is an access/topology prerequisite, not a backup-tooling failure. J1d is
 therefore split into two host-local stages:
 
