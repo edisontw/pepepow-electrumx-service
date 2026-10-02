@@ -1022,7 +1022,7 @@ Phase I closure audit (2026-10-02):
 
 ### Phase J — Operational Resilience
 
-Status: **PLANNED — next phase after Phase I closure**
+Status: **IN PROGRESS — J1a-J1c complete; J1d production acceptance ready**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1048,7 +1048,7 @@ Initial design constraints:
 - [ ] add a non-destructive restore drill from the off-host copy before marking J1 complete
 - [ ] keep CPU/I/O/network use low enough for the existing single-core production hosts
 - [x] add deterministic tests for transfer selection, checksum mismatch, partial-copy cleanup, retention boundaries, receiver process failure, timeout, and source-backup preservation
-- [ ] deploy only after the destination and credential boundary are reviewed; no VM-A/VM-B runtime authority change is required
+- [ ] deploy only after the destination and credential boundary are reviewed; J1d runbook is ready, and no VM-A/VM-B runtime authority change is required
 
 Preferred implementation order:
 

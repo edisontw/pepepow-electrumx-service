@@ -233,8 +233,8 @@ Repository tests cover:
 - [x] overwrite refusal
 - [x] command/filename validation for the receive-only SSH boundary
 - [x] hardened non-interactive sender SSH option construction
-- [ ] transfer timeout/process failure isolation (J1c)
-- [ ] bounded off-host retention that ignores unrelated/manual files (J1c)
+- [x] transfer timeout/process failure isolation (J1c)
+- [x] bounded off-host retention that ignores unrelated/manual/orphan files (J1c)
 - [ ] production Payment API/watcher/webhook failure-isolation acceptance (J1d)
 
 CI closeout (2026-10-02):
@@ -287,7 +287,303 @@ promotion.
 No key is installed and no production SSH configuration is changed by the J1b
 repository increment.
 
-## 12. Rollback
+## 12. J1d production acceptance runbook
+
+J1d is intentionally a **manual one-shot acceptance**. Do not install or enable
+a timer during this step.
+
+### 12.1 Common preflight
+
+On both VM-A and VM-B:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+git rev-parse HEAD
+python3 --version
+```
+
+Expected GitHub main at the start of this acceptance must be the current
+documented J1d-ready commit or a later green `main`. Do not deploy from a
+locally modified checkout.
+
+On VM-B confirm:
+
+```bash
+systemctl is-active pepew-pay.service
+systemctl is-active pepew-electrumx-tunnel.service
+systemctl is-active pepew-pay-backup.timer
+curl -fsS http://127.0.0.1:8088/api/health
+curl -fsS http://127.0.0.1:8088/api/status
+ls -ld /var/lib/pepew-pay/backups
+```
+
+On VM-A confirm:
+
+```bash
+systemctl is-active pepew-light.service
+ss -lnt | grep -E '127\.0\.0\.1:(50001|8000|8088)'
+```
+
+Do not change Payment API/watcher/webhook feature gates.
+
+### 12.2 VM-A destination preparation
+
+On VM-A:
+
+```bash
+sudo install -d -o ubuntu -g ubuntu -m 0700 /var/lib/pepew-pay-offhost
+sudo chown ubuntu:ubuntu /var/lib/pepew-pay-offhost
+sudo chmod 0700 /var/lib/pepew-pay-offhost
+
+test "$(stat -c '%U:%G %a' /var/lib/pepew-pay-offhost)" = "ubuntu:ubuntu 700"
+```
+
+Verify the receiver script compiles:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service/backend
+python3 -m py_compile scripts/payment_db_offhost_receiver.py
+```
+
+### 12.3 VM-B dedicated transfer key
+
+On VM-B create a dedicated key **only if it does not already exist**:
+
+```bash
+install -d -m 0700 /home/ubuntu/.ssh
+
+test ! -e /home/ubuntu/.ssh/pepew-pay-offhost-ed25519
+ssh-keygen -t ed25519 \
+  -f /home/ubuntu/.ssh/pepew-pay-offhost-ed25519 \
+  -N '' \
+  -C 'pepew-pay-offhost-vm-b-to-vm-a'
+
+chmod 0600 /home/ubuntu/.ssh/pepew-pay-offhost-ed25519
+chmod 0644 /home/ubuntu/.ssh/pepew-pay-offhost-ed25519.pub
+```
+
+Do not print or copy the private key. Only the `.pub` value may be transferred
+to VM-A.
+
+Do not reuse:
+
+- the ElectrumX tunnel key;
+- an administrator shell key;
+- a GitHub deploy key.
+
+### 12.4 VM-A restricted authorized key
+
+Before installing the key, determine the current VM-B public source IP from a
+trusted cloud/operator source. Do not substitute the VM-B private IP.
+
+On VM-A, inspect the server capability first:
+
+```bash
+sshd -V 2>&1 || true
+man sshd_config >/dev/null 2>&1 || true
+```
+
+Append exactly one restricted J1 key entry to
+`/home/ubuntu/.ssh/authorized_keys`.
+
+Preferred shape when OpenSSH supports `restrict`:
+
+```text
+from="<CURRENT_VM_B_PUBLIC_IP>",restrict,command="/usr/bin/python3 /home/ubuntu/pepepow-electrumx-service/backend/scripts/payment_db_offhost_receiver.py --destination-dir /var/lib/pepew-pay-offhost --keep 14" ssh-ed25519 <PUBLIC_KEY> pepew-pay-offhost-vm-b-to-vm-a
+```
+
+If `restrict` is unavailable, replace it with all of:
+
+```text
+no-pty,no-agent-forwarding,no-X11-forwarding,no-port-forwarding
+```
+
+Do not remove or alter existing SSH keys. Preserve:
+
+```bash
+chmod 0700 /home/ubuntu/.ssh
+chmod 0600 /home/ubuntu/.ssh/authorized_keys
+```
+
+The J1 entry must provide no unrestricted shell and no forwarding.
+
+### 12.5 VM-B known-host pinning
+
+Use an operator-verified VM-A SSH host key/fingerprint. Do not accept a changed
+host key blindly.
+
+The sender intentionally uses:
+
+```text
+StrictHostKeyChecking=yes
+BatchMode=yes
+IdentitiesOnly=yes
+PasswordAuthentication=no
+KbdInteractiveAuthentication=no
+```
+
+Therefore the correct VM-A host key must already exist in the VM-B
+`known_hosts` file.
+
+### 12.6 Re-run H2 local backup acceptance
+
+On VM-B, run the existing H2 oneshot before J1 transfer:
+
+```bash
+sudo systemctl start pepew-pay-backup.service
+sudo systemctl status pepew-pay-backup.service --no-pager
+journalctl -u pepew-pay-backup.service -n 80 --no-pager
+```
+
+Require:
+
+```text
+BACKUP MAINTENANCE: PASS
+restore_drill=pass
+```
+
+If H2 does not pass, stop J1d. Do not transfer an older pair merely to make the
+acceptance pass.
+
+### 12.7 Manual one-shot off-host copy
+
+On VM-B, use the exact destination identity chosen for VM-A:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service/backend
+
+python3 scripts/payment_db_offhost_sender.py \
+  --backup-dir /var/lib/pepew-pay/backups \
+  --host ubuntu@<VM_A_SSH_HOST_OR_IP> \
+  --identity-file /home/ubuntu/.ssh/pepew-pay-offhost-ed25519
+```
+
+Require final output:
+
+```text
+source_restore_drill=pass
+OFFHOST COPY: PASS
+```
+
+The receiver-side output relayed by the sender must also show:
+
+```text
+receiver_destination_restore_drill=pass
+receiver_OFFHOST RECEIVE: PASS
+```
+
+Do not treat an SSH exit code alone as proof of backup validity.
+
+### 12.8 VM-A destination verification
+
+On VM-A:
+
+```bash
+find /var/lib/pepew-pay-offhost -maxdepth 1 -type f \
+  -name 'payment-auto-*' -printf '%f %m %u:%g %s bytes\n' | sort
+
+find /var/lib/pepew-pay-offhost -maxdepth 1 \
+  -type d -name '.pepew-offhost-incoming-*' -print
+```
+
+Require:
+
+- one newly copied complete database/manifest pair;
+- database and manifest mode `0600`;
+- owner/group `ubuntu:ubuntu`;
+- no leftover `.pepew-offhost-incoming-*` directory.
+
+Do not print the SQLite content.
+
+### 12.9 Service health after transfer
+
+VM-B:
+
+```bash
+systemctl is-active pepew-pay.service
+systemctl is-active pepew-electrumx-tunnel.service
+curl -fsS http://127.0.0.1:8088/api/health
+curl -fsS http://127.0.0.1:8088/api/status
+journalctl -u pepew-pay.service -n 80 --no-pager
+```
+
+VM-A:
+
+```bash
+systemctl is-active pepew-light.service
+ss -lnt | grep -E '127\.0\.0\.1:(50001|8000|8088)'
+journalctl -u pepew-light.service -n 80 --no-pager
+```
+
+Acceptance requires no new SQLite, watcher, webhook, ElectrumX, Light API, or
+SSH-forwarding errors caused by J1.
+
+### 12.10 Negative access check
+
+From VM-B, the dedicated J1 key must **not** provide a shell:
+
+```bash
+ssh -T \
+  -i /home/ubuntu/.ssh/pepew-pay-offhost-ed25519 \
+  -o BatchMode=yes \
+  -o IdentitiesOnly=yes \
+  ubuntu@<VM_A_SSH_HOST_OR_IP> 'id'
+```
+
+Because VM-A forces the receiver, this must not execute `id`. A nonzero result
+or receiver protocol failure is acceptable; shell output containing UID/GID is
+a failure.
+
+Do not test port forwarding against a production private endpoint. The
+authorized-key restriction itself must be inspected and recorded instead.
+
+### 12.11 J1d pass evidence
+
+Record only non-secret evidence:
+
+```text
+VM-A SHA
+VM-B SHA
+Python versions
+H2 oneshot PASS
+source restore drill PASS
+off-host copy PASS
+destination restore drill PASS
+source/destination filename
+size_bytes
+sha256
+destination modes/owner
+VM-B service/tunnel/health PASS
+VM-A Light/private-listener health PASS
+dedicated key shell check PASS
+timer installed/enabled: NO
+```
+
+Do not record:
+
+- private key material;
+- merchant API/webhook secrets;
+- wallet mnemonic/private key;
+- payment row contents;
+- addresses, payment IDs, txids, merchant references.
+
+### 12.12 J1d rollback
+
+If J1d fails:
+
+1. keep the valid local H2 backup;
+2. do not modify the authoritative VM-B SQLite database;
+3. remove only a partial J1 destination staging directory if the receiver did
+   not already clean it;
+4. remove/disable only the dedicated J1 authorized-key entry if necessary;
+5. preserve any already verified complete off-host pair as recovery evidence;
+6. do not change Payment Platform feature gates;
+7. do not install a timer.
+
+## 13. Rollback
 
 J1 adds no payment authority.
 
