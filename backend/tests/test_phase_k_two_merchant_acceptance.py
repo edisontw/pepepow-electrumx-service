@@ -141,3 +141,77 @@ def test_two_merchant_acceptance_detects_cross_owner_delivery(tmp_path):
         match="merchant ownership consistency check failed",
     ):
         acceptance.verify_global_ownership(path)
+
+
+
+def test_payment_created_recipient_count_matches_runtime_filtering(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    merchants = MerchantStore(str(path))
+    merchant_a = merchants.create_merchant(
+        merchant_id="mrc_accept_a",
+        display_name="Acceptance A",
+        now=100,
+    )
+    merchant_b = merchants.create_merchant(
+        merchant_id="mrc_accept_b",
+        display_name="Acceptance B",
+        now=100,
+    )
+    other = merchants.create_merchant(
+        merchant_id="mrc_accept_other",
+        display_name="Other",
+        now=100,
+    )
+    store = PaymentStore(str(path))
+
+    store.create_webhook_endpoint(
+        endpoint_id="wh_a_all",
+        merchant_id=merchant_a["merchant_id"],
+        url="https://a.example/all",
+        event_types=None,
+        created_at=100,
+    )
+    store.create_webhook_endpoint(
+        endpoint_id="wh_a_created",
+        merchant_id=merchant_a["merchant_id"],
+        url="https://a.example/created",
+        event_types=("payment.created",),
+        created_at=101,
+    )
+    store.create_webhook_endpoint(
+        endpoint_id="wh_b_confirmed",
+        merchant_id=merchant_b["merchant_id"],
+        url="https://b.example/confirmed",
+        event_types=("payment.paid_confirmed",),
+        created_at=102,
+    )
+    store.create_webhook_endpoint(
+        endpoint_id="wh_other_all",
+        merchant_id=other["merchant_id"],
+        url="https://other.example/all",
+        event_types=None,
+        created_at=103,
+    )
+    store.disable_webhook_endpoint(
+        "wh_a_created",
+        merchant_id=merchant_a["merchant_id"],
+        updated_at=104,
+    )
+
+    assert acceptance.payment_created_recipient_count(
+        path,
+        merchant_ids={
+            merchant_a["merchant_id"],
+            merchant_b["merchant_id"],
+        },
+    ) == 1
+
+    assert acceptance.payment_created_recipient_count(
+        path,
+        merchant_ids={merchant_b["merchant_id"]},
+    ) == 0
+
+    assert acceptance.payment_created_recipient_count(
+        path,
+        merchant_ids={other["merchant_id"]},
+    ) == 1
