@@ -1,6 +1,6 @@
 # PEPEW Payment Platform Roadmap
 
-Last updated: 2026-10-01
+Last updated: 2026-10-02
 
 This document is the canonical cross-repository roadmap for the PEPEW Payment Platform. GitHub `main` remains the source of truth for implementation state. Update this file when architecture, phase status, API boundaries, deployment assumptions, or major decisions change.
 
@@ -632,7 +632,7 @@ Phase H exit criteria are satisfied for the planned H1-H4 baseline.
 
 ### Phase I — Merchant Developer Onboarding / Distribution
 
-Status: **IN PROGRESS — I5 integrations complete; I1 first public SDK release/install verification remains**
+Status: **CLOSED — all Phase I distribution, onboarding, testing, and platform-integration exit criteria satisfied 2026-10-02**
 
 Primary repository: `edisontw/pepepow-devkit`
 
@@ -656,8 +656,8 @@ Development sequence:
 - [x] Make `@pepepow/pepew-js` and `@pepepow/pepewpay-merchant` public-release-ready while keeping registry publication an explicit release action
 - [x] Keep package tarballs allowlisted to built output plus package metadata/README/LICENSE; do not ship source/test trees by accident
 - [x] Add a first-release runbook plus a tokenless GitHub Actions OIDC workflow for subsequent trusted-publishing releases (`pepepow-devkit` commit `87dd9199ebc79be156c27d0fab3df4967d762346`)
-- [ ] Confirm npm `@pepepow` organization/scope ownership and interactive first-publish access with account 2FA
-- [ ] Publish the first tagged public SDK releases and verify clean registry installation/import
+- [x] Confirm npm `@pepepow` organization/scope ownership and interactive first-publish access with account 2FA
+- [x] Publish the first tagged public SDK releases and verify clean registry installation/import (`@pepepow/pepew-js@0.1.0` and `@pepepow/pepewpay-merchant@0.1.0`, release tags from DevKit commit `87dd9199ebc79be156c27d0fab3df4967d762346`; clean registry import smoke PASS 2026-10-02)
 
 Release policy:
 
@@ -1003,19 +1003,20 @@ I5.6 is therefore closed. These cleanup actions did not change the accepted adap
 
 Phase I exit criteria:
 
-- [ ] a new merchant developer can reach a working integration from current docs and released packages without reading backend source — **blocked on I1 first public npm release + clean registry install/import verification**
+- [x] a new merchant developer can reach a working integration from current docs and released packages without reading backend source — first public SDK packages released and clean registry install/import verified 2026-10-02
 - [x] the reference sample survives restart/retry/webhook-duplicate/reorg-state scenarios correctly
 - [x] production integration guidance keeps all merchant secrets server-side and exposes only intended payment capabilities to browsers
 - [x] at least the first real platform adapter can be built on the generic integration contract without changing authoritative payment semantics
 
-Phase I closure audit (2026-10-01):
+Phase I closure audit (2026-10-02):
 
 - I5.4 WooCommerce: functional/paid E2E complete; DevKit stale acceptance docs corrected
 - I5.5 Telegram: complete, including terminal `paid` and temporary webhook cleanup evidence
 - I5.6 Discord: complete through `paid_confirmed` + same-message update, with separate temporary runtime/infrastructure cleanup audit PASS
+- I1 SDK distribution: npm `@pepepow` scope ownership confirmed; `@pepepow/pepew-js@0.1.0` and `@pepepow/pepewpay-merchant@0.1.0` published from exact Git tags; clean public-registry install/import smoke PASS
 - current post-audit `main` CI remains required to stay green
 - security architecture remains non-custodial and transaction-level: wallet signing stays client-side, Payment Platform remains authoritative, and ElectrumX remains private
-- **Phase I is not closed yet. The sole remaining blocker is I1: first public SDK release plus clean registry install/import verification. Do not start a new Payment Platform phase before I1 closes.**
+- **Phase I is CLOSED. All Phase I exit criteria are satisfied. Future npm releases should use the prepared trusted-publishing/OIDC workflow after npm Trusted Publisher configuration; that hardening is not a Phase I blocker.**
 
 ## 11. Testing policy
 
