@@ -25,9 +25,7 @@ Phase K multi-merchant credential isolation
   -> migration + production acceptance
 ```
 
-Phases 0/A-J are complete. Phase K is deliberately backend-first; merchant
-dashboard/self-service account UI remains deferred until the ownership and
-credential model is production-validated.
+Phases 0/A-J and Phase K K0-K4 are complete. K5 repository tooling is ready and VM-B production acceptance is next; merchant dashboard/self-service account UI remains deferred until the ownership and credential model is production-validated.
 
 See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
 
@@ -261,7 +259,7 @@ This path uses SQLite and the transaction-level invariants in [docs/PAYMENT_STAT
 
 Merchant create requests may include an `Idempotency-Key`. Same-key/same-request retries return the original payment without creating a duplicate invoice/event; same-key/different-request reuse returns HTTP 409.
 
-They may also include an optional unique `merchant_reference` such as an order ID. This is merchant business identity, not a replacement for `Idempotency-Key`; duplicate references return HTTP 409. Authenticated merchant listing can recover by exact reference while the public capability-status response does not expose it.
+They may also include an optional merchant-scoped unique `merchant_reference` such as an order ID. This is merchant business identity, not a replacement for `Idempotency-Key`; duplicate references conflict only within the same authenticated merchant namespace. Authenticated merchant listing can recover by exact reference while the public capability-status response does not expose it.
 
 Authenticated merchant backends can recover persisted payments through bounded `GET /api/v1/payments` listing with optional status/reference filtering and stable cursor pagination. This route is SQLite-only and can return merchant recovery metadata; anonymous payment enumeration is not allowed. See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md).
 
@@ -280,6 +278,8 @@ Authoritative production SQLite state on VM-B is:
 VM-B enables Payment API/watcher/webhook explicitly. VM-A remains Light-only with all authoritative Payment Platform writer gates disabled.
 
 See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the create, idempotency, merchant recovery, and public capability-status contracts.
+
+Phase K adds explicit merchant ownership and scoped/revocable database credentials while preserving Bearer transport and public capability URLs. Production rollout is staged and remains pending K5; see [docs/PHASE_K_PRODUCTION_ACCEPTANCE.md](docs/PHASE_K_PRODUCTION_ACCEPTANCE.md).
 
 Phase G merchant-integration hardening is deployed and production-accepted on VM-B as of 2026-09-24. Deployment and the 10/10 acceptance contract are documented in [docs/PHASE_G_PRODUCTION_ACCEPTANCE.md](docs/PHASE_G_PRODUCTION_ACCEPTANCE.md). The runbook requires a pre-migration SQLite snapshot before restart; its acceptance helper validates the deployed schema/API boundaries and refuses to emit its test `payment.created` event while webhook endpoints are enabled unless the operator explicitly allows that delivery.
 
