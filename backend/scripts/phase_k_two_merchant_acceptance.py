@@ -145,16 +145,44 @@ def latest_payment_address(db_path: Path) -> str:
     return str(row["address"])
 
 
-def enabled_webhook_count(db_path: Path) -> int:
+def payment_created_recipient_count(
+    db_path: Path,
+    *,
+    merchant_ids: set[str],
+) -> int:
+    if not merchant_ids:
+        return 0
+
     connection = open_readonly(db_path)
     try:
-        return int(
-            connection.execute(
-                "SELECT COUNT(*) FROM webhook_endpoints WHERE enabled = 1"
-            ).fetchone()[0]
-        )
+        placeholders = ",".join("?" for _ in merchant_ids)
+        rows = connection.execute(
+            f"""
+            SELECT merchant_id, event_types_json
+            FROM webhook_endpoints
+            WHERE enabled = 1
+              AND merchant_id IN ({placeholders})
+            """,
+            tuple(sorted(merchant_ids)),
+        ).fetchall()
     finally:
         connection.close()
+
+    recipients = 0
+    for row in rows:
+        raw_types = row["event_types_json"]
+        if raw_types is None:
+            recipients += 1
+            continue
+        if not isinstance(raw_types, str):
+            continue
+        try:
+            event_types = json.loads(raw_types)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event_types, list) and "payment.created" in event_types:
+            recipients += 1
+    return recipients
 
 
 def verify_payment_event_owner(
@@ -358,24 +386,21 @@ def main() -> int:
         description=(
             "Run bounded two-merchant Phase K production isolation acceptance. "
             "Creates two unfunded one-atom payments using the same merchant "
-            "reference/idempotency key in independent merchant namespaces."
+            "reference/idempotency key in two temporary scoped merchant namespaces."
         )
     )
     parser.add_argument(
-        "--scoped-secret-file",
+        "--scoped-secret-file-a",
         required=True,
-        help="Mode-0600 file containing the operator-issued scoped credential.",
+        help="Mode-0600 file containing temporary scoped credential A.",
+    )
+    parser.add_argument(
+        "--scoped-secret-file-b",
+        required=True,
+        help="Mode-0600 file containing temporary scoped credential B.",
     )
     parser.add_argument("--api-base", default=DEFAULT_API_BASE)
     parser.add_argument("--env-file", default=str(ENV_PATH))
-    parser.add_argument(
-        "--allow-active-webhooks",
-        action="store_true",
-        help=(
-            "Allow acceptance payment.created events while webhook endpoints "
-            "are enabled. Default is to refuse."
-        ),
-    )
     args = parser.parse_args()
 
     try:
@@ -404,28 +429,47 @@ def main() -> int:
         require(bool(db_raw), "PAYMENT_DB_PATH is not configured")
         db_path = Path(str(db_raw)).expanduser()
 
-        scoped_token = load_secret(
-            Path(args.scoped_secret_file).expanduser()
+        scoped_token_a = load_secret(
+            Path(args.scoped_secret_file_a).expanduser()
         )
-        authenticated = MerchantStore(str(db_path)).authenticate_credential(
-            scoped_token
+        scoped_token_b = load_secret(
+            Path(args.scoped_secret_file_b).expanduser()
         )
         require(
-            authenticated is not None,
-            "scoped credential does not authenticate against SQLite",
-        )
-        assert authenticated is not None
-        scoped_merchant_id = authenticated["merchant_id"]
-        require(
-            scoped_merchant_id != LEGACY_MERCHANT_ID,
-            "scoped acceptance credential must belong to a second merchant",
+            scoped_token_a != scoped_token_b,
+            "acceptance credentials must be distinct",
         )
 
-        active_webhooks = enabled_webhook_count(db_path)
-        if active_webhooks and not args.allow_active_webhooks:
-            raise AcceptanceError(
-                "enabled webhook endpoints exist; refusing to emit test events"
-            )
+        store = MerchantStore(str(db_path))
+        authenticated_a = store.authenticate_credential(scoped_token_a)
+        authenticated_b = store.authenticate_credential(scoped_token_b)
+        require(
+            authenticated_a is not None and authenticated_b is not None,
+            "both scoped credentials must authenticate against SQLite",
+        )
+        assert authenticated_a is not None
+        assert authenticated_b is not None
+        merchant_id_a = authenticated_a["merchant_id"]
+        merchant_id_b = authenticated_b["merchant_id"]
+        require(
+            merchant_id_a != LEGACY_MERCHANT_ID
+            and merchant_id_b != LEGACY_MERCHANT_ID,
+            "acceptance credentials must belong to non-legacy merchants",
+        )
+        require(
+            merchant_id_a != merchant_id_b,
+            "acceptance credentials must belong to two merchants",
+        )
+
+        recipients = payment_created_recipient_count(
+            db_path,
+            merchant_ids={merchant_id_a, merchant_id_b},
+        )
+        require(
+            recipients == 0,
+            "acceptance merchants have enabled webhook endpoints that would "
+            "receive payment.created",
+        )
 
         verify_global_ownership(db_path)
         payment_address = latest_payment_address(db_path)
@@ -457,55 +501,53 @@ def main() -> int:
         merchant_reference = f"phase-k-acceptance/{suffix}"
         idempotency_key = f"phase-k-acceptance:{suffix}"
 
-        legacy_auth = {
-            "Authorization": f"Bearer {legacy_key}",
+        auth_a = {
+            "Authorization": f"Bearer {scoped_token_a}",
         }
-        scoped_auth = {
-            "Authorization": f"Bearer {scoped_token}",
+        auth_b = {
+            "Authorization": f"Bearer {scoped_token_b}",
         }
 
-        legacy_payment_id = one_reference_payment(
+        payment_id_a = one_reference_payment(
             api_base,
-            auth=legacy_auth,
+            auth=auth_a,
             payment_address=payment_address,
             merchant_reference=merchant_reference,
             idempotency_key=idempotency_key,
         )
         time.sleep(REQUEST_DELAY_SECONDS)
-        scoped_payment_id = one_reference_payment(
+        payment_id_b = one_reference_payment(
             api_base,
-            auth=scoped_auth,
+            auth=auth_b,
             payment_address=payment_address,
             merchant_reference=merchant_reference,
             idempotency_key=idempotency_key,
         )
         require(
-            legacy_payment_id != scoped_payment_id,
+            payment_id_a != payment_id_b,
             "two merchants unexpectedly received the same payment identity",
         )
 
-        legacy_rows = recover_exact(
+        rows_a = recover_exact(
             api_base,
-            auth=legacy_auth,
+            auth=auth_a,
             merchant_reference=merchant_reference,
         )
-        scoped_rows = recover_exact(
+        rows_b = recover_exact(
             api_base,
-            auth=scoped_auth,
+            auth=auth_b,
             merchant_reference=merchant_reference,
         )
         require(
-            [row.get("payment_id") for row in legacy_rows]
-            == [legacy_payment_id],
-            "legacy merchant recovery crossed merchant boundary",
+            [row.get("payment_id") for row in rows_a] == [payment_id_a],
+            "merchant A recovery crossed merchant boundary",
         )
         require(
-            [row.get("payment_id") for row in scoped_rows]
-            == [scoped_payment_id],
-            "scoped merchant recovery crossed merchant boundary",
+            [row.get("payment_id") for row in rows_b] == [payment_id_b],
+            "merchant B recovery crossed merchant boundary",
         )
 
-        for payment_id in (legacy_payment_id, scoped_payment_id):
+        for payment_id in (payment_id_a, payment_id_b):
             quoted = urllib.parse.quote(payment_id, safe="")
             status, public, _ = json_request(
                 "GET",
@@ -526,29 +568,29 @@ def main() -> int:
                     f"public capability exposed {private_field}",
                 )
 
-        legacy_endpoints = endpoint_ids(api_base, auth=legacy_auth)
-        scoped_endpoints = endpoint_ids(api_base, auth=scoped_auth)
+        endpoints_a = endpoint_ids(api_base, auth=auth_a)
+        endpoints_b = endpoint_ids(api_base, auth=auth_b)
         require(
-            legacy_endpoints.isdisjoint(scoped_endpoints),
+            endpoints_a.isdisjoint(endpoints_b),
             "webhook endpoint listing crossed merchant boundary",
         )
 
-        legacy_deliveries = delivery_ids(api_base, auth=legacy_auth)
-        scoped_deliveries = delivery_ids(api_base, auth=scoped_auth)
+        deliveries_a = delivery_ids(api_base, auth=auth_a)
+        deliveries_b = delivery_ids(api_base, auth=auth_b)
         require(
-            legacy_deliveries.isdisjoint(scoped_deliveries),
+            deliveries_a.isdisjoint(deliveries_b),
             "webhook delivery listing crossed merchant boundary",
         )
 
         verify_payment_event_owner(
             db_path,
-            payment_id=legacy_payment_id,
-            merchant_id=LEGACY_MERCHANT_ID,
+            payment_id=payment_id_a,
+            merchant_id=merchant_id_a,
         )
         verify_payment_event_owner(
             db_path,
-            payment_id=scoped_payment_id,
-            merchant_id=scoped_merchant_id,
+            payment_id=payment_id_b,
+            merchant_id=merchant_id_b,
         )
         verify_global_ownership(db_path)
     except Exception as exc:
@@ -559,6 +601,7 @@ def main() -> int:
         return 1
 
     print("pay_health=pass")
+    print("acceptance_payment_created_webhook_recipients=0")
     print("electrumx_status=connected")
     print("same_reference_across_merchants=pass")
     print("same_idempotency_key_across_merchants=pass")
