@@ -88,11 +88,13 @@ def _insert_event(
     cursor = connection.execute(
         """
         INSERT OR IGNORE INTO events (
-            event_id, payment_id, event_type, payment_version, created_at, payload_json
-        ) VALUES (?, ?, ?, ?, ?, ?)
+            event_id, merchant_id, payment_id, event_type,
+            payment_version, created_at, payload_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             event_id,
+            str(payment["merchant_id"]),
             str(payment["payment_id"]),
             event_type,
             int(payment["version"]),
@@ -106,9 +108,10 @@ def _insert_event(
             """
             SELECT endpoint_id, event_types_json
             FROM webhook_endpoints
-            WHERE enabled = 1
+            WHERE enabled = 1 AND merchant_id = ?
             ORDER BY endpoint_id
-            """
+            """,
+            (str(payment["merchant_id"]),),
         ).fetchall()
         for endpoint in endpoints:
             raw_types = endpoint["event_types_json"]
@@ -232,6 +235,7 @@ class PaymentStore:
 
                     CREATE TABLE IF NOT EXISTS events (
                         event_id TEXT PRIMARY KEY,
+                        merchant_id TEXT NOT NULL DEFAULT 'mrc_legacy_v1',
                         payment_id TEXT NOT NULL,
                         event_type TEXT NOT NULL,
                         payment_version INTEGER NOT NULL,
@@ -243,6 +247,7 @@ class PaymentStore:
 
                     CREATE TABLE IF NOT EXISTS webhook_endpoints (
                         endpoint_id TEXT PRIMARY KEY,
+                        merchant_id TEXT NOT NULL DEFAULT 'mrc_legacy_v1',
                         url TEXT NOT NULL,
                         event_types_json TEXT,
                         enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
@@ -357,6 +362,64 @@ class PaymentStore:
                     """
                     CREATE INDEX IF NOT EXISTS idx_payments_merchant_created
                     ON payments (merchant_id, created_at DESC, payment_id DESC)
+                    """
+                )
+
+                event_columns = {
+                    str(row["name"])
+                    for row in connection.execute("PRAGMA table_info(events)").fetchall()
+                }
+                if "merchant_id" not in event_columns:
+                    connection.execute(
+                        "ALTER TABLE events "
+                        "ADD COLUMN merchant_id TEXT NOT NULL DEFAULT 'mrc_legacy_v1'"
+                    )
+                connection.execute(
+                    """
+                    UPDATE events
+                    SET merchant_id = COALESCE(
+                        (
+                            SELECT p.merchant_id
+                            FROM payments AS p
+                            WHERE p.payment_id = events.payment_id
+                        ),
+                        ?
+                    )
+                    """,
+                    (LEGACY_MERCHANT_ID,),
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_events_merchant_created
+                    ON events (merchant_id, created_at, event_id)
+                    """
+                )
+
+                endpoint_columns = {
+                    str(row["name"])
+                    for row in connection.execute(
+                        "PRAGMA table_info(webhook_endpoints)"
+                    ).fetchall()
+                }
+                if "merchant_id" not in endpoint_columns:
+                    connection.execute(
+                        "ALTER TABLE webhook_endpoints "
+                        "ADD COLUMN merchant_id TEXT NOT NULL DEFAULT 'mrc_legacy_v1'"
+                    )
+                connection.execute(
+                    """
+                    UPDATE webhook_endpoints
+                    SET merchant_id = ?
+                    WHERE merchant_id IS NULL OR merchant_id = ''
+                    """,
+                    (LEGACY_MERCHANT_ID,),
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_webhook_endpoints_merchant_enabled
+                    ON webhook_endpoints (
+                        merchant_id, enabled, created_at, endpoint_id
+                    )
                     """
                 )
             self._initialized = True
@@ -659,6 +722,7 @@ class PaymentStore:
         url: str,
         event_types: tuple[str, ...] | None,
         created_at: int,
+        merchant_id: str = LEGACY_MERCHANT_ID,
     ) -> dict[str, Any]:
         self.initialize()
         event_types_json = (
@@ -670,29 +734,39 @@ class PaymentStore:
             connection.execute(
                 """
                 INSERT INTO webhook_endpoints (
-                    endpoint_id, url, event_types_json, enabled, created_at, updated_at
-                ) VALUES (?, ?, ?, 1, ?, ?)
+                    endpoint_id, merchant_id, url, event_types_json,
+                    enabled, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, 1, ?, ?)
                 """,
                 (
                     endpoint_id,
+                    merchant_id,
                     url,
                     event_types_json,
                     int(created_at),
                     int(created_at),
                 ),
             )
-        return self.get_webhook_endpoint(endpoint_id)
+        return self.get_webhook_endpoint(
+            endpoint_id,
+            merchant_id=merchant_id,
+        )
 
-    def get_webhook_endpoint(self, endpoint_id: str) -> dict[str, Any]:
+    def get_webhook_endpoint(
+        self,
+        endpoint_id: str,
+        *,
+        merchant_id: str = LEGACY_MERCHANT_ID,
+    ) -> dict[str, Any]:
         self.initialize()
         with self._connect() as connection:
             row = connection.execute(
                 """
                 SELECT endpoint_id, url, event_types_json, enabled, created_at, updated_at
                 FROM webhook_endpoints
-                WHERE endpoint_id = ?
+                WHERE endpoint_id = ? AND merchant_id = ?
                 """,
-                (endpoint_id,),
+                (endpoint_id, merchant_id),
             ).fetchone()
         if row is None:
             raise PaymentNotFoundError(endpoint_id)
@@ -702,15 +776,21 @@ class PaymentStore:
         item["enabled"] = bool(item["enabled"])
         return item
 
-    def list_webhook_endpoints(self) -> list[dict[str, Any]]:
+    def list_webhook_endpoints(
+        self,
+        *,
+        merchant_id: str = LEGACY_MERCHANT_ID,
+    ) -> list[dict[str, Any]]:
         self.initialize()
         with self._connect() as connection:
             rows = connection.execute(
                 """
                 SELECT endpoint_id, url, event_types_json, enabled, created_at, updated_at
                 FROM webhook_endpoints
+                WHERE merchant_id = ?
                 ORDER BY created_at ASC, endpoint_id ASC
-                """
+                """,
+                (merchant_id,),
             ).fetchall()
         endpoints: list[dict[str, Any]] = []
         for row in rows:
@@ -721,16 +801,22 @@ class PaymentStore:
             endpoints.append(item)
         return endpoints
 
-    def disable_webhook_endpoint(self, endpoint_id: str, *, updated_at: int) -> None:
+    def disable_webhook_endpoint(
+        self,
+        endpoint_id: str,
+        *,
+        updated_at: int,
+        merchant_id: str = LEGACY_MERCHANT_ID,
+    ) -> None:
         self.initialize()
         with self._connect() as connection:
             cursor = connection.execute(
                 """
                 UPDATE webhook_endpoints
                 SET enabled = 0, updated_at = ?
-                WHERE endpoint_id = ?
+                WHERE endpoint_id = ? AND merchant_id = ?
                 """,
-                (int(updated_at), endpoint_id),
+                (int(updated_at), endpoint_id, merchant_id),
             )
         if cursor.rowcount == 0:
             raise PaymentNotFoundError(endpoint_id)
@@ -786,16 +872,18 @@ class PaymentStore:
     def list_webhook_deliveries(
         self,
         *,
+        merchant_id: str = LEGACY_MERCHANT_ID,
         endpoint_id: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         self.initialize()
         bounded_limit = min(500, max(1, int(limit)))
-        params: list[Any] = []
-        where = ""
+        params: list[Any] = [merchant_id]
+        where_parts = ["w.merchant_id = ?"]
         if endpoint_id is not None:
-            where = "WHERE d.endpoint_id = ?"
+            where_parts.append("d.endpoint_id = ?")
             params.append(endpoint_id)
+        where = "WHERE " + " AND ".join(where_parts)
         params.append(bounded_limit)
 
         with self._connect() as connection:
@@ -819,6 +907,7 @@ class PaymentStore:
                     e.payment_version
                 FROM webhook_deliveries AS d
                 JOIN events AS e ON e.event_id = d.event_id
+                JOIN webhook_endpoints AS w ON w.endpoint_id = d.endpoint_id
                 {where}
                 ORDER BY d.created_at DESC, d.delivery_id DESC
                 LIMIT ?
