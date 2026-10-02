@@ -1,6 +1,6 @@
 # PEPEW Payment Webhooks
 
-Status: **Phase E complete — production E2E verified 2026-09-22**
+Status: **Phase E production E2E verified; Phase K merchant ownership implemented in main, production K5 acceptance pending**
 
 PEPEW Payment Webhooks deliver durable Payment Event Envelope v1 records to merchant HTTPS endpoints.
 
@@ -27,13 +27,13 @@ Store the value only in protected server configuration. Do not commit it.
 
 ## Endpoint management
 
-All webhook management routes use the same merchant server-side Bearer authorization as persisted payment creation.
+All webhook management routes use the same merchant Bearer identity as persisted payment creation. Endpoint create/list/disable and delivery-log reads are restricted to the authenticated merchant.
 
 ### Create endpoint
 
 ```http
 POST /api/v1/webhook-endpoints
-Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+Authorization: Bearer <merchant-bearer-credential>
 Content-Type: application/json
 ```
 
@@ -59,14 +59,14 @@ The signing secret is returned on creation only. It is not stored in plaintext i
 
 ```http
 GET /api/v1/webhook-endpoints
-Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+Authorization: Bearer <merchant-bearer-credential>
 ```
 
 ### Disable endpoint
 
 ```http
 DELETE /api/v1/webhook-endpoints/{endpoint_id}
-Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+Authorization: Bearer <merchant-bearer-credential>
 ```
 
 Deletion is a logical disable for delivery selection.
@@ -75,7 +75,7 @@ Deletion is a logical disable for delivery selection.
 
 ```http
 GET /api/v1/webhook-deliveries
-Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+Authorization: Bearer <merchant-bearer-credential>
 ```
 
 Optional query parameters:
@@ -134,7 +134,7 @@ Do not rotate the master key silently while old endpoints remain active.
 
 ## Event delivery
 
-When a Payment Event Envelope is first inserted, the same SQLite transaction creates one delivery row for each currently enabled endpoint whose event filter matches.
+When a Payment Event Envelope is first inserted, the same SQLite transaction creates one delivery row only for currently enabled endpoints owned by the same merchant whose event filter matches.
 
 The unique logical delivery key is:
 
@@ -379,3 +379,19 @@ Verified on 2026-09-22:
 - no merchant API key, webhook master key, or signing secret was printed by the helper
 
 Future deployments should rerun the same production E2E after changing the webhook master key, network path, host, or worker runtime.
+
+## Phase K merchant ownership
+
+Repository main assigns merchant_id ownership to events and webhook endpoints. Historical Payment Event Envelope JSON is not rewritten solely to add merchant ownership; the authorization boundary is internal SQLite metadata.
+
+Required invariants:
+
+- an event owner matches its payment owner;
+- a delivery may connect only an event and endpoint with the same merchant owner;
+- endpoint list/disable is scoped to the authenticated merchant;
+- delivery-log reads are scoped to the authenticated merchant;
+- endpoint IDs remain unchanged during migration, so derived signing secrets remain stable.
+
+The webhook worker remains one bounded global worker; Phase K does not create one queue/worker per merchant.
+
+Database-backed scoped merchant credentials remain behind PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED until [PHASE_K_PRODUCTION_ACCEPTANCE.md](PHASE_K_PRODUCTION_ACCEPTANCE.md) passes. The existing webhook master key is not rotated as part of the ownership migration.
