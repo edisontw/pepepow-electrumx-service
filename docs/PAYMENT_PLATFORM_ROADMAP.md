@@ -1040,7 +1040,7 @@ Initial design constraints:
 
 - [ ] copy only a completed H2 backup + sidecar manifest after the local backup and restore drill have passed; never copy the live SQLite database directly
 - [ ] keep the transfer passive and bounded (for example a scheduled one-shot transfer); do not introduce a continuously running backup daemon
-- [ ] choose an off-host destination deliberately and document its trust/failure-domain assumptions before deployment
+- [x] choose the first off-host destination deliberately: VM-A is the initial second-copy target, using a dedicated receive-only SSH credential and directory; do not reuse the ElectrumX tunnel key and do not use edison2 as production backup storage ([PHASE_J1_OFFHOST_BACKUP.md](PHASE_J1_OFFHOST_BACKUP.md))
 - [ ] preserve restrictive permissions and avoid exposing payment data, merchant metadata, filesystem paths, or credentials in logs
 - [ ] verify destination SHA-256/size/manifest against the source before treating the second copy as valid
 - [ ] make transfer failure non-authoritative: it must not stop the Payment Platform or invalidate a successful local H2 backup
@@ -1053,7 +1053,7 @@ Initial design constraints:
 Preferred implementation order:
 
 ```text
-J1a  destination/trust-boundary decision + runbook
+J1a  destination/trust-boundary decision + runbook (COMPLETE 2026-10-02)
   -> J1b one-shot copy + verification tooling
   -> J1c retention + failure-isolation tests
   -> J1d production acceptance
