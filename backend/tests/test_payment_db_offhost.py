@@ -61,6 +61,81 @@ def create_pair(directory: Path, stamp: str) -> tuple[Path, Path]:
     return database, manifest
 
 
+def create_phase_k_database(path: Path) -> None:
+    with sqlite3.connect(path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE merchants (
+                merchant_id TEXT PRIMARY KEY,
+                enabled INTEGER NOT NULL
+            );
+            CREATE TABLE merchant_credentials (
+                credential_id TEXT PRIMARY KEY,
+                merchant_id TEXT NOT NULL,
+                token_hash TEXT NOT NULL,
+                enabled INTEGER NOT NULL
+            );
+            CREATE TABLE payments (
+                payment_id TEXT PRIMARY KEY,
+                merchant_id TEXT NOT NULL
+            );
+            CREATE TABLE payment_transactions (payment_id TEXT NOT NULL);
+            CREATE TABLE payment_idempotency_keys (
+                merchant_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                payment_id TEXT NOT NULL UNIQUE,
+                PRIMARY KEY (merchant_id, idempotency_key)
+            );
+            CREATE TABLE events (
+                event_id TEXT PRIMARY KEY,
+                merchant_id TEXT NOT NULL,
+                payment_id TEXT NOT NULL
+            );
+            CREATE TABLE webhook_endpoints (
+                endpoint_id TEXT PRIMARY KEY,
+                merchant_id TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE webhook_deliveries (
+                delivery_id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                endpoint_id TEXT NOT NULL
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO merchants(merchant_id, enabled) VALUES ('mrc_a', 1)"
+        )
+        connection.execute(
+            "INSERT INTO payments(payment_id, merchant_id) VALUES ('p1', 'mrc_a')"
+        )
+        connection.execute(
+            """
+            INSERT INTO payment_idempotency_keys(
+                merchant_id, idempotency_key, payment_id
+            ) VALUES ('mrc_a', 'retry-1', 'p1')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO events(event_id, merchant_id, payment_id)
+            VALUES ('e1', 'mrc_a', 'p1')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO webhook_endpoints(endpoint_id, merchant_id, enabled)
+            VALUES ('w1', 'mrc_a', 1)
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO webhook_deliveries(delivery_id, event_id, endpoint_id)
+            VALUES ('d1', 'e1', 'w1')
+            """
+        )
+
+
 def test_select_latest_complete_pair_ignores_manual_orphans(tmp_path):
     first_db, first_manifest = create_pair(tmp_path, "20261001T010000Z")
     latest_db, latest_manifest = create_pair(tmp_path, "20261002T010000Z")
@@ -309,3 +384,31 @@ def test_retention_rejects_invalid_keep_without_deleting(tmp_path):
 
     assert database.exists()
     assert manifest.exists()
+
+
+
+def test_phase_k_profile_survives_offhost_round_trip(tmp_path):
+    source_dir = tmp_path / "source-k"
+    source_dir.mkdir()
+    source = source_dir / "source-phase-k.sqlite3"
+    create_phase_k_database(source)
+
+    database = source_dir / "payment-auto-20261003T000000Z.sqlite3"
+    manifest = Path(str(database) + ".manifest.json")
+    metadata = backup.create_backup(source, database, manifest)
+    assert metadata["schema_profile"] == "phase_k_merchant_v1"
+
+    payload = io.BytesIO()
+    sender.write_transfer_stream(database, manifest, payload)
+    payload.seek(0)
+
+    destination = tmp_path / "destination-k"
+    received, removed = receiver.receive_stream(payload, destination)
+
+    assert removed == []
+    assert received["schema_profile"] == "phase_k_merchant_v1"
+    copied_database = destination / database.name
+    copied_manifest = destination / manifest.name
+    summary = restore.run_restore_drill(copied_database, copied_manifest)
+    assert summary["schema_profile"] == "phase_k_merchant_v1"
+    assert set(summary["merchant_ownership_checks"].values()) == {0}
