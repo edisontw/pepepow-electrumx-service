@@ -1,6 +1,6 @@
 # Payment API v1
 
-Status: **production; Phase G merchant-integration hardening in progress**
+Status: **production contract; Phase K merchant-scoped implementation complete in main, production acceptance pending**
 
 This API is the persisted transaction-level payment path. It is separate from the legacy stateless `GET /api/payment/check` address monitor.
 
@@ -14,11 +14,11 @@ and remains disabled by default until deployment configuration and end-to-end te
 
 ## Create payment
 
-Payment creation is a merchant server-to-server action and requires the configured Bearer key:
+Payment creation is a merchant server-to-server action and requires a valid merchant Bearer credential:
 
 ```http
 POST /api/v1/payments
-Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+Authorization: Bearer <merchant-bearer-credential>
 Idempotency-Key: <merchant retry key>   # optional but recommended
 Content-Type: application/json
 ```
@@ -45,7 +45,7 @@ A payment is not created if the chain-tip/history snapshot cannot be established
 
 ### Idempotent creation retries
 
-Merchant integrations should send an `Idempotency-Key` on payment creation. The key is scoped to the current single-merchant API credential boundary and is persisted in SQLite.
+Merchant integrations should send an `Idempotency-Key` on payment creation. The key is persisted in SQLite and scoped to the authenticated merchant namespace.
 
 Accepted keys are 1-128 characters using ASCII letters, digits, `.`, `_`, `:`, or `-`.
 
@@ -66,7 +66,7 @@ The request hash follows the merchant-supplied create parameters. Omitted defaul
 
 Current v1 semantics:
 
-- it is scoped to the current single-merchant credential namespace and is unique across all non-null payment records
+- it is unique within the authenticated merchant namespace; a different merchant may reuse the same reference independently
 - accepted values are 1-128 characters using ASCII letters, digits, `.`, `_`, `:`, `/`, or `-`
 - it is immutable after payment creation; v1 has no API that rewrites it
 - duplicate reuse returns HTTP `409 payment_merchant_reference_conflict`, even if the new request otherwise matches the old payment
@@ -91,10 +91,10 @@ The authenticated merchant API can list persisted payments without turning publi
 
 ```http
 GET /api/v1/payments
-Authorization: Bearer <PAYMENT_CREATE_API_KEY>
+Authorization: Bearer <merchant-bearer-credential>
 ```
 
-This route uses the same current single-merchant server-side Bearer boundary as payment creation. It is intended for merchant backend recovery and operations, not customer browsers.
+This route uses the same merchant Bearer identity as payment creation. Results are restricted to the authenticated merchant and are intended for merchant backend recovery/operations, not customer browsers.
 
 Optional query parameters:
 
@@ -115,9 +115,9 @@ Properties:
 - no expensive total-count query is required
 - results are bounded to at most 100 records per request
 - each merchant result includes its stored `idempotency_key` when one was supplied at creation, which helps recover a timed-out create request
-- exact `merchant_reference` filtering uses the unique merchant-reference index and returns zero or one matching payment in the current single-merchant model
+- exact `merchant_reference` filtering uses the merchant-scoped unique index and returns zero or one matching payment for the authenticated merchant
 - the public capability endpoint `GET /api/v1/payments/{payment_id}` does not expose the idempotency key and remains unauthenticated
-- this is still a single-merchant credential model; scoped multi-merchant ownership is intentionally deferred until real requirements justify it
+- merchant ownership is explicit in SQLite; production database-backed scoped credentials remain gated by `PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED` until Phase K5 acceptance
 
 Example response shape:
 
@@ -177,13 +177,17 @@ Authoritative production path on VM-B:
 
 VM-B is the sole Payment Platform writer after the completed Phase F cutover. VM-A keeps Payment API/watcher/webhook feature gates disabled.
 
-Schema domains created now:
+Schema domains include:
 
 ```text
+merchants
+merchant_credentials
 payments
 payment_idempotency_keys
 payment_transactions
 events
+webhook_endpoints
+webhook_deliveries
 chain_state
 ```
 
@@ -193,13 +197,21 @@ SQLite uses WAL mode, foreign keys, a bounded busy timeout, and short transactio
 
 - payment IDs are generated from cryptographically secure random bytes
 - no mnemonic/private key/signing material is accepted
-- creation is feature-gated, authenticated, rate-limited at Nginx, supports durable idempotent retries, and enforces unique merchant references when supplied
+- creation is feature-gated, authenticated, rate-limited at Nginx, supports merchant-scoped durable idempotent retries, and enforces merchant-scoped unique references when supplied
 - request body size should remain small
 - public errors do not expose database paths or SQLite exception details
 - authoritative state remains transaction-output based, not current address balance
 
-Merchant authentication is defined in [PAYMENT_API_AUTH.md](PAYMENT_API_AUTH.md): payment creation and merchant payment listing require the server-side Bearer API key, while status GET uses the high-entropy payment ID as a read-only capability. Authenticated merchant operations fail closed if the configured key is missing or shorter than 32 characters.
+Merchant authentication is defined in [PAYMENT_API_AUTH.md](PAYMENT_API_AUTH.md): authenticated routes resolve a Bearer credential to a merchant context; the legacy environment key maps to `mrc_legacy_v1`, while database-backed scoped credentials remain behind the Phase K feature gate until production acceptance. Status GET continues to use the high-entropy payment ID as a read-only capability.
 
 Durable state-change events are defined in [PAYMENT_EVENTS.md](PAYMENT_EVENTS.md) and are persisted atomically with payment version updates.
 
 Browser clients should prefer the exact decimal-string amount fields rather than converting large JSON integer atom values through JavaScript `Number`.
+
+## Phase K merchant scoping
+
+Repository main now scopes payment creation, Idempotency-Key replay/conflict checks, merchant_reference uniqueness/recovery, and authenticated payment listing by merchant_id.
+
+The same Idempotency-Key and merchant_reference may therefore coexist for two independent merchants. Public GET /api/v1/payments/{payment_id} remains unchanged and does not expose merchant_id, credential_id, merchant_reference, or idempotency metadata.
+
+Production rollout is tracked in [PHASE_K_PRODUCTION_ACCEPTANCE.md](PHASE_K_PRODUCTION_ACCEPTANCE.md). Until K5 passes, PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED remains false and the existing PAYMENT_CREATE_API_KEY continues to resolve to the reserved legacy merchant.
