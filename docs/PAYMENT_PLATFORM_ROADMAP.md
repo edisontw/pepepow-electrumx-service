@@ -1022,7 +1022,7 @@ Phase I closure audit (2026-10-02):
 
 ### Phase J — Operational Resilience
 
-Status: **IN PROGRESS — J1a-J1c complete; J1d-A complete; J1d-B1 dedicated VM-B key complete; VM-A forced-key install pending**
+Status: **CLOSED — J1 off-host second copy and independent restore drill production-verified 2026-10-02**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1058,7 +1058,7 @@ J1a  destination/trust-boundary decision + runbook (COMPLETE 2026-10-02)
   -> J1c retention + failure-isolation tests (COMPLETE; 259 backend tests PASS)
   -> J1d-A VM-A receiver preparation (COMPLETE 2026-10-02)
   -> J1d-B1 VM-B dedicated J1 key + source-IP verification (COMPLETE 2026-10-02)
-  -> J1d-B2 VM-A forced receive-only public-key install (PENDING)
+  -> J1d-B2 VM-A forced receive-only public-key install (COMPLETE 2026-10-02)
   -> J1d-B3 fresh H2 backup + one-shot transfer + health acceptance (COMPLETE 2026-10-02)
   -> J1e off-host restore drill (COMPLETE 2026-10-02)
 ```
@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0 baseline/design complete; K1 implementation next**
+Status: **IN PROGRESS — K0/K1 complete; K2 payment ownership isolation next**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1109,7 +1109,7 @@ Development order:
 
 ```text
 K0 baseline/contract freeze (COMPLETE)
-  -> K1 merchant identity + credential storage
+  -> K1 merchant identity + credential storage (COMPLETE; 268 backend tests PASS)
   -> K2 payment ownership isolation
   -> K3 webhook ownership isolation
   -> K4 migration/recovery/operator hardening
@@ -1118,7 +1118,7 @@ K0 baseline/contract freeze (COMPLETE)
 ```
 
 
-Authoritative payment logic must be unit-testable without requiring the production ElectrumX instance.
+## 11. Testing policy\n\nAuthoritative payment logic must be unit-testable without requiring the production ElectrumX instance.
 
 Minimum coverage should include:
 

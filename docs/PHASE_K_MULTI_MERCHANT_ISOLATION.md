@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **PLANNED — K0 baseline/design complete; implementation not started**
+Status: **IN PROGRESS — K0/K1 complete; K2 payment ownership isolation next**
 
 Last updated: 2026-10-02
 
@@ -196,12 +196,26 @@ Status: **COMPLETE 2026-10-02**
 
 ### K1 — Merchant identity + credential storage
 
-- [ ] add merchant and credential schema
-- [ ] add one-time credential generation/operator helper
-- [ ] store only credential hash + bounded identifier metadata
-- [ ] return merchant auth context rather than a boolean-only auth check
-- [ ] keep legacy environment-key compatibility mapped to the reserved merchant
-- [ ] add credential enable/disable/rotation tests
+Status: **COMPLETE — 268 backend tests PASS on Python 3.10**
+
+- [x] add merchant and credential schema
+- [x] add one-time credential generation/operator helper; generated secret is written only to a newly created mode-0600 file
+- [x] store only credential hash + bounded identifier metadata
+- [x] return merchant auth context rather than a boolean-only auth check
+- [x] keep legacy environment-key compatibility mapped to the reserved merchant
+- [x] add credential enable/disable/rotation tests
+- [x] keep scoped database credential acceptance behind `PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED=false` until K2/K3 ownership isolation is complete
+
+K1 implementation notes:
+
+- reserved legacy merchant: `mrc_legacy_v1`
+- new credentials use a bounded identifier plus high-entropy secret
+- SQLite stores only SHA-256 of the complete high-entropy token, never the plaintext Bearer token
+- multiple active credentials per merchant are supported for safe rotation
+- disabled credentials no longer authenticate
+- operator helper does not print newly generated credentials; it writes the one-time secret to an explicit non-existing mode-0600 file
+- existing production Bearer key behavior remains compatible and resolves to the legacy merchant context
+- production must keep scoped DB auth disabled until payment and webhook ownership scoping are complete
 
 ### K2 — Payment ownership isolation
 
