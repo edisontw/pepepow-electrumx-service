@@ -331,6 +331,7 @@ def test_pre_k_database_migrates_losslessly_and_restart_safely(tmp_path):
                 "PRAGMA table_info(payment_idempotency_keys)"
             ).fetchall()
         }
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
 
     assert payment_owner == LEGACY_MERCHANT_ID
     assert idempotency_owner == LEGACY_MERCHANT_ID
@@ -344,6 +345,7 @@ def test_pre_k_database_migrates_losslessly_and_restart_safely(tmp_path):
     ]
     assert idempotency_pk["merchant_id"] == 1
     assert idempotency_pk["idempotency_key"] == 2
+    assert integrity == "ok"
 
     legacy = MerchantStore(str(path)).get_merchant(LEGACY_MERCHANT_ID)
     assert legacy["enabled"] is True
