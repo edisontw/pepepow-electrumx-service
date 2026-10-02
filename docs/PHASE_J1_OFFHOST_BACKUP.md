@@ -706,3 +706,13 @@ Rollback is therefore limited to disabling/removing the off-host transfer
 oneshot/timer and its dedicated credential after preserving any valid copies.
 
 Do not modify the authoritative VM-B database as part of J1 rollback.
+
+## Phase K ownership verification
+
+No J1 transfer-protocol change is required for Phase K.
+
+The H2 manifest/restore tooling now identifies phase_k_merchant_v1 and verifies merchant ownership consistency before the sender opens SSH and again on the VM-A receiver before promotion.
+
+A Phase K off-host copy therefore fails if payment/event/idempotency ownership is orphaned, an idempotency/event owner disagrees with its payment, or a delivery joins an event from one merchant to an endpoint owned by another merchant.
+
+Existing pre-K J1 recovery points remain restorable. No plaintext merchant credential is present in the database or transfer manifest.
