@@ -60,6 +60,36 @@ def write_secret_file(path: Path, token: str) -> None:
         raise
 
 
+def create_credential_to_file(
+    store: MerchantStore,
+    *,
+    merchant_id: str,
+    label: str | None,
+    secret_file: Path,
+    now: int,
+) -> dict:
+    metadata, token = store.create_credential(
+        merchant_id=merchant_id,
+        label=label,
+        now=now,
+    )
+    try:
+        write_secret_file(secret_file, token)
+    except Exception:
+        # Fail closed: never leave an active credential whose one-time secret
+        # could not be delivered to the operator.
+        try:
+            store.disable_credential(
+                metadata["credential_id"],
+                now=now,
+            )
+        finally:
+            token = ""
+        raise
+    token = ""
+    return metadata
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -98,12 +128,14 @@ def main() -> int:
             print(f"merchant_id={merchant['merchant_id']}")
             print("MERCHANT CREATE: PASS")
         elif args.command == "create-credential":
-            metadata, token = store.create_credential(
+            now = unix_now()
+            metadata = create_credential_to_file(
+                store,
                 merchant_id=args.merchant_id,
                 label=args.label,
-                now=unix_now(),
+                secret_file=Path(args.secret_file),
+                now=now,
             )
-            write_secret_file(Path(args.secret_file), token)
             print(f"merchant_id={metadata['merchant_id']}")
             print(f"credential_id={metadata['credential_id']}")
             print("secret_output=written_once")
