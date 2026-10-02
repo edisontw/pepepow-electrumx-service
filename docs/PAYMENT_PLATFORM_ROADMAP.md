@@ -1059,8 +1059,8 @@ J1a  destination/trust-boundary decision + runbook (COMPLETE 2026-10-02)
   -> J1d-A VM-A receiver preparation (COMPLETE 2026-10-02)
   -> J1d-B1 VM-B dedicated J1 key + source-IP verification (COMPLETE 2026-10-02)
   -> J1d-B2 VM-A forced receive-only public-key install (PENDING)
-  -> J1d-B3 fresh H2 backup + one-shot transfer + health acceptance (PENDING)
-  -> J1e off-host restore drill
+  -> J1d-B3 fresh H2 backup + one-shot transfer + health acceptance (COMPLETE 2026-10-02)
+  -> J1e off-host restore drill (PENDING)
 ```
 
 Exit criteria:

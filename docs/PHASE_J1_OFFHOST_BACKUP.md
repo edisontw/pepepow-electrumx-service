@@ -643,6 +643,32 @@ If J1d fails:
 6. do not change Payment Platform feature gates;
 7. do not install a timer.
 
+## 13. J1d-B3 production acceptance closeout
+
+J1d-B3 live one-shot production acceptance completed on 2026-10-02:
+
+- VM-B SHA: `21364083214fc3e93c3fcc2b33e73b1f18dfa3e3`
+- Python 3.10.12
+- Payment service remained active before/after
+- ElectrumX tunnel remained active before/after
+- watcher remained connected and healthy before/after
+- fresh H2 backup maintenance: PASS
+- fresh H2 local restore drill: PASS
+- off-host sender: PASS
+- receiver: PASS
+- copied recovery point: `payment-auto-20261002T145235Z.sqlite3`
+- size: 794624 bytes
+- SHA-256: `cdb1a386afecc14789efaa64cb2a5d6f36d2f5755ef2c28dbcfdb361e7cd0eab`
+- dedicated J1 key shell-negative test: PASS
+- Payment Platform post-transfer health: PASS
+- no new SQLite/watcher/webhook/tunnel errors
+- no J1 timer installed/enabled
+- no Payment Platform feature-gate change
+- no material discrepancies
+
+J1d is therefore complete. J1 remains open only for J1e: an independent
+non-destructive restore drill performed from the VM-A off-host copy.
+
 ## 13. Rollback
 
 J1 adds no payment authority.
