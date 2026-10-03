@@ -2,39 +2,16 @@
 
 PEPEW Light is the public FastAPI gateway and lightweight website for PEPEPOW / PEPEW ElectrumX access.
 
-PEPEW Light provides:
-- ElectrumX-backed API gateway
-- status dashboard
-- address lookup
-- transaction lookup
-- simplified payment monitor
-- read-only wallet API
-- static entrypoint for PEPEW Light Wallet under `/wallet/`
+It provides address/transaction lookup, status/health endpoints, the legacy address-level Payment Monitor, read-only wallet APIs, and the static PEPEW Light Wallet entrypoint.
 
 Production:
-- Gateway: [light.pepepow.net](https://light.pepepow.net)
-- Wallet: [light.pepepow.net/wallet/](https://light.pepepow.net/wallet/)
 
-Current cross-repository operational status:
+- Gateway: https://light.pepepow.net
+- Wallet: https://light.pepepow.net/wallet/
 
-```text
-Telegram + Discord payment adapters on edison2
-  -> production systemd runtimes ACTIVE/ENABLED
-  -> separate scoped merchant credentials
-  -> current DevKit contract: user supplies receiving address per payment command
-  -> edison2 redeploy required before the corrected command syntax is live
-  -> localhost-only listeners on 127.0.0.1:8790 / 127.0.0.1:8791
-  -> exact pepepow.net HTTPS callback routes
-  -> permanent scoped Payment Platform webhook endpoints
-  -> one outstanding payment per bot for the first low-volume release
-  -> real 0.1 PEPEW Telegram acceptance PASS
-  -> real 0.1 PEPEW Discord acceptance PASS
-```
+Payment Platform authority remains on VM-B. Telegram/Discord payment adapters are implemented in edisontw/pepepow-devkit and use user-supplied receiving addresses per payment command. The current DevKit command-contract correction requires an edison2 pull/restart and Discord command re-registration before it is live there.
 
-Phases 0/A-K are complete, and the post-Phase-K edison2 bot rollout was production-accepted on 2026-10-03. Do not open a new feature phase merely to expand infrastructure or merchant UI. The next priority is normal operation and observation of real usage while keeping Payment Platform authority on VM-B. The accepted edison2 rollout was based on DevKit commit `b863d47`; DevKit commit `33c29b9` corrects the always-on bot contract so each Telegram/Discord payment command supplies its own receiving address instead of using a fixed `PEPEW_RECEIVE_ADDRESS`. The production host must pull/restart the corrected runtime, and the Discord slash command must be re-registered, before that syntax is live. Merchant dashboard/self-service account UI remains deferred.
-
-See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
-
+See docs/PAYMENT_PLATFORM_ROADMAP.md for the canonical Payment Platform architecture and phase history.
 ---
 
 ## 1. Project Structure & Architecture
@@ -285,9 +262,7 @@ VM-B enables Payment API/watcher/webhook explicitly. VM-A remains Light-only wit
 
 See [docs/PAYMENT_API_V1.md](docs/PAYMENT_API_V1.md) for the create, idempotency, merchant recovery, and public capability-status contracts.
 
-Phase K adds explicit merchant ownership and scoped/revocable database credentials while preserving Bearer transport and public capability URLs. Production rollout is staged and remains pending K5; see [docs/PHASE_K_PRODUCTION_ACCEPTANCE.md](docs/PHASE_K_PRODUCTION_ACCEPTANCE.md).
-
-Phase G merchant-integration hardening is deployed and production-accepted on VM-B as of 2026-09-24. Deployment and the 10/10 acceptance contract are documented in [docs/PHASE_G_PRODUCTION_ACCEPTANCE.md](docs/PHASE_G_PRODUCTION_ACCEPTANCE.md). The runbook requires a pre-migration SQLite snapshot before restart; its acceptance helper validates the deployed schema/API boundaries and refuses to emit its test `payment.created` event while webhook endpoints are enabled unless the operator explicitly allows that delivery.
+Phase K multi-merchant ownership and scoped/revocable credentials are production-validated. The legacy environment credential remains only as a compatibility path pending deliberate consumer rotation. See [docs/PHASE_K_PRODUCTION_ACCEPTANCE.md](docs/PHASE_K_PRODUCTION_ACCEPTANCE.md).
 
 
 ### Payment watcher operational health
@@ -372,22 +347,9 @@ application.
 Merchant API keys and webhook signing secrets remain server-side and are not
 part of `@pepepow/pepew-js` or the PepewPay browser bundle.
 
-Phase I is closed. Merchant onboarding/distribution, WooCommerce, Telegram, and Discord acceptance are complete in `pepepow-devkit`. The adapter now covers classic checkout,
-Checkout Blocks, stable order/payment identity, exact amount snapshotting,
-Payment API create/recovery, PepewPay redirect, exact-body signed webhook
-verification, durable event/version ordering, and reorg-safe Woo order
-lifecycle policy while keeping Payment Platform authoritative.
+Phase I merchant tooling is complete in edisontw/pepepow-devkit: published SDK packages, runnable merchant examples, WooCommerce integration, and Telegram/Discord payment adapters all use the same authoritative Payment API/webhook contract. WooCommerce CI covers legacy and HPOS storage, package install/upgrade/uninstall, create recovery, webhook deduplication, and reorg-safe payment_version handling.
 
-I5.3 passed a pinned WordPress 7.1.2 / WooCommerce 11.1.2 runtime matrix with
-both legacy order storage and HPOS enabled, so the plugin now declares
-`cart_checkout_blocks` and `custom_order_tables` compatibility.
-
-I5.4 automated acceptance is also complete: CI builds and clean-installs an
-allowlist WooCommerce ZIP, verifies dependency/upgrade/uninstall behavior, and
-exercises checkout retry, uncertain-create recovery, signed webhook
-duplicate/stale handling, and reorg rollback in both legacy and HPOS runtime
-modes. Externally reachable paid WooCommerce E2E is complete, and the first public npm releases for `@pepepow/pepew-js` and `@pepepow/pepewpay-merchant` are published and clean-install verified. See
-[docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
+Merchant API keys, bot tokens, and webhook signing secrets remain server-side; wallet signing remains client-side. Detailed integration history is kept in [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md).
 
 ---
 

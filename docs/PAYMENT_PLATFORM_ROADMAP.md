@@ -872,153 +872,61 @@ I5.4 manual staging progress (2026-09-27):
 
 ##### I5.5 — Telegram merchant/payment adapter
 
-Status: **COMPLETE — production Telegram payment/webhook E2E verified 2026-09-30**
+Status: **COMPLETE**
 
-Implementation:
+Implementation: `pepepow-devkit/integrations/telegram/`
 
-```text
-pepepow-devkit/integrations/telegram/
-```
+Current production contract:
 
-Architecture boundary:
+~~~text
+/pay <PEPEW-address> <amount>
+~~~
 
-- this is not a second PEPEW wallet bot and does not replace the Telegram
-  Bot/Mini App in `edisontw/pepepow-wallet-suite`
-- `pepepow-wallet-suite` remains payer-side wallet UX and client-side signing
-- I5.5 is merchant-side payment acceptance: Payment API create/recovery,
-  PepewPay checkout link delivery, authoritative webhook state, and Telegram
-  message/status updates
-- no mnemonic/private-key/signing code belongs in the merchant adapter
-- a merchant may embed the adapter into its own Telegram bot; only transport
-  testing requires a temporary/dedicated test bot if convenient
+Key properties:
 
-Wallet handoff alignment (2026-09-29):
+- merchant-side adapter only; wallet signing remains client-side;
+- stable hashed identity from bot/chat/message IDs;
+- Payment API create/recovery through the shared merchant SDK;
+- signed webhook updates applied by increasing `payment_version`;
+- unconfirmed overpayment does not bypass confirmation policy;
+- deterministic contract tests plus bounded transport/payment E2E harnesses;
+- dedicated Telegram transport and real payment/webhook acceptance completed in 2026-09-29/30.
 
-- `https://wallet.pepepow.net` is the primary integrated payer Wallet for Telegram, PepewPay, merchant-payment handoff, and future platform integrations
-- `https://light.pepepow.net/wallet/` remains a supported standalone/backup PEPEW Light Wallet and is not being retired or redirected
-- both wallets remain non-custodial and use PEPEW Light API for chain access
-- `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12` removes the legacy 1 PEPEW send floor, aligns the integrated Wallet with the standalone Light Wallet's dust-based send policy, and adds payment-handoff regression coverage
-- integrated Wallet commit `87cfd2969742023e755c7ac82d507dfe9a63be12` passed production acceptance on 2026-09-29, including the representative sub-1-PEPEW handoff/send path
-- PepewPay source commit `64903ab98fa8d7ab8a042747437ef8c384311648` changes the preferred web-wallet handoff to `wallet.pepepow.net/send`; the final CI artifact from source commit `e59f194683b1150be5af50e242fd62cd665e521a` was deployed on VM-B on 2026-09-29 and production health/status/static checks plus browser handoff to `wallet.pepepow.net/send?to=...&amount=0.1` all passed
-
-- [x] keep `TELEGRAM_BOT_TOKEN`, merchant API key, and Payment Platform webhook signing secret server-side only
-- [x] derive stable Telegram payment identity from bot/chat/message identity while hashing raw Telegram identifiers before `merchant_reference`
-- [x] derive a stable Idempotency-Key for duplicate/retried Telegram updates
-- [x] create Payment API intents through the existing server-side merchant SDK rather than duplicating payment authority
-- [x] recover uncertain create outcomes by exact merchant reference
-- [x] build a Telegram `sendMessage` payload with an HTTPS PepewPay inline URL button
-- [x] apply updates by increasing `payment_version`, not status ranking
-- [x] keep unconfirmed `overpaid` state pending until `policy_confirmed_sats` covers the requested amount
-- [x] add deterministic no-network/no-secret contract tests
-- [x] add a bounded operator-only Telegram Test Bot API transport harness limited to `getMe`, `getUpdates`, and `sendMessage`; no Payment API create/webhook/transaction
-- [x] deploy/verify integrated Wallet payment compatibility from `pepepow-wallet-suite` commit `87cfd2969742023e755c7ac82d507dfe9a63be12`, including one representative sub-1-PEPEW send (production acceptance PASS 2026-09-29)
-- [x] update PepewPay's preferred web-wallet handoff from the standalone Light Wallet to `wallet.pepepow.net` while keeping the standalone wallet independently usable (devkit commit `64903ab98fa8d7ab8a042747437ef8c384311648`; final static artifact source `e59f194683b1150be5af50e242fd62cd665e521a`; VM-B deploy + production browser handoff acceptance PASS 2026-09-29)
-- [x] run Telegram transport smoke acceptance: dedicated Test Environment PASS 2026-09-29 and normal production Bot API PASS 2026-09-30 using the dedicated merchant/payment bot; tokens remained local and were not stored in GitHub
-- [x] run one end-to-end Telegram payment/webhook message update using a payer address different from the merchant receiving address (production acceptance PASS 2026-09-30: real 0.1 PEPEW invoice -> paid_unconfirmed -> paid_confirmed -> terminal paid; exact-body signed webhook accepted; Telegram message updated; temporary webhook endpoint disabled during cleanup)
-
-The normal Telegram production Bot API transport smoke passed on 2026-09-30 with the dedicated merchant/payment bot. The Telegram transport layer now also supports a separate normal Telegram production Bot API environment through `TELEGRAM_API_ENV=production`; this keeps the existing Wallet Bot webhook/control-plane untouched while allowing the dedicated merchant/payment bot to be exercised directly.
-
-The payment/webhook E2E operator harness creates one bounded real payment, registers a temporary filtered webhook endpoint, verifies exact-body webhook HMAC, applies only increasing payment versions, updates the Telegram message, and disables the temporary endpoint during normal cleanup. Production acceptance passed on 2026-09-30 using the dedicated normal Telegram merchant/payment bot, a payer address different from the merchant receiving address, and a temporary public HTTPS Apache reverse-proxy route to the localhost receiver. The invoice progressed through `paid_unconfirmed` to `paid_confirmed`, the terminal state was `paid`, and the temporary Payment Platform webhook endpoint was disabled successfully.
-
-The first Telegram transport increment intentionally created no Payment Platform invoice. The operator-only smoke harness was added in `pepepow-devkit` commit `4e91a179d4cfabe041255fa6b19fab55fd38b3fb`; the dedicated Telegram Test Environment transport run passed on 2026-09-29, and the dedicated normal production merchant/payment bot transport plus real payment/webhook E2E passed on 2026-09-30. The existing Wallet Bot webhook/control-plane remained untouched and no bot token or merchant secret was stored in GitHub/chat.
-
+DevKit commit `33c29b9` changes the always-on runtime from a fixed receive address to a user-supplied address per command. `PEPEW_RECEIVE_ADDRESS` remains only as an explicit fixture in the bounded operator E2E harness.
 
 ##### I5.6 — Discord merchant/payment adapter
 
-Status: **COMPLETE — live Discord payment/webhook E2E and temporary-infrastructure cleanup verified 2026-10-01**
+Status: **COMPLETE**
 
-Implementation:
+Implementation: `pepepow-devkit/integrations/discord/`
 
-```text
-pepepow-devkit/integrations/discord/
-```
+Current production contract:
 
-Architecture boundary:
+~~~text
+/pepew-pay address:<PEPEW-address> amount:<amount>
+~~~
 
-- Discord is a merchant/payment adapter, not a wallet; mnemonic, private keys, UTXO selection, and transaction signing remain client-side only
-- Payment Platform remains authoritative for payment state
-- v1 request identity is derived from `application_id + channel_id + interaction_id`, hashed before entering `merchant_reference` or `Idempotency-Key`
-- no Discord user ID is required for payment authority
-- the intended transport is a slash-command interaction for request initiation, followed by an ordinary bot channel message for the durable PepewPay/status surface
-- using a normal bot channel message avoids depending on a short-lived interaction token for later confirmation updates
-- Discord-visible payment buttons expose only the public PepewPay capability URL
-- `DISCORD_BOT_TOKEN`, merchant API key, and Payment Platform webhook signing secret remain server-side only
+Key properties:
 
-Current baseline:
+- exact-raw-body Discord Ed25519 interaction verification;
+- stable hashed identity from application/channel/interaction IDs;
+- immediate interaction acknowledgement followed by an ordinary durable channel message;
+- Payment API create/recovery through the shared merchant SDK;
+- signed Payment Platform webhook verification before message edits;
+- increasing `payment_version` ordering and confirmation-safe overpayment handling;
+- deterministic contract tests plus bounded transport/payment E2E harnesses;
+- live transport/payment acceptance and temporary-infrastructure cleanup completed by 2026-10-01.
 
-- [x] add isolated `integrations/discord` package with Node 20+ contract tests
-- [x] derive stable hashed Discord merchant reference and idempotency key
-- [x] create Payment API intents through `@pepepow/pepewpay-merchant`
-- [x] recover uncertain create outcomes by exact merchant reference
-- [x] build Discord message payload with an HTTPS PepewPay link button and mentions suppressed
-- [x] apply authoritative updates only by increasing `payment_version`
-- [x] keep unconfirmed `overpaid` pending until `policy_confirmed_sats` covers the requested amount
-- [x] keep baseline tests credential-free and network-free
-- [x] wire Discord adapter contract tests into DevKit CI
-- [x] verify Discord interaction request signatures against exact raw request bytes
-- [x] implement a bounded PING + slash-command transport smoke harness that creates no real PEPEW payment
-- [x] implement normal bot channel message create/edit helpers through Discord REST
-- [x] run the Discord transport smoke against a dedicated Discord application/test server: signed PING -> PONG, `/pepew-pay amount:0.1`, immediate test-only acknowledgement, ordinary bot channel message, HTTPS PepewPay test button; no Payment Platform invoice was created
-- [x] add a bounded real-payment E2E harness with temporary filtered webhook registration, exact-body HMAC verification, increasing `payment_version` application, and same-message Discord REST edits
-- [x] run the authoritative signed Payment Platform webhook -> Discord same-message update E2E
-- [x] complete one real 0.1 PEPEW payment with payer address different from merchant receiving address; observed `paid_unconfirmed` -> `paid_confirmed` and same-message Discord update on 2026-10-01
-
-Planned transport sequence:
-
-```text
-Discord slash command
-  -> exact-body Discord signature verification
-  -> immediate defer/ack
-  -> Payment Platform create/recovery
-  -> normal bot channel message + PepewPay link button
-  -> integrated Wallet
-  -> signed Payment Platform webhook
-  -> Discord message update by payment_version
-```
-
-The credential-free Discord transport increment uses no production Payment API call and no new VM daemon. Live transport acceptance passed on 2026-09-30 with the dedicated Discord application: Discord's signed PING was acknowledged, `/pepew-pay amount:0.1` was accepted, and an ordinary bot channel message with the HTTPS PepewPay test button was delivered without creating a Payment Platform invoice. The first live smoke exposed a harness-only HTTP keep-alive shutdown issue after delivery; DevKit commit `4b508ee4e0b3dfe4af2e530db406e2e17d495c92` hardened bounded listener shutdown without changing the transport contract.
-
-DevKit commit `80d9acafd24a786cf55d5240f8756a2f4825f417` added the bounded operator harness for the real acceptance run. It keeps `127.0.0.1:8789` localhost-only, uses separate exact paths for Discord interactions and Payment Platform webhooks, registers a temporary filtered webhook endpoint, creates one configured small invoice only after a valid slash command, verifies webhook HMAC over the exact raw body, applies only increasing payment versions, edits the same ordinary Discord message, and disables the temporary webhook endpoint during normal cleanup. No mnemonic/private key/signing code is added to the server.
-
-Final I5.6 acceptance passed on 2026-10-01 with a real 0.1 PEPEW payment from a payer address different from the merchant receiving address. The Payment Platform advanced through `paid_unconfirmed` and `paid_confirmed`, and the same ordinary Discord bot message was updated to confirmed. The first live real-payment attempt exposed a redundant operator-supplied Discord application-ID mismatch after the request had already passed Ed25519 verification; DevKit commit `dfe6ca346ca48d6b9c724c40d15cddfdaeeb0941` removed that extra operator check and uses the authenticated `application_id` from the verified interaction instead.
-
-Discord closure evidence boundary (audit 2026-10-01): the retained payment evidence proves the authoritative `paid_unconfirmed` -> `paid_confirmed` progression and same-message Discord update. The earlier chat did not preserve the harness's final terminal/cleanup lines, so the temporary infrastructure was audited separately instead of inferred from the Discord UI.
-
-I5.6 cleanup closure checklist — operator-confirmed **PASS**:
-
-- [x] real 0.1 PEPEW invoice reached `paid_unconfirmed` then `paid_confirmed`
-- [x] same ordinary Discord bot message updated to confirmed
-- [x] nothing remains listening on `127.0.0.1:8789` on the temporary test host
-- [x] temporary Payment Platform webhook endpoint is disabled
-- [x] temporary Apache Discord E2E `ProxyPass` / `ProxyPassReverse` routes are absent
-- [x] `apache2ctl configtest` passed, Apache was reloaded, and normal `pepepow.net` service remained healthy
-- [x] Discord Developer Portal Interactions Endpoint no longer points at the deleted temporary route
-- [x] temporary Discord/Payment E2E shell environment variables and secrets were cleared
-
-I5.6 is therefore closed. These cleanup actions did not change the accepted adapter contract, Payment Platform authority, or client-side signing boundary.
-
-- [x] Start WooCommerce first because it exercises a complete cart/order/payment/webhook lifecycle
-- [x] Reuse the generic Payment API contracts; do not fork payment authority into the plugin
-- [x] Use the completed WooCommerce lifecycle as the adapter pattern, then complete Telegram and proceed to Discord without changing authoritative payment semantics
+DevKit commit `33c29b9` adds the required address option to the always-on slash command. The Discord command must be re-registered after deploying that change.
 
 Phase I exit criteria:
 
-- [x] a new merchant developer can reach a working integration from current docs and released packages without reading backend source — first public SDK packages released and clean registry install/import verified 2026-10-02
-- [x] the reference sample survives restart/retry/webhook-duplicate/reorg-state scenarios correctly
-- [x] production integration guidance keeps all merchant secrets server-side and exposes only intended payment capabilities to browsers
-- [x] at least the first real platform adapter can be built on the generic integration contract without changing authoritative payment semantics
+- [x] released merchant SDK packages install from the public npm registry;
+- [x] runnable merchant sample covers retry, webhook deduplication, and reorg-safe ordering;
+- [x] production guidance keeps merchant secrets server-side;
+- [x] WooCommerce, Telegram, and Discord integrations reuse the authoritative Payment Platform contract.
 
-Phase I closure audit (2026-10-02):
-
-- I5.4 WooCommerce: functional/paid E2E complete; DevKit stale acceptance docs corrected
-- I5.5 Telegram: complete, including terminal `paid` and temporary webhook cleanup evidence
-- I5.6 Discord: complete through `paid_confirmed` + same-message update, with separate temporary runtime/infrastructure cleanup audit PASS
-- I1 SDK distribution: npm `@pepepow` scope ownership confirmed; `@pepepow/pepew-js@0.1.0` and `@pepepow/pepewpay-merchant@0.1.0` published from exact Git tags; clean public-registry install/import smoke PASS
-- npm Trusted Publisher configuration for both packages completed 2026-10-02 against DevKit workflow `npm-release.yml`; future releases use GitHub Actions OIDC without a long-lived npm write token, with first OIDC publish verification deferred to the next legitimate version release
-- current post-audit `main` CI is green for both Phase I closure commits
-- security architecture remains non-custodial and transaction-level: wallet signing stays client-side, Payment Platform remains authoritative, and ElectrumX remains private
-- **Phase I is CLOSED. All Phase I exit criteria are satisfied. Future npm releases should use the prepared trusted-publishing/OIDC workflow after npm Trusted Publisher configuration; that hardening is not a Phase I blocker.**
-
+**Phase I is CLOSED.**
 
 ### Phase J — Operational Resilience
 
@@ -1216,66 +1124,36 @@ Phase K closure audit (2026-10-03):
 
 ## 14. Post-Phase K operational priority — production bots
 
-Status: **PRODUCTION ACCEPTED — edison2 rollout complete 2026-10-03**
-
-Phase K is closed. The next priority is operational adoption, not another
-feature phase.
+Phase K is closed. The operational priority is to run the existing Telegram and Discord adapters with minimal infrastructure and observe real usage before expanding concurrency or merchant UI.
 
 Target:
 
-```text
-edison2 / 152.67.253.217 / pepepow.net
+~~~text
+edison2 / pepepow.net
   -> Telegram payment bot
   -> Discord payment bot
-  -> HTTPS only to pay.pepepow.net
-```
+  -> HTTPS to pay.pepepow.net
+~~~
 
-Implementation is in `edisontw/pepepow-devkit` main, starting with commit
-`b863d47`. Post-acceptance correction `33c29b9` changes the always-on Telegram
-and Discord commands to require a user-supplied PEPEW receiving address for
-each payment; production redeploy/restart and Discord command re-registration
-are required before this corrected syntax is live on edison2.
+Current boundaries:
 
-Initial production policy is deliberately small:
+- Payment Platform on VM-B remains authoritative;
+- wallet mnemonic/private keys/signing remain client-side;
+- Telegram and Discord use separate scoped merchant credentials;
+- the receiving address is supplied per payment request;
+- each bot currently permits one outstanding payment at a time;
+- edison2 stores only bounded routing/restart state;
+- Node listeners remain localhost-only and Apache exposes only exact callback paths;
+- no Redis, PostgreSQL, Kafka, RabbitMQ, address derivation service, dashboard, or self-service provisioning is required.
 
-- Payment Platform on VM-B remains authoritative; no payment database moves to
-  edison2.
-- wallet mnemonic/private keys/signing remain client-side.
-- Telegram and Discord each receive a separate scoped merchant credential.
-- the receiving address is supplied by the user for each payment request; the
-  always-on bot runtimes must not own, derive, or require a fixed
-  `PEPEW_RECEIVE_ADDRESS`.
-- each bot permits only one outstanding payment at a time for the initial
-  low-volume release; this is a simple concurrency limit independent of the
-  receiving address. Do not add address-pool/HD derivation infrastructure yet.
-- edison2 stores only bounded local message-routing/restart state.
-- Node listeners bind to localhost; the existing `pepepow.net` Apache site
-  exposes only the exact interaction/webhook callback paths.
-- no Redis, PostgreSQL, queue, new sandbox host, dashboard, or self-service
-  provisioning is required for this rollout.
+The original edison2 rollout was production-accepted on 2026-10-03. DevKit commit `33c29b9` subsequently corrected the bot command contract to use a user-supplied receiving address. Production must pull/restart that runtime and re-register the Discord command before the corrected syntax is live.
 
-Deployment acceptance:
+Operational/deployment source of truth:
 
-1. [x] edison2 preflight passed without disturbing its wallet node or website;
-2. [x] both bot services are systemd-managed, active, enabled, and restart automatically;
-3. [x] local health checks passed and ports 8790/8791 remain localhost-only;
-4. [x] Apache exposes only the three exact Telegram/Discord callback paths while the main pepepow.net site remains HTTP 200;
-5. [x] Telegram and Discord use separate scoped merchant credentials, separate receiving addresses, and permanent scoped webhook endpoints;
-6. [x] one real 0.1 PEPEW Telegram payment reached confirmed and updated its bot message;
-7. [x] one real 0.1 PEPEW Discord payment reached confirmed and updated the same ordinary channel message;
-8. [x] service-log secret checks passed for bot tokens, scoped credentials, and webhook signing secrets;
-9. [x] Discord Developer Portal Interactions Endpoint was saved successfully to the production HTTPS callback;
-10. [x] temporary credential-transfer files and one-time SSH transfer authorization/key material were removed after deployment.
+~~~text
+pepepow-devkit/docs/BOT_OPERATIONS.md
+pepepow-devkit/deploy/edison2/README.md
+~~~
 
-Production acceptance audit (2026-10-03):
+Only add concurrency, address allocation, or additional infrastructure when real usage demonstrates a concrete need.
 
-- edison2 runtime source: DevKit `b863d47dbf0b916a957c6ca66e93170d7d2e5e60`;
-- Payment Platform roadmap/source baseline: `d26c443b7547536ade170235e50bdff44f0569c5`;
-- Telegram systemd service: active/enabled, listener `127.0.0.1:8790`, local `/healthz` PASS;
-- Discord systemd service: active/enabled, listener `127.0.0.1:8791`, local `/healthz` PASS;
-- public callback GET checks reached the runtimes (404 backend response rather than proxy 503);
-- `https://pepepow.net/` remained HTTP 200 after Apache route installation/reload;
-- VM-B scoped merchant credentials remain enabled and Payment Platform health remained PASS;
-- no Payment Platform database, wallet signing, mnemonic/private key handling, Redis, PostgreSQL, Kafka, RabbitMQ, or additional always-on infrastructure was added to edison2.
-
-The operational rollout is complete. Only after real usage demonstrates a concrete limitation should bot concurrency, address allocation, merchant UI, or additional infrastructure be expanded.
