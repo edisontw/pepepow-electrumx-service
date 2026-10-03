@@ -9,7 +9,7 @@ Production:
 - Gateway: https://light.pepepow.net
 - Wallet: https://light.pepepow.net/wallet/
 
-Payment Platform authority remains on VM-B. Telegram/Discord payment adapters are implemented in edisontw/pepepow-devkit and use user-supplied receiving addresses per payment command. The current DevKit command-contract correction requires an edison2 pull/restart and Discord command re-registration before it is live there.
+Payment Platform authority remains on VM-B. Telegram/Discord payment adapters are implemented in edisontw/pepepow-devkit and use user-supplied receiving addresses per payment command. The corrected contract is deployed on edison2, and real Telegram/Discord payment acceptance passed on 2026-10-03.
 
 See docs/PAYMENT_PLATFORM_ROADMAP.md for the canonical Payment Platform architecture and phase history.
 ---
