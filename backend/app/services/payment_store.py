@@ -29,6 +29,10 @@ class PaymentMerchantReferenceConflictError(PaymentStoreError):
     pass
 
 
+class PaymentAddressInUseError(PaymentStoreError):
+    pass
+
+
 def _event_id(payment_id: str, payment_version: int, event_type: str) -> str:
     material = f"pepew-event-v1:{payment_id}:{int(payment_version)}:{event_type}".encode("utf-8")
     return "evt_" + hashlib.sha256(material).hexdigest()
@@ -197,6 +201,9 @@ class PaymentStore:
 
                     CREATE INDEX IF NOT EXISTS idx_payments_expires_at
                     ON payments (expires_at);
+
+                    CREATE INDEX IF NOT EXISTS idx_payments_address_expires_at
+                    ON payments (address, expires_at DESC);
 
                     CREATE INDEX IF NOT EXISTS idx_payments_created_at
                     ON payments (created_at DESC, payment_id DESC);
@@ -485,6 +492,19 @@ class PaymentStore:
                 if reference_existing is not None:
                     raise PaymentMerchantReferenceConflictError(merchant_reference)
 
+            address_existing = connection.execute(
+                """
+                SELECT payment_id
+                FROM payments
+                WHERE address = ? AND expires_at >= ?
+                ORDER BY expires_at DESC, created_at DESC, payment_id DESC
+                LIMIT 1
+                """,
+                (address, int(created_at)),
+            ).fetchone()
+            if address_existing is not None:
+                raise PaymentAddressInUseError(address)
+
             connection.execute(
                 """
                 INSERT INTO payments (
@@ -590,6 +610,33 @@ class PaymentStore:
                 WHERE merchant_id = ? AND merchant_reference = ?
                 """,
                 (merchant_id, merchant_reference),
+            ).fetchone()
+        return None if row is None else dict(row)
+
+
+    def get_overlapping_address_payment(
+        self,
+        address: str,
+        *,
+        created_at: int,
+    ) -> dict[str, Any] | None:
+        """Return one payment whose receive window overlaps a new create time.
+
+        Windows are inclusive at both boundaries because first_seen_at has
+        one-second resolution and an output observed exactly at expires_at may
+        still belong to the older payment.
+        """
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT payment_id, address, created_at, expires_at, status
+                FROM payments
+                WHERE address = ? AND expires_at >= ?
+                ORDER BY expires_at DESC, created_at DESC, payment_id DESC
+                LIMIT 1
+                """,
+                (address, int(created_at)),
             ).fetchone()
         return None if row is None else dict(row)
 

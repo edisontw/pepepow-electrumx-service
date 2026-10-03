@@ -6,6 +6,7 @@ from app.services.payment_state import PaymentTransactionObservation
 
 
 ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
+OTHER_ADDRESS = "P8bB9yPr3vVByqfmM5KXftyGckAtAdu6f8"
 
 
 def test_create_then_get_payment_uses_sqlite_without_get_polling(tmp_path, monkeypatch):
@@ -549,7 +550,7 @@ def test_list_persisted_payments_filters_exact_merchant_reference(tmp_path, monk
     )
     asyncio.run(
         payment_gateway_service.create_persisted_payment(
-            address=ADDRESS,
+            address=OTHER_ADDRESS,
             amount="2",
             merchant_reference="ORDER-B",
         )
@@ -665,5 +666,50 @@ def test_idempotency_key_conflicts_when_merchant_reference_changes(tmp_path, mon
         raise AssertionError(
             "Changing merchant_reference under the same Idempotency-Key must conflict."
         )
+
+    assert calls["snapshot"] == 1
+
+
+def test_overlapping_address_window_conflict_fails_before_second_snapshot(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+            "payment_default_expiry_seconds": 900,
+            "payment_max_expiry_seconds": 86400,
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    monkeypatch.setattr(payment_gateway_service.time, "time", lambda: 1000)
+    payment_gateway_service.clear_payment_store_cache()
+
+    calls = {"snapshot": 0}
+
+    async def fake_snapshot(_settings, _scripthash):
+        calls["snapshot"] += 1
+        return 500, "tip", ()
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", fake_snapshot)
+
+    asyncio.run(
+        payment_gateway_service.create_persisted_payment(
+            address=ADDRESS,
+            amount="1",
+            expires_in=900,
+        )
+    )
+
+    try:
+        asyncio.run(
+            payment_gateway_service.create_persisted_payment(
+                address=ADDRESS,
+                amount="2",
+                expires_in=900,
+            )
+        )
+    except payment_gateway_service.PaymentAddressInUseError:
+        pass
+    else:
+        raise AssertionError("Expected overlapping receive-address window to conflict.")
 
     assert calls["snapshot"] == 1

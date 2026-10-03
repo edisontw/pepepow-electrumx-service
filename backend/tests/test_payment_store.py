@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 import time
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from app.services.merchant_store import LEGACY_MERCHANT_ID, MerchantStore
 from app.services.payment_state import PaymentTransactionObservation
 from app.services.payment_store import (
+    PaymentAddressInUseError,
     PaymentIdempotencyConflictError,
     PaymentMerchantReferenceConflictError,
     PaymentNotFoundError,
@@ -327,14 +329,14 @@ def test_list_payments_is_bounded_stable_and_includes_idempotency_key(tmp_path):
     store = PaymentStore(str(tmp_path / "payments.sqlite3"))
     store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
 
-    for payment_id, created_at, key in (
-        ("pay_a", 1000, "order-a"),
-        ("pay_b", 1000, "order-b"),
-        ("pay_c", 1001, None),
+    for payment_id, created_at, key, address in (
+        ("pay_a", 1000, "order-a", "P-list-a"),
+        ("pay_b", 1000, "order-b", "P-list-b"),
+        ("pay_c", 1001, None, "P-list-c"),
     ):
         store.create_payment(
             payment_id=payment_id,
-            address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+            address=address,
             scripthash="11" * 32,
             amount_sats=100,
             confirmations_required=3,
@@ -365,16 +367,6 @@ def test_list_payments_can_filter_status_without_count_query(tmp_path):
     store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
 
     store.create_payment(
-        payment_id="pay_waiting",
-        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
-        scripthash="11" * 32,
-        amount_sats=100,
-        confirmations_required=3,
-        created_at=1000,
-        created_height=500,
-        expires_at=1900,
-    )
-    store.create_payment(
         payment_id="pay_expired",
         address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
         scripthash="22" * 32,
@@ -385,6 +377,16 @@ def test_list_payments_can_filter_status_without_count_query(tmp_path):
         expires_at=950,
     )
     store.refresh_payment("pay_expired", now=1000)
+    store.create_payment(
+        payment_id="pay_waiting",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+    )
 
     waiting, has_more = store.list_payments(status="waiting", limit=10)
     assert [item["payment_id"] for item in waiting] == ["pay_waiting"]
@@ -483,13 +485,13 @@ def test_list_payments_can_recover_exact_merchant_reference(tmp_path):
     store = PaymentStore(str(tmp_path / "payments.sqlite3"))
     store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
 
-    for payment_id, reference in (
-        ("pay_a", "ORDER-A"),
-        ("pay_b", "ORDER-B"),
+    for payment_id, reference, address in (
+        ("pay_a", "ORDER-A", "P-reference-a"),
+        ("pay_b", "ORDER-B", "P-reference-b"),
     ):
         store.create_payment(
             payment_id=payment_id,
-            address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+            address=address,
             scripthash=("11" if payment_id == "pay_a" else "22") * 32,
             amount_sats=100,
             confirmations_required=3,
@@ -585,7 +587,6 @@ def test_payment_namespaces_are_isolated_by_merchant(tmp_path):
     store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
 
     common = {
-        "address": "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
         "amount_sats": 100,
         "confirmations_required": 3,
         "created_height": 500,
@@ -598,6 +599,7 @@ def test_payment_namespaces_are_isolated_by_merchant(tmp_path):
     created_a = store.create_payment(
         payment_id="pay_scope_a",
         merchant_id=merchant_a["merchant_id"],
+        address="P-merchant-a",
         scripthash="11" * 32,
         created_at=1000,
         **common,
@@ -605,6 +607,7 @@ def test_payment_namespaces_are_isolated_by_merchant(tmp_path):
     created_b = store.create_payment(
         payment_id="pay_scope_b",
         merchant_id=merchant_b["merchant_id"],
+        address="P-merchant-b",
         scripthash="22" * 32,
         created_at=1001,
         **common,
@@ -733,3 +736,184 @@ def test_initialize_backfills_pre_k_rows_to_legacy_merchant(tmp_path):
     assert columns["merchant_id"] == 1
     assert columns["idempotency_key"] == 2
     assert MerchantStore(str(path)).get_merchant(LEGACY_MERCHANT_ID)["enabled"] is True
+
+
+def test_same_address_payment_windows_cannot_overlap(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    store.create_payment(
+        payment_id="pay_first_window",
+        address="P-window-address",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=1,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+    )
+
+    with pytest.raises(PaymentAddressInUseError):
+        store.create_payment(
+            payment_id="pay_overlapping_window",
+            address="P-window-address",
+            scripthash="11" * 32,
+            amount_sats=200,
+            confirmations_required=1,
+            created_at=1500,
+            created_height=500,
+            expires_at=2400,
+        )
+
+    with pytest.raises(PaymentAddressInUseError):
+        store.create_payment(
+            payment_id="pay_boundary_window",
+            address="P-window-address",
+            scripthash="11" * 32,
+            amount_sats=200,
+            confirmations_required=1,
+            created_at=1900,
+            created_height=500,
+            expires_at=2800,
+        )
+
+
+def test_same_address_can_be_reused_after_previous_window_expires(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    store.create_payment(
+        payment_id="pay_old_window",
+        address="P-reusable-address",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=1,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+    )
+    created = store.create_payment(
+        payment_id="pay_new_window",
+        address="P-reusable-address",
+        scripthash="11" * 32,
+        amount_sats=200,
+        confirmations_required=1,
+        created_at=1901,
+        created_height=500,
+        expires_at=2801,
+    )
+
+    assert created["payment_id"] == "pay_new_window"
+
+
+def test_address_window_exclusivity_is_global_across_merchants(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    merchants = MerchantStore(str(path))
+    merchant_a = merchants.create_merchant(
+        merchant_id="mrc_window_a",
+        display_name="Window A",
+        now=100,
+    )
+    merchant_b = merchants.create_merchant(
+        merchant_id="mrc_window_b",
+        display_name="Window B",
+        now=100,
+    )
+    store = PaymentStore(str(path))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    store.create_payment(
+        payment_id="pay_window_a",
+        merchant_id=merchant_a["merchant_id"],
+        address="P-shared-window",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=1,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+    )
+
+    with pytest.raises(PaymentAddressInUseError):
+        store.create_payment(
+            payment_id="pay_window_b",
+            merchant_id=merchant_b["merchant_id"],
+            address="P-shared-window",
+            scripthash="11" * 32,
+            amount_sats=100,
+            confirmations_required=1,
+            created_at=1001,
+            created_height=500,
+            expires_at=1901,
+        )
+
+
+def test_different_addresses_can_have_overlapping_payment_windows(tmp_path):
+    store = PaymentStore(str(tmp_path / "payments.sqlite3"))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    first = store.create_payment(
+        payment_id="pay_parallel_a",
+        address="P-parallel-a",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=1,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+    )
+    second = store.create_payment(
+        payment_id="pay_parallel_b",
+        address="P-parallel-b",
+        scripthash="22" * 32,
+        amount_sats=200,
+        confirmations_required=1,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+    )
+
+    assert first["payment_id"] == "pay_parallel_a"
+    assert second["payment_id"] == "pay_parallel_b"
+
+
+def test_concurrent_same_address_create_is_race_safe(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    store = PaymentStore(str(path))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    barrier = threading.Barrier(2)
+    results = []
+    lock = threading.Lock()
+
+    def worker(payment_id: str):
+        local = PaymentStore(str(path))
+        barrier.wait()
+        try:
+            created = local.create_payment(
+                payment_id=payment_id,
+                address="P-race-address",
+                scripthash="33" * 32,
+                amount_sats=100,
+                confirmations_required=1,
+                created_at=1000,
+                created_height=500,
+                expires_at=1900,
+            )
+            outcome = ("created", created["payment_id"])
+        except PaymentAddressInUseError:
+            outcome = ("conflict", payment_id)
+        with lock:
+            results.append(outcome)
+
+    threads = [
+        threading.Thread(target=worker, args=("pay_race_a",)),
+        threading.Thread(target=worker, args=("pay_race_b",)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+        assert not thread.is_alive()
+
+    assert sorted(kind for kind, _payment_id in results) == ["conflict", "created"]
