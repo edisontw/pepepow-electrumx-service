@@ -90,7 +90,7 @@ def test_post_migration_database_acceptance_allows_scoped_rows_in_resume_mode(tm
     store.create_payment(
         payment_id="pay_resume",
         merchant_id=merchant["merchant_id"],
-        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        address="P-resume-post-migration",
         scripthash="22" * 32,
         amount_sats=100,
         confirmations_required=3,
