@@ -342,3 +342,23 @@ def test_create_payment_v1_rejects_invalid_merchant_reference(monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "invalid_merchant_reference"
+
+
+def test_create_payment_v1_returns_address_in_use_conflict(monkeypatch):
+    async def fake_create(**_kwargs):
+        raise payment_v1.PaymentAddressInUseError(ADDRESS)
+
+    monkeypatch.setattr(payment_v1, "create_persisted_payment", fake_create)
+    monkeypatch.setattr(payment_v1, "require_payment_create_auth", lambda _authorization: _merchant())
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/payments",
+        json={
+            "address": ADDRESS,
+            "amount": "1",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "payment_address_in_use"
