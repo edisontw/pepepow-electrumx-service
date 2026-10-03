@@ -1141,14 +1141,16 @@ Current boundaries:
 - wallet mnemonic/private keys/signing remain client-side;
 - Telegram and Discord use separate scoped merchant credentials;
 - the receiving address is supplied per payment request;
-- each bot currently permits one outstanding payment at a time;
+- bot adapters may hold multiple outstanding payments when different receiving addresses are used; the Payment Platform authoritatively rejects overlapping time windows for one receiving address across merchants;
 - edison2 stores only bounded routing/restart state;
 - Node listeners remain localhost-only and Apache exposes only exact callback paths;
 - no Redis, PostgreSQL, Kafka, RabbitMQ, address derivation service, dashboard, or self-service provisioning is required.
 
 The edison2 rollout is production-accepted. DevKit commit `33c29b9` corrected the bot command contract to use a user-supplied receiving address; the runtime was then updated/restarted, the Discord command was re-registered, and real Telegram and Discord payments passed on 2026-10-03.
 
-Telegram group-capable follow-up: DevKit `368a350` accepts `private`, `group`, and `supergroup` updates. Plain `/pay <address> <amount>` is accepted in groups for convenience; explicit `/pay@BotName ...` is also accepted only when it targets this bot. The originating chat publicly shows the receiving address, exact amount, PepewPay button, and Payment Platform-driven status. The initial global one-outstanding-payment limit remains unchanged across all Telegram chats. This is source-complete but still requires edison2 deployment and a bounded live group acceptance before being called production-accepted.
+Telegram group-capable follow-up: DevKit `368a350` accepts `private`, `group`, and `supergroup` updates. Plain `/pay <address> <amount>` is accepted in groups for convenience; explicit `/pay@BotName ...` is also accepted only when it targets this bot. The originating chat publicly shows the receiving address, exact amount, PepewPay button, and Payment Platform-driven status. The feature was deployed to edison2 and bounded live group acceptance passed on 2026-10-03.
+
+Distinct-address concurrency follow-up: the Payment Platform now enforces one non-overlapping observation window per receiving address across all merchants. The final address-window check and insert are serialized in the existing SQLite transaction, so no Redis/external lock is introduced. Telegram removes its global pending-payment gate, while Discord replaces its global creation boolean with per-interaction in-flight deduplication. Different addresses may therefore have simultaneous outstanding payments; the same address receives `409 payment_address_in_use` until its prior inclusive `expires_at` boundary has passed. Source implementation and tests are in progress on the dedicated cross-repo feature branches; production rollout/acceptance remains pending.
 
 Operational/deployment source of truth:
 
@@ -1157,5 +1159,5 @@ pepepow-devkit/docs/BOT_OPERATIONS.md
 pepepow-devkit/deploy/edison2/README.md
 ~~~
 
-Only add concurrency, address allocation, or additional infrastructure when real usage demonstrates a concrete need.
+Concurrency is now being added because group/bot usage demonstrated a concrete need. Keep the solution lightweight: SQLite remains authoritative, no address-derivation service is added, and Redis/PostgreSQL/Kafka/RabbitMQ remain unnecessary. Unique/fresh addresses per merchant order are still preferable when a merchant needs high parallelism.
 
