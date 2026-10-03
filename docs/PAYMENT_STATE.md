@@ -57,6 +57,12 @@ Expiry is based on when a matching output was first observed, not on the current
 - a payment completed before the deadline does not revert to unpaid merely because the clock later passes the deadline
 - persistence must retain `first_seen_at` so expiry can be reconstructed safely after restart
 
+## Receiving-address window exclusivity
+
+Two persisted payments must not have overlapping observation windows for the same receiving address. Payment creation therefore reserves an address through the payment's inclusive `expires_at` boundary. A later payment may reuse that address only when its `created_at` is greater than the previous `expires_at`.
+
+This invariant prevents one `(txid, vout)` from being eligible for two payments whose creation/expiry windows overlap. It applies across merchant namespaces because blockchain outputs are global, not merchant-scoped. Idempotent replay of the same create request is not a new payment and remains allowed.
+
 ## Confirmation policy
 
 `confirmations_required=N` is evaluated per matched output using transaction height and current tip height.
