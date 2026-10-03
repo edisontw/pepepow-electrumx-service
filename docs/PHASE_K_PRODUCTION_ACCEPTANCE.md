@@ -1,6 +1,6 @@
 # Phase K — Production Acceptance
 
-Status: **PARTIAL PRODUCTION PASS — migration/legacy acceptance complete; two-temporary-merchant isolation smoke pending**
+Status: **PARTIAL PRODUCTION PASS — migration/legacy acceptance complete; rate-limited two-merchant smoke safely rolled back; resume pending**
 
 Last updated: 2026-10-03
 
@@ -268,3 +268,91 @@ Verified:
 The original two-merchant smoke stopped before creating its acceptance payments because an enabled webhook endpoint existed. The operator did not use the override. Scoped auth was returned to false, the temporary credential was disabled, and its secret file was removed. No post-migration H2/J1 recovery point was created because K5 had not completed.
 
 The follow-up smoke now uses two temporary scoped merchants instead of the legacy merchant. This preserves existing legacy webhook endpoints unchanged while still exercising two independent scoped credential namespaces.
+
+
+## Resume after a partial scoped smoke
+
+If a scoped smoke already persisted valid non-legacy payment/event rows before a
+later acceptance check failed, do **not** rerun the production migration and do
+not expect the strict legacy-only post-migration verifier to pass.
+
+With scoped auth still disabled, run:
+
+```bash
+python3 backend/scripts/phase_k_post_migration_acceptance.py \
+  --allow-existing-scoped-data
+```
+
+This resume mode still requires:
+
+- `phase_k_merchant_v1`;
+- zero merchant ownership orphan/mismatch checks;
+- foreign-key integrity;
+- Payment Platform health;
+- ElectrumX connectivity;
+- anonymous merchant listing rejection;
+- legacy Bearer compatibility;
+- public capability privacy.
+
+It only relaxes the one-time pre-smoke assertion that every production row must
+still belong to `mrc_legacy_v1`.
+
+Previous disabled acceptance credentials may be mapped back to their non-secret
+merchant owner metadata without exposing token hashes or secrets:
+
+```bash
+python3 backend/scripts/merchant_credential_admin.py \
+  show-credential \
+  --credential-id <disabled-credential-id>
+```
+
+Create fresh one-time credentials for those same two merchant IDs rather than
+creating additional acceptance merchant rows.
+
+### Production heavy-route pacing
+
+The two-merchant acceptance intentionally continues through the public
+`pay.pepepow.net` Nginx boundary instead of bypassing rate limits through
+localhost.
+
+Production heavy routes are limited by Nginx to `3r/s` with bounded bursts.
+The helper now:
+
+- spaces heavy API requests by at least 0.55 seconds (below 2 requests/second);
+- treats a non-JSON Nginx HTTP 429 as a retryable rate-limit response;
+- honors a numeric `Retry-After` header when present;
+- otherwise uses bounded exponential backoff;
+- performs at most three rate-limit retries;
+- fails normally if 429 persists.
+
+Do not increase Nginx rate/burst limits merely to make the acceptance pass.
+
+
+## Production partial acceptance record — rate-limit stop
+
+A follow-up VM-B K5 attempt reached the scoped two-merchant smoke and then
+stopped safely on a public Nginx HTTP 429.
+
+Verified before/after the stop:
+
+- repository SHA: `932fff6d8712b13c3fb133dfb7879174c8c9babe`
+- backend suite: 290 passed
+- read-only post-migration acceptance: PASS before scoped smoke
+- Phase K schema remained active
+- scoped auth was enabled only for the smoke, then returned to `false`
+- two temporary acceptance payments, their idempotency rows, and
+  `payment.created` events had already been persisted before the later 429
+- those records were left intact rather than manually deleted
+- existing legacy webhook endpoints were unchanged
+- both temporary credentials were disabled
+- both temporary secret files were removed
+- legacy environment credential remained configured
+- Payment Platform, ElectrumX tunnel, watcher, public health/status, and H2 timer
+  remained healthy
+- final post-migration H2/J1 recovery point was **not** created because K5 had
+  not completed
+
+The strict legacy-only verifier now correctly rejects the already persisted
+non-legacy acceptance rows. Resume with
+`--allow-existing-scoped-data`; this is expected state, not a reason to rerun
+or roll back the successful Phase K schema migration.
