@@ -257,6 +257,77 @@ def payment_created_recipient_count(
     return recipients
 
 
+def find_existing_acceptance_pair(
+    db_path: Path,
+    *,
+    merchant_id_a: str,
+    merchant_id_b: str,
+) -> tuple[str, str, str, str]:
+    connection = open_readonly(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT
+                p.payment_id,
+                p.merchant_id,
+                p.merchant_reference,
+                p.created_at,
+                i.idempotency_key
+            FROM payments AS p
+            JOIN payment_idempotency_keys AS i
+              ON i.payment_id = p.payment_id
+             AND i.merchant_id = p.merchant_id
+            WHERE p.merchant_id IN (?, ?)
+              AND p.merchant_reference LIKE 'phase-k-acceptance/%'
+            ORDER BY p.created_at DESC, p.payment_id DESC
+            """,
+            (merchant_id_a, merchant_id_b),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    grouped: dict[tuple[str, str], dict[str, tuple[str, int]]] = {}
+    for row in rows:
+        reference = row["merchant_reference"]
+        idempotency_key = row["idempotency_key"]
+        if not isinstance(reference, str) or not isinstance(idempotency_key, str):
+            continue
+        key = (reference, idempotency_key)
+        grouped.setdefault(key, {})[str(row["merchant_id"])] = (
+            str(row["payment_id"]),
+            int(row["created_at"]),
+        )
+
+    candidates: list[tuple[int, str, str, str, str]] = []
+    for (reference, idempotency_key), by_merchant in grouped.items():
+        if merchant_id_a not in by_merchant or merchant_id_b not in by_merchant:
+            continue
+        payment_a, created_a = by_merchant[merchant_id_a]
+        payment_b, created_b = by_merchant[merchant_id_b]
+        if payment_a == payment_b:
+            continue
+        candidates.append(
+            (
+                max(created_a, created_b),
+                payment_a,
+                payment_b,
+                reference,
+                idempotency_key,
+            )
+        )
+
+    if not candidates:
+        raise AcceptanceError(
+            "no completed two-merchant acceptance payment pair is available to resume"
+        )
+
+    _created_at, payment_a, payment_b, reference, idempotency_key = max(
+        candidates,
+        key=lambda item: item[0],
+    )
+    return payment_a, payment_b, reference, idempotency_key
+
+
 def verify_payment_event_owner(
     db_path: Path,
     *,
@@ -472,6 +543,14 @@ def main() -> int:
     )
     parser.add_argument("--api-base", default=DEFAULT_API_BASE)
     parser.add_argument("--env-file", default=str(ENV_PATH))
+    parser.add_argument(
+        "--resume-existing",
+        action="store_true",
+        help=(
+            "Reuse the latest already-persisted acceptance payment/idempotency "
+            "pair for these two merchants instead of creating new payments."
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -568,10 +647,6 @@ def main() -> int:
             f"ElectrumX status failed: HTTP {status}",
         )
 
-        suffix = f"{int(time.time())}-{secrets.token_hex(6)}"
-        merchant_reference = f"phase-k-acceptance/{suffix}"
-        idempotency_key = f"phase-k-acceptance:{suffix}"
-
         auth_a = {
             "Authorization": f"Bearer {scoped_token_a}",
         }
@@ -579,24 +654,40 @@ def main() -> int:
             "Authorization": f"Bearer {scoped_token_b}",
         }
 
-        payment_id_a = one_reference_payment(
-            api_base,
-            auth=auth_a,
-            payment_address=payment_address,
-            merchant_reference=merchant_reference,
-            idempotency_key=idempotency_key,
-        )
-        payment_id_b = one_reference_payment(
-            api_base,
-            auth=auth_b,
-            payment_address=payment_address,
-            merchant_reference=merchant_reference,
-            idempotency_key=idempotency_key,
-        )
-        require(
-            payment_id_a != payment_id_b,
-            "two merchants unexpectedly received the same payment identity",
-        )
+        if args.resume_existing:
+            (
+                payment_id_a,
+                payment_id_b,
+                merchant_reference,
+                idempotency_key,
+            ) = find_existing_acceptance_pair(
+                db_path,
+                merchant_id_a=merchant_id_a,
+                merchant_id_b=merchant_id_b,
+            )
+        else:
+            suffix = f"{int(time.time())}-{secrets.token_hex(6)}"
+            merchant_reference = f"phase-k-acceptance/{suffix}"
+            idempotency_key = f"phase-k-acceptance:{suffix}"
+
+            payment_id_a = one_reference_payment(
+                api_base,
+                auth=auth_a,
+                payment_address=payment_address,
+                merchant_reference=merchant_reference,
+                idempotency_key=idempotency_key,
+            )
+            payment_id_b = one_reference_payment(
+                api_base,
+                auth=auth_b,
+                payment_address=payment_address,
+                merchant_reference=merchant_reference,
+                idempotency_key=idempotency_key,
+            )
+            require(
+                payment_id_a != payment_id_b,
+                "two merchants unexpectedly received the same payment identity",
+            )
 
         rows_a = recover_exact(
             api_base,
@@ -671,6 +762,7 @@ def main() -> int:
         return 1
 
     print("pay_health=pass")
+    print("acceptance_payments=" + ("reused" if args.resume_existing else "created"))
     print("acceptance_payment_created_webhook_recipients=0")
     print("electrumx_status=connected")
     print("same_reference_across_merchants=pass")
