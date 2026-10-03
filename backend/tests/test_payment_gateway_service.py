@@ -6,6 +6,7 @@ from app.services.payment_state import PaymentTransactionObservation
 
 
 ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
+OTHER_ADDRESS = "P8bB9yPr3vVByqfmM5KXftyGckAtAdu6f8"
 
 
 def test_create_then_get_payment_uses_sqlite_without_get_polling(tmp_path, monkeypatch):
@@ -549,7 +550,7 @@ def test_list_persisted_payments_filters_exact_merchant_reference(tmp_path, monk
     )
     asyncio.run(
         payment_gateway_service.create_persisted_payment(
-            address=ADDRESS,
+            address=OTHER_ADDRESS,
             amount="2",
             merchant_reference="ORDER-B",
         )
