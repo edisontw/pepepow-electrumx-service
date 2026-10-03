@@ -20,7 +20,9 @@ Current cross-repository operational status:
 ```text
 Telegram + Discord payment adapters on edison2
   -> production systemd runtimes ACTIVE/ENABLED
-  -> separate scoped merchant credentials + receiving addresses
+  -> separate scoped merchant credentials
+  -> current DevKit contract: user supplies receiving address per payment command
+  -> edison2 redeploy required before the corrected command syntax is live
   -> localhost-only listeners on 127.0.0.1:8790 / 127.0.0.1:8791
   -> exact pepepow.net HTTPS callback routes
   -> permanent scoped Payment Platform webhook endpoints
@@ -29,7 +31,7 @@ Telegram + Discord payment adapters on edison2
   -> real 0.1 PEPEW Discord acceptance PASS
 ```
 
-Phases 0/A-K are complete, and the post-Phase-K edison2 bot rollout was production-accepted on 2026-10-03. Do not open a new feature phase merely to expand infrastructure or merchant UI. The next priority is normal operation and observation of real usage while keeping Payment Platform authority on VM-B. DevKit production runtime/deployment source is `edisontw/pepepow-devkit` commit `b863d47`. Merchant dashboard/self-service account UI remains deferred.
+Phases 0/A-K are complete, and the post-Phase-K edison2 bot rollout was production-accepted on 2026-10-03. Do not open a new feature phase merely to expand infrastructure or merchant UI. The next priority is normal operation and observation of real usage while keeping Payment Platform authority on VM-B. The accepted edison2 rollout was based on DevKit commit `b863d47`; DevKit commit `33c29b9` corrects the always-on bot contract so each Telegram/Discord payment command supplies its own receiving address instead of using a fixed `PEPEW_RECEIVE_ADDRESS`. The production host must pull/restart the corrected runtime, and the Discord slash command must be re-registered, before that syntax is live. Merchant dashboard/self-service account UI remains deferred.
 
 See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
 
