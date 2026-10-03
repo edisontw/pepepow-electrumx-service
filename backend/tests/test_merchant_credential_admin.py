@@ -106,3 +106,26 @@ def test_create_credential_to_file_revokes_if_secret_delivery_fails(tmp_path):
     assert credentials[0]["enabled"] is False
     assert credentials[0]["disabled_at"] == 101
     assert secret_file.read_text(encoding="utf-8") == "already-present\n"
+
+
+
+def test_show_credential_metadata_contains_no_secret(tmp_path):
+    store = MerchantStore(str(tmp_path / "payments.sqlite3"))
+    merchant = store.create_merchant(
+        merchant_id="mrc_admin_show",
+        display_name="Show merchant",
+        now=100,
+    )
+    metadata, token = store.create_credential(
+        merchant_id=merchant["merchant_id"],
+        label="primary",
+        now=101,
+    )
+
+    shown = store.get_credential_metadata(metadata["credential_id"])
+
+    assert shown["merchant_id"] == merchant["merchant_id"]
+    assert shown["credential_id"] == metadata["credential_id"]
+    assert shown["enabled"] is True
+    assert "token_hash" not in shown
+    assert token not in repr(shown)

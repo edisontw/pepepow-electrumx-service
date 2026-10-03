@@ -111,6 +111,9 @@ def main() -> int:
     list_credentials = subparsers.add_parser("list-credentials")
     list_credentials.add_argument("--merchant-id", required=True)
 
+    show_credential = subparsers.add_parser("show-credential")
+    show_credential.add_argument("--credential-id", required=True)
+
     disable_credential = subparsers.add_parser("disable-credential")
     disable_credential.add_argument("--credential-id", required=True)
 
@@ -148,6 +151,13 @@ def main() -> int:
                 state = "enabled" if item["enabled"] else "disabled"
                 print(f"credential_id={item['credential_id']} state={state}")
             print("CREDENTIAL LIST: PASS")
+        elif args.command == "show-credential":
+            item = store.get_credential_metadata(args.credential_id)
+            state = "enabled" if item["enabled"] else "disabled"
+            print(f"merchant_id={item['merchant_id']}")
+            print(f"credential_id={item['credential_id']}")
+            print(f"state={state}")
+            print("CREDENTIAL SHOW: PASS")
         elif args.command == "disable-credential":
             store.disable_credential(args.credential_id, now=unix_now())
             print(f"credential_id={args.credential_id}")

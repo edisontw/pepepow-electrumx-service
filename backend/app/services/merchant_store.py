@@ -229,6 +229,27 @@ class MerchantStore:
             "credential_id": str(row["credential_id"]),
         }
 
+    def get_credential_metadata(
+        self,
+        credential_id: str,
+    ) -> dict[str, Any]:
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT credential_id, merchant_id, label, enabled,
+                       created_at, disabled_at
+                FROM merchant_credentials
+                WHERE credential_id = ?
+                """,
+                (credential_id,),
+            ).fetchone()
+        if row is None:
+            raise MerchantCredentialNotFoundError(credential_id)
+        item = dict(row)
+        item["enabled"] = bool(item["enabled"])
+        return item
+
     def list_credentials(self, merchant_id: str) -> list[dict[str, Any]]:
         self.initialize()
         self.get_merchant(merchant_id)
