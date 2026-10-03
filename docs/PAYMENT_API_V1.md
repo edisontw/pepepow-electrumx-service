@@ -43,6 +43,14 @@ The existing history txids are stored as the payment creation baseline. This pre
 
 A payment is not created if the chain-tip/history snapshot cannot be established. This fail-closed behavior prevents an ambiguous creation boundary.
 
+### Receiving-address payment windows
+
+Payment creation also enforces non-overlapping time windows per receiving address across the entire Payment Platform, including different merchants. If an existing payment for the same address has `expires_at >= new.created_at`, the create request returns HTTP `409 payment_address_in_use`.
+
+This rule is intentionally based on the persisted payment time window rather than current status. A payment that confirms early still reserves its address through its original `expires_at` boundary, because an output first observed exactly at that boundary may still belong to the earlier payment and later reorg/reconciliation must remain unambiguous. The address may be reused once a later create occurs after that boundary.
+
+The final check and insert run inside the same SQLite `BEGIN IMMEDIATE` transaction, so concurrent creates for the same address cannot both succeed. Different receiving addresses may be created concurrently. This adds no external locking service or database dependency.
+
 ### Idempotent creation retries
 
 Merchant integrations should send an `Idempotency-Key` on payment creation. The key is persisted in SQLite and scoped to the authenticated merchant namespace.
@@ -57,6 +65,7 @@ Behavior:
 - repeating the same key with different payment parameters returns HTTP `409` with `payment_idempotency_conflict`
 - the mapping survives process restart because it is stored in the same SQLite database
 - omitting `Idempotency-Key` preserves the original create-new-payment behavior
+- a valid same-key/same-request replay still returns the original payment even while that address window is reserved
 
 The request hash follows the merchant-supplied create parameters. Omitted defaulted fields remain distinguishable from explicitly supplied fields, so a retry stays stable even if server defaults are changed later.
 
@@ -197,7 +206,7 @@ SQLite uses WAL mode, foreign keys, a bounded busy timeout, and short transactio
 
 - payment IDs are generated from cryptographically secure random bytes
 - no mnemonic/private key/signing material is accepted
-- creation is feature-gated, authenticated, rate-limited at Nginx, supports merchant-scoped durable idempotent retries, and enforces merchant-scoped unique references when supplied
+- creation is feature-gated, authenticated, rate-limited at Nginx, supports merchant-scoped durable idempotent retries, enforces merchant-scoped unique references when supplied, and prevents overlapping payment windows for one receiving address across merchants
 - request body size should remain small
 - public errors do not expose database paths or SQLite exception details
 - authoritative state remains transaction-output based, not current address balance
