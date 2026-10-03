@@ -61,7 +61,7 @@ def test_post_migration_database_acceptance_rejects_scoped_rows(tmp_path):
     store.create_payment(
         payment_id="pay_scoped",
         merchant_id=merchant["merchant_id"],
-        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        address="P-scoped-post-migration",
         scripthash="22" * 32,
         amount_sats=100,
         confirmations_required=3,
