@@ -9,7 +9,7 @@ Production:
 - Gateway: https://light.pepepow.net
 - Wallet: https://light.pepepow.net/wallet/
 
-Payment Platform authority remains on VM-B. Telegram/Discord payment adapters are implemented in edisontw/pepepow-devkit and use user-supplied receiving addresses per payment command. The corrected contract is deployed on edison2, and real Telegram/Discord payment acceptance passed on 2026-10-03.
+Payment Platform authority remains on VM-B. Telegram/Discord payment adapters are implemented in edisontw/pepepow-devkit and use user-supplied receiving addresses per payment command. The corrected contract is deployed on edison2, real Telegram/Discord payment acceptance passed on 2026-10-03, and Telegram group `/pay` live acceptance also passed on 2026-10-03. Distinct-address bot concurrency with authoritative same-address window exclusivity is implemented in source but still pending production rollout.
 
 See docs/PAYMENT_PLATFORM_ROADMAP.md for the canonical Payment Platform architecture and phase history.
 ---
@@ -240,7 +240,7 @@ GET  /api/v1/payments/{payment_id}    # public read-only capability status
 
 This path uses SQLite and the transaction-level invariants in [docs/PAYMENT_STATE.md](docs/PAYMENT_STATE.md). Browser status reads are served from persisted state and do not trigger an equivalent ElectrumX request.
 
-Merchant create requests may include an `Idempotency-Key`. Same-key/same-request retries return the original payment without creating a duplicate invoice/event; same-key/different-request reuse returns HTTP 409.
+Merchant create requests may include an `Idempotency-Key`. Same-key/same-request retries return the original payment without creating a duplicate invoice/event; same-key/different-request reuse returns HTTP 409. New payments may overlap in time when they use different receiving addresses, while the Payment Platform returns `409 payment_address_in_use` for overlapping time windows on the same address.
 
 They may also include an optional merchant-scoped unique `merchant_reference` such as an order ID. This is merchant business identity, not a replacement for `Idempotency-Key`; duplicate references conflict only within the same authenticated merchant namespace. Authenticated merchant listing can recover by exact reference while the public capability-status response does not expose it.
 
