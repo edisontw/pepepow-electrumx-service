@@ -67,7 +67,7 @@ def create_two_merchant_db(path: Path):
     store.create_payment(
         payment_id="pay_scoped",
         merchant_id=scoped["merchant_id"],
-        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        address="P-scoped-acceptance",
         scripthash="22" * 32,
         amount_sats=100,
         confirmations_required=3,
@@ -301,7 +301,6 @@ def test_find_existing_acceptance_pair_reuses_latest_common_pair(tmp_path):
     store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
 
     common = {
-        "address": "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
         "amount_sats": 1,
         "confirmations_required": 1,
         "created_height": 500,
@@ -314,6 +313,7 @@ def test_find_existing_acceptance_pair_reuses_latest_common_pair(tmp_path):
     store.create_payment(
         payment_id="pay_resume_a",
         merchant_id=merchant_a["merchant_id"],
+        address="P-resume-a",
         scripthash="11" * 32,
         created_at=1000,
         **common,
@@ -321,6 +321,7 @@ def test_find_existing_acceptance_pair_reuses_latest_common_pair(tmp_path):
     store.create_payment(
         payment_id="pay_resume_b",
         merchant_id=merchant_b["merchant_id"],
+        address="P-resume-b",
         scripthash="22" * 32,
         created_at=1001,
         **common,
@@ -373,7 +374,7 @@ def test_find_existing_acceptance_pair_requires_same_reference_and_key(tmp_path)
     store.create_payment(
         payment_id="pay_resume_miss_b",
         merchant_id=merchant_b["merchant_id"],
-        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        address="P-resume-miss-b",
         scripthash="22" * 32,
         amount_sats=1,
         confirmations_required=1,
