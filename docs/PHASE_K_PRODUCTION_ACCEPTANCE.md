@@ -309,6 +309,23 @@ python3 backend/scripts/merchant_credential_admin.py \
 Create fresh one-time credentials for those same two merchant IDs rather than
 creating additional acceptance merchant rows.
 
+
+After enabling scoped auth, resume the already persisted pair instead of
+creating more acceptance payments:
+
+```bash
+python3 backend/scripts/phase_k_two_merchant_acceptance.py \
+  --scoped-secret-file-a /home/ubuntu/.pepew-phase-k-acceptance-a.secret \
+  --scoped-secret-file-b /home/ubuntu/.pepew-phase-k-acceptance-b.secret \
+  --resume-existing
+```
+
+Resume mode discovers the newest common `phase-k-acceptance/` merchant
+reference + idempotency key pair owned by those two merchants, verifies that
+the two payment IDs are distinct, and then runs the remaining authenticated
+recovery/public-capability/webhook-listing/ownership checks. It does not create
+another acceptance payment.
+
 ### Production heavy-route pacing
 
 The two-merchant acceptance intentionally continues through the public
