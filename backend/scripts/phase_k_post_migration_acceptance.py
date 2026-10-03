@@ -108,7 +108,11 @@ def latest_payment_id(db_path: Path) -> str:
     return str(row[0])
 
 
-def verify_database(db_path: Path) -> None:
+def verify_database(
+    db_path: Path,
+    *,
+    require_legacy_only: bool = True,
+) -> None:
     uri = f"file:{db_path.resolve()}?mode=ro"
     connection = sqlite3.connect(uri, uri=True, timeout=5.0)
     try:
@@ -122,17 +126,18 @@ def verify_database(db_path: Path) -> None:
             "merchant ownership checks did not pass",
         )
 
-        owner_queries = (
-            "SELECT COUNT(*) FROM payments WHERE merchant_id != 'mrc_legacy_v1'",
-            "SELECT COUNT(*) FROM payment_idempotency_keys WHERE merchant_id != 'mrc_legacy_v1'",
-            "SELECT COUNT(*) FROM events WHERE merchant_id != 'mrc_legacy_v1'",
-            "SELECT COUNT(*) FROM webhook_endpoints WHERE merchant_id != 'mrc_legacy_v1'",
-        )
-        for query in owner_queries:
-            require(
-                int(connection.execute(query).fetchone()[0]) == 0,
-                "unexpected non-legacy production ownership before scoped enable",
+        if require_legacy_only:
+            owner_queries = (
+                "SELECT COUNT(*) FROM payments WHERE merchant_id != 'mrc_legacy_v1'",
+                "SELECT COUNT(*) FROM payment_idempotency_keys WHERE merchant_id != 'mrc_legacy_v1'",
+                "SELECT COUNT(*) FROM events WHERE merchant_id != 'mrc_legacy_v1'",
+                "SELECT COUNT(*) FROM webhook_endpoints WHERE merchant_id != 'mrc_legacy_v1'",
             )
+            for query in owner_queries:
+                require(
+                    int(connection.execute(query).fetchone()[0]) == 0,
+                    "unexpected non-legacy production ownership before scoped enable",
+                )
         require(
             connection.execute("PRAGMA foreign_key_check").fetchall() == [],
             "foreign-key check failed",
@@ -150,6 +155,14 @@ def main() -> int:
     )
     parser.add_argument("--api-base", default=DEFAULT_API_BASE)
     parser.add_argument("--env-file", default=str(ENV_PATH))
+    parser.add_argument(
+        "--allow-existing-scoped-data",
+        action="store_true",
+        help=(
+            "Resume-mode verification after a previous scoped acceptance attempt "
+            "has already persisted valid non-legacy rows."
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -180,7 +193,10 @@ def main() -> int:
         db_path = Path(str(db_raw)).expanduser()
         require(db_path.exists(), "payment database does not exist")
 
-        verify_database(db_path)
+        verify_database(
+            db_path,
+            require_legacy_only=not args.allow_existing_scoped_data,
+        )
         payment_id = latest_payment_id(db_path)
 
         api_base = args.api_base.rstrip("/")
@@ -249,7 +265,10 @@ def main() -> int:
 
     print("schema_profile=phase_k_merchant_v1")
     print("merchant_ownership_checks=pass")
-    print("legacy_rows_owned_by=mrc_legacy_v1")
+    if args.allow_existing_scoped_data:
+        print("existing_scoped_rows=allowed_and_ownership_verified")
+    else:
+        print("legacy_rows_owned_by=mrc_legacy_v1")
     print("foreign_key_check=ok")
     print("pay_health=pass")
     print("electrumx_status=connected")
