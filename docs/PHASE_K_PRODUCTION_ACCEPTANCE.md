@@ -446,3 +446,28 @@ Latest diagnostic tooling CI: **301 passed, 1 warning**.
 Do not weaken destination validation. Use the forced-command empty-payload probe
 first; then retry the real J1 pair only if the actual SSH-forced receiver reports
 the expected restore contract.
+
+
+### VM-A receiver verification PASS
+
+VM-A local verification completed on 2026-10-03:
+
+- SHA `7e12b4aba8a30bb3525d0c0f6ed1737bb7c0f914`;
+- restore module:
+  `/home/ubuntu/pepepow-electrumx-service/backend/scripts/payment_db_restore_drill.py`;
+- restore contract: `phase_k_counts_v1`;
+- Phase K profile: `phase_k_merchant_v1`;
+- direct empty-payload receiver diagnostic PASS;
+- exactly one dedicated J1 forced-command entry at the expected receiver path;
+- source restriction `from="192.9.179.139"` intact;
+- `restrict` intact;
+- targeted tests: 23 passed;
+- off-host destination ownership/modes correct;
+- no staging artifacts.
+
+A reported PEPEPOWd boundary discrepancy was reviewed against the canonical
+Phase F deployment documentation. Port `8833` is PEPEPOWd **P2P**, not RPC,
+and may listen publicly. PEPEPOWd RPC is port `8834`, which remained
+loopback-only. No daemon configuration change is required.
+
+Proceed with the actual VM-B forced-command probe and one J1 retry.

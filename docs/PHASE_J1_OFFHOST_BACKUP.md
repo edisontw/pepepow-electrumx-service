@@ -801,3 +801,42 @@ transfer header is missing or truncated
 It must not create or promote any recovery file. If the contract marker is
 absent, stop and fix the actual forced-command checkout/path before retrying a
 real transfer.
+
+
+### VM-A PEPEPOWd port classification
+
+For VM-A private-boundary checks, do not classify PEPEPOWd P2P as RPC.
+
+Production port roles are:
+
+```text
+8833/tcp  PEPEPOWd P2P
+8834/tcp  PEPEPOWd RPC
+```
+
+Expected VM-A behavior:
+
+- `8833` may listen on `0.0.0.0` / `[::]` for normal peer-to-peer connectivity;
+- `8834` must remain loopback/private;
+- ElectrumX `50001` must remain loopback/private;
+- Payment API/watcher/webhook feature gates remain disabled on VM-A.
+
+Therefore a public `8833` listener is not an RPC-boundary failure by itself.
+
+K5 VM-A receiver verification on 2026-10-03 confirmed:
+
+- checkout `7e12b4aba8a30bb3525d0c0f6ed1737bb7c0f914`;
+- restore module path correct;
+- `restore_contract=phase_k_counts_v1`;
+- `phase_k_merchant_v1` support present;
+- direct empty-payload receiver diagnostic PASS;
+- forced-command path/source restriction/`restrict` PASS;
+- 23 targeted backup/off-host tests PASS;
+- no staging artifacts;
+- Light active;
+- ElectrumX private;
+- PEPEPOWd RPC `8834` loopback-only;
+- PEPEPOWd P2P `8833` public listener is expected and not an RPC exposure.
+
+The next K5 action is therefore the VM-B forced-command SSH probe followed by
+one real J1 retry. No PEPEPOWd configuration change is required.

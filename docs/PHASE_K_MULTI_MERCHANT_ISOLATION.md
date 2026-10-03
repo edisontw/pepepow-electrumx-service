@@ -369,3 +369,10 @@ backend/scripts/payment_db_restore_drill.py
 come from that checkout, compile on Python 3.10, and retain the existing
 receive-only authorized-key trust boundary. Do not weaken table-count equality
 or bypass the destination restore drill merely to accept the transfer.
+
+
+VM-A receiver verification on 2026-10-03: PASS. The forced receiver loads the
+expected `phase_k_counts_v1` restore contract, targeted tests pass, and the
+SSH trust boundary is intact. PEPEPOWd port `8833` was confirmed to be P2P;
+RPC remains private on loopback `8834`. Final K5 action is one VM-B
+forced-path probe followed by one J1 retry.
