@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 migration/legacy acceptance PASS, two-scoped-merchant isolation smoke pending**
+Status: **IN PROGRESS — K0-K4 complete; K5 migration/legacy acceptance PASS; 429 remediation complete; resume-existing isolation retry pending**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1113,13 +1113,15 @@ K0 baseline/contract freeze (COMPLETE)
   -> K2 payment ownership isolation (COMPLETE; 270 backend tests PASS)
   -> K3 webhook ownership isolation (COMPLETE; 272 backend tests PASS)
   -> K4 migration/recovery/operator hardening (COMPLETE; 279 backend tests PASS)
-  -> K5 production acceptance (PARTIAL PASS: migration + legacy acceptance complete; two-scoped-merchant isolation smoke pending)
+  -> K5 production acceptance (PARTIAL PASS: migration + legacy acceptance complete; persisted smoke rows retained; 429 remediation complete; resume-existing retry pending)
   -> K6 DevKit/onboarding alignment
 ```
 
-K5 repository-side preparation is complete: explicit stopped-service migration, read-only post-migration legacy acceptance, safe scoped-auth gate enable/disable, and bounded two-merchant production isolation smoke are documented in `docs/PHASE_K_PRODUCTION_ACCEPTANCE.md`. Latest backend CI is 290 passed with production helper compilation PASS. No production feature gate has been changed yet.
+K5 repository-side preparation is complete: explicit stopped-service migration, read-only post-migration legacy acceptance, safe scoped-auth gate enable/disable, and bounded two-merchant production isolation smoke are documented in `docs/PHASE_K_PRODUCTION_ACCEPTANCE.md`. Latest backend CI is 298 passed with production helper compilation PASS. No production feature gate has been changed yet.
 
 K5 first production execution on 2026-10-03 passed fresh H2/J1 recovery, lossless Phase K migration, legacy credential compatibility, public capability privacy, and final health at the safety stop. The initial two-merchant smoke intentionally refused to create test payments because an enabled legacy webhook endpoint existed; scoped auth was returned to false and the temporary credential was cleaned up. Follow-up tooling now uses two temporary scoped merchants so legacy webhook endpoints remain untouched.
+
+K5 second production execution on 2026-10-03 reached the scoped two-merchant smoke, persisted both acceptance payment/idempotency/event rows, then stopped safely on a non-JSON public Nginx HTTP 429. Scoped auth was rolled back to false; both temporary credentials were disabled and secret files removed; legacy credential and production health were preserved; no final H2/J1 recovery point was created. Main now paces heavy public API requests below the production 3r/s limit, retries bounded 429 responses without bypassing Nginx, supports `--allow-existing-scoped-data`, and can reuse the persisted acceptance pair with `--resume-existing`.
 
 
 ## 11. Testing policy

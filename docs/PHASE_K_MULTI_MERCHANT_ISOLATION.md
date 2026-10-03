@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 migration + legacy production acceptance PASS; two-scoped-merchant isolation smoke pending**
+Status: **IN PROGRESS — K0-K4 complete; K5 migration + legacy acceptance PASS; 429 root cause fixed; resume-existing production isolation retry pending**
 
 Last updated: 2026-10-02
 
@@ -279,7 +279,7 @@ K4 closure: full pre-K migration, H2/J1 Phase K schema-profile verification, fai
 
 ### K5 — Production acceptance
 
-K5 repository tooling: **READY — 290 backend tests PASS on Python 3.10**
+K5 repository tooling: **READY — 298 backend tests PASS on Python 3.10**
 
 Prepared tooling/runbook:
 
@@ -289,9 +289,9 @@ Prepared tooling/runbook:
 - `backend/scripts/phase_k_two_merchant_acceptance.py`
 - [PHASE_K_PRODUCTION_ACCEPTANCE.md](PHASE_K_PRODUCTION_ACCEPTANCE.md)
 
-VM-B production migration and post-migration legacy acceptance passed on 2026-10-03. The first two-merchant smoke stopped safely before test-payment creation because an enabled legacy webhook endpoint existed. The smoke has been hardened to use two temporary scoped merchants so existing legacy webhook endpoints remain untouched; follow-up production execution is pending.
+VM-B production migration and post-migration legacy acceptance passed on 2026-10-03. The first two-merchant smoke stopped safely before test-payment creation because an enabled legacy webhook endpoint existed. After hardening to two temporary scoped merchants, the next attempt persisted the two acceptance payment/idempotency/event rows and then stopped safely on a public Nginx HTTP 429. Scoped auth was returned to false, both temporary credentials were disabled, secrets were removed, and final H2/J1 recovery was intentionally not created. The 429 root cause is now covered by bounded public-route pacing/backoff tests, non-JSON 429 handling, resume-mode verification, and `--resume-existing` so the next attempt reuses the existing pair instead of creating more payments.
 
-Latest K5 tooling CI: **290 passed, 1 warning**; production helper compilation PASS.
+Latest K5 tooling CI: **298 passed, 1 warning**; production helper compilation PASS.
 
 - [x] create pre-migration verified H2 + off-host recovery point
 - [x] migrate VM-B while preserving single-writer authority
