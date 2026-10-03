@@ -329,14 +329,14 @@ def test_list_payments_is_bounded_stable_and_includes_idempotency_key(tmp_path):
     store = PaymentStore(str(tmp_path / "payments.sqlite3"))
     store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
 
-    for payment_id, created_at, key in (
-        ("pay_a", 1000, "order-a"),
-        ("pay_b", 1000, "order-b"),
-        ("pay_c", 1001, None),
+    for payment_id, created_at, key, address in (
+        ("pay_a", 1000, "order-a", "P-list-a"),
+        ("pay_b", 1000, "order-b", "P-list-b"),
+        ("pay_c", 1001, None, "P-list-c"),
     ):
         store.create_payment(
             payment_id=payment_id,
-            address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+            address=address,
             scripthash="11" * 32,
             amount_sats=100,
             confirmations_required=3,
@@ -367,16 +367,6 @@ def test_list_payments_can_filter_status_without_count_query(tmp_path):
     store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
 
     store.create_payment(
-        payment_id="pay_waiting",
-        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
-        scripthash="11" * 32,
-        amount_sats=100,
-        confirmations_required=3,
-        created_at=1000,
-        created_height=500,
-        expires_at=1900,
-    )
-    store.create_payment(
         payment_id="pay_expired",
         address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
         scripthash="22" * 32,
@@ -387,6 +377,16 @@ def test_list_payments_can_filter_status_without_count_query(tmp_path):
         expires_at=950,
     )
     store.refresh_payment("pay_expired", now=1000)
+    store.create_payment(
+        payment_id="pay_waiting",
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+    )
 
     waiting, has_more = store.list_payments(status="waiting", limit=10)
     assert [item["payment_id"] for item in waiting] == ["pay_waiting"]
@@ -485,13 +485,13 @@ def test_list_payments_can_recover_exact_merchant_reference(tmp_path):
     store = PaymentStore(str(tmp_path / "payments.sqlite3"))
     store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
 
-    for payment_id, reference in (
-        ("pay_a", "ORDER-A"),
-        ("pay_b", "ORDER-B"),
+    for payment_id, reference, address in (
+        ("pay_a", "ORDER-A", "P-reference-a"),
+        ("pay_b", "ORDER-B", "P-reference-b"),
     ):
         store.create_payment(
             payment_id=payment_id,
-            address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+            address=address,
             scripthash=("11" if payment_id == "pay_a" else "22") * 32,
             amount_sats=100,
             confirmations_required=3,
