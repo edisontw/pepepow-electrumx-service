@@ -376,3 +376,9 @@ expected `phase_k_counts_v1` restore contract, targeted tests pass, and the
 SSH trust boundary is intact. PEPEPOWd port `8833` was confirmed to be P2P;
 RPC remains private on loopback `8834`. Final K5 action is one VM-B
 forced-path probe followed by one J1 retry.
+
+
+Final J1 retry found the exact destination pair already present and therefore
+correctly refused overwrite before running another destination drill. Closure
+now requires only a current-code, non-destructive VM-A restore drill of that
+existing pair; no additional network transfer should be attempted.

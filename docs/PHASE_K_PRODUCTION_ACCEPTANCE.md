@@ -1,6 +1,6 @@
 # Phase K — Production Acceptance
 
-Status: **FUNCTIONAL PRODUCTION PASS — multi-merchant smoke complete; final J1 recovery pending VM-A receiver update/verification**
+Status: **FUNCTIONAL PRODUCTION PASS — multi-merchant smoke complete; final J1 closure pending local revalidation of an already-present VM-A recovery pair**
 
 Last updated: 2026-10-03
 
@@ -471,3 +471,34 @@ and may listen publicly. PEPEPOWd RPC is port `8834`, which remained
 loopback-only. No daemon configuration change is required.
 
 Proceed with the actual VM-B forced-command probe and one J1 retry.
+
+
+## Existing destination pair detected on final retry
+
+A later VM-B retry used the current forced-command receiver contract
+`phase_k_counts_v1`, passed source verification, and then stopped before
+destination staging because the exact destination backup or manifest already
+existed.
+
+Observed source pair:
+
+```text
+payment-auto-20261003T032555Z.sqlite3
+970752 bytes
+SHA-256 525a7f408c504884d99d0e9680d2cbf39a6723b55a43b7c9037ccacfe5a11570
+schema_profile=phase_k_merchant_v1
+ownership checks=all zero
+source restore drill=PASS
+```
+
+The receiver's no-overwrite guard runs before staging or destination restore.
+Therefore this result proves only that the same destination filename pair is
+already present; it does not, by itself, re-prove that the existing files are a
+complete valid recovery point.
+
+Earlier operator evidence reported destination restore PASS and OFFHOST COPY
+PASS for this exact pair. To resolve the state without overwrite or another
+transfer, run the current non-destructive
+`payment_db_restore_drill.py` directly on VM-A against the existing pair and
+verify its size/SHA/profile/ownership counters. If that passes, K5 final J1
+recovery is complete and no further copy is required.

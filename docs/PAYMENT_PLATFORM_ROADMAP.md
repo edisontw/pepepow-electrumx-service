@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 functional acceptance PASS; VM-A receiver verification PASS; final J1 forced-path probe/retry pending**
+Status: **IN PROGRESS — K0-K4 complete; K5 functional acceptance PASS; final J1 closure pending VM-A local revalidation of already-present recovery pair**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1113,7 +1113,7 @@ K0 baseline/contract freeze (COMPLETE)
   -> K2 payment ownership isolation (COMPLETE; 270 backend tests PASS)
   -> K3 webhook ownership isolation (COMPLETE; 272 backend tests PASS)
   -> K4 migration/recovery/operator hardening (COMPLETE; 279 backend tests PASS)
-  -> K5 production acceptance (FUNCTIONAL PASS; VM-A receiver verified; final post-migration J1 forced-path probe/retry pending)
+  -> K5 production acceptance (FUNCTIONAL PASS; existing Phase K off-host pair present on VM-A; final local restore revalidation pending)
   -> K6 DevKit/onboarding alignment
 ```
 
@@ -1179,3 +1179,12 @@ When a phase or material decision changes:
 4. record deployment-impacting changes before production rollout
 
 Do not mark a phase complete because code exists; its exit criteria must also be satisfied.
+
+
+The final J1 retry found the target Phase K recovery filename already present on
+VM-A, and the receiver correctly refused overwrite before staging. This is
+consistent with earlier operator evidence of destination restore PASS/OFFHOST
+COPY PASS for the exact pair, but existence alone is not closure evidence.
+Perform one current-code non-destructive VM-A restore drill on the existing
+pair; if SHA/manifest/schema/ownership checks pass, K5 recovery is complete and
+no further transfer is needed.
