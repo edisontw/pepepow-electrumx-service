@@ -11,7 +11,12 @@ import sys
 import tempfile
 from typing import BinaryIO
 
-from payment_db_restore_drill import (\n    RESTORE_CONTRACT_VERSION,\n    load_manifest,\n    run_restore_drill,\n)\n
+from payment_db_restore_drill import (
+    RESTORE_CONTRACT_VERSION,
+    load_manifest,
+    run_restore_drill,
+)
+
 
 PROTOCOL_VERSION = 1
 AUTO_NAME_RE = re.compile(r"^payment-auto-\d{8}T\d{6}Z\.sqlite3$")
