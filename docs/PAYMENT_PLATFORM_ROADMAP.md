@@ -1231,17 +1231,23 @@ edison2 / 152.67.253.217 / pepepow.net
 ```
 
 Implementation is in `edisontw/pepepow-devkit` main, starting with commit
-`b863d47`.
+`b863d47`. Post-acceptance correction `33c29b9` changes the always-on Telegram
+and Discord commands to require a user-supplied PEPEW receiving address for
+each payment; production redeploy/restart and Discord command re-registration
+are required before this corrected syntax is live on edison2.
 
 Initial production policy is deliberately small:
 
 - Payment Platform on VM-B remains authoritative; no payment database moves to
   edison2.
 - wallet mnemonic/private keys/signing remain client-side.
-- Telegram and Discord each receive a separate scoped merchant credential and
-  a separate receiving address.
+- Telegram and Discord each receive a separate scoped merchant credential.
+- the receiving address is supplied by the user for each payment request; the
+  always-on bot runtimes must not own, derive, or require a fixed
+  `PEPEW_RECEIVE_ADDRESS`.
 - each bot permits only one outstanding payment at a time for the initial
-  low-volume release; do not add address-pool/HD derivation infrastructure yet.
+  low-volume release; this is a simple concurrency limit independent of the
+  receiving address. Do not add address-pool/HD derivation infrastructure yet.
 - edison2 stores only bounded local message-routing/restart state.
 - Node listeners bind to localhost; the existing `pepepow.net` Apache site
   exposes only the exact interaction/webhook callback paths.
