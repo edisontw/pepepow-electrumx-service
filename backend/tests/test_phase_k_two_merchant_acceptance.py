@@ -1,3 +1,6 @@
+import io
+import urllib.error
+
 import importlib.util
 from pathlib import Path
 import sqlite3
@@ -391,3 +394,26 @@ def test_find_existing_acceptance_pair_requires_same_reference_and_key(tmp_path)
             merchant_id_a=merchant_a["merchant_id"],
             merchant_id_b=merchant_b["merchant_id"],
         )
+
+
+
+def test_non_json_nginx_429_is_retryable_response(monkeypatch):
+    def fake_urlopen(_request, timeout):
+        raise urllib.error.HTTPError(
+            "https://example.test/api/v1/payments",
+            429,
+            "Too Many Requests",
+            {},
+            io.BytesIO(b"<html>rate limited</html>"),
+        )
+
+    monkeypatch.setattr(acceptance.urllib.request, "urlopen", fake_urlopen)
+
+    status, payload, headers = acceptance.json_request(
+        "GET",
+        "https://example.test/api/v1/payments",
+    )
+
+    assert status == 429
+    assert payload == {}
+    assert headers == {}
