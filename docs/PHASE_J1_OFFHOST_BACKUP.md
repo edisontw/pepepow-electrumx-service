@@ -716,3 +716,37 @@ The H2 manifest/restore tooling now identifies phase_k_merchant_v1 and verifies 
 A Phase K off-host copy therefore fails if payment/event/idempotency ownership is orphaned, an idempotency/event owner disagrees with its payment, or a delivery joins an event from one merchant to an endpoint owned by another merchant.
 
 Existing pre-K J1 recovery points remain restorable. No plaintext merchant credential is present in the database or transfer manifest.
+
+
+### Phase K receiver-version preflight
+
+A Phase K H2 pair must be received by VM-A code that understands the same
+`phase_k_merchant_v1` manifest profile used on VM-B.
+
+Before a Phase K J1 copy, verify on VM-A:
+
+```bash
+cd /home/ubuntu/pepepow-electrumx-service
+git status --short
+git rev-parse HEAD
+git fetch origin
+git rev-parse origin/main
+
+python3 -m py_compile \
+  backend/scripts/payment_db_offhost_receiver.py \
+  backend/scripts/payment_db_restore_drill.py
+```
+
+The forced command in `authorized_keys` must continue to point at
+`backend/scripts/payment_db_offhost_receiver.py` from that current checkout.
+
+Do not retry a Phase K transfer if VM-A is behind the GitHub `main` containing
+the Phase K H2/J1 schema-profile extension. Do not make the receiver permissive
+by ignoring manifest table-count differences; the destination must validate
+the same table-count/profile/ownership contract as the source.
+
+Production observation 2026-10-03: VM-B's final K5 H2 pair passed local restore
+verification with `phase_k_merchant_v1`, but VM-A returned
+`backup table counts do not match manifest`. The transfer was stopped without
+changing the VM-A trust boundary or retrying. VM-A local checkout/version
+verification is required before the next transfer.

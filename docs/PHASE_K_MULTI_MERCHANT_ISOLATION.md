@@ -296,12 +296,12 @@ Latest K5 tooling CI: **298 passed, 1 warning**; production helper compilation P
 - [x] create pre-migration verified H2 + off-host recovery point
 - [x] migrate VM-B while preserving single-writer authority
 - [x] verify legacy merchant compatibility first
-- [ ] create two temporary test merchants with distinct scoped credentials
-- [ ] verify same merchant reference/idempotency key can coexist across merchants
-- [ ] verify each merchant cannot list/recover/manage the other's private data
-- [ ] verify webhook events cannot cross merchant boundaries
+- [x] create two temporary test merchants with distinct scoped credentials
+- [x] verify same merchant reference/idempotency key can coexist across merchants
+- [x] verify each merchant cannot list/recover/manage the other's private data
+- [x] verify webhook events cannot cross merchant boundaries
 - [x] verify public capability status remains compatible through post-migration legacy acceptance
-- [ ] verify final watcher/webhook/backup health after scoped smoke + post-migration H2/J1 recovery
+- [ ] verify final watcher/webhook/backup health after scoped smoke + complete post-migration J1 recovery
 - [ ] retire the legacy environment credential only after real legacy merchant consumers have scoped credentials
 
 ### K6 — DevKit / onboarding alignment
@@ -332,3 +332,40 @@ Phase K is complete when:
 A merchant dashboard, self-service signup, billing, quotas, analytics, and a
 dedicated public sandbox should be considered only after the scoped credential
 and ownership model is production-validated.
+
+
+### K5 recovery blocker — VM-A receiver verification
+
+The resumed two-merchant production smoke passed on 2026-10-03 and reused the
+existing acceptance pair without creating new payments. Scoped auth remains
+enabled, the legacy environment credential remains configured, all temporary
+acceptance credentials are disabled, and their secret files were removed.
+
+The final post-smoke H2 backup passed locally with
+`schema_profile=phase_k_merchant_v1` and zero merchant ownership counters, but
+the J1 receiver rejected the transfer with:
+
+```text
+backup table counts do not match manifest
+```
+
+The source pair already passed the current VM-B restore drill. This failure
+therefore remains isolated to destination verification.
+
+Phase K manifests count the merchant ownership tables
+`merchants` and `merchant_credentials`. A VM-A checkout that predates the
+Phase K H2/J1 schema-profile extension computes only the legacy table-count set
+and will reject an otherwise valid Phase K manifest with exactly this message.
+
+Before another J1 retry, VM-A must be checked from its local administrative
+context and updated to the same current green GitHub `main` (or later). Verify
+both:
+
+```text
+backend/scripts/payment_db_offhost_receiver.py
+backend/scripts/payment_db_restore_drill.py
+```
+
+come from that checkout, compile on Python 3.10, and retain the existing
+receive-only authorized-key trust boundary. Do not weaken table-count equality
+or bypass the destination restore drill merely to accept the transfer.

@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 migration/legacy acceptance PASS; 429 remediation complete; resume-existing isolation retry pending**
+Status: **IN PROGRESS — K0-K4 complete; K5 functional acceptance PASS; final Phase K J1 recovery pending VM-A receiver verification**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1113,7 +1113,7 @@ K0 baseline/contract freeze (COMPLETE)
   -> K2 payment ownership isolation (COMPLETE; 270 backend tests PASS)
   -> K3 webhook ownership isolation (COMPLETE; 272 backend tests PASS)
   -> K4 migration/recovery/operator hardening (COMPLETE; 279 backend tests PASS)
-  -> K5 production acceptance (PARTIAL PASS: migration + legacy acceptance complete; persisted smoke rows retained; 429 remediation complete; resume-existing retry pending)
+  -> K5 production acceptance (FUNCTIONAL PASS; final post-migration J1 recovery pending VM-A receiver update/verification)
   -> K6 DevKit/onboarding alignment
 ```
 
@@ -1122,6 +1122,8 @@ K5 repository-side preparation is complete: explicit stopped-service migration, 
 K5 first production execution on 2026-10-03 passed fresh H2/J1 recovery, lossless Phase K migration, legacy credential compatibility, public capability privacy, and final health at the safety stop. The initial two-merchant smoke intentionally refused to create test payments because an enabled legacy webhook endpoint existed; scoped auth was returned to false and the temporary credential was cleaned up. Follow-up tooling now uses two temporary scoped merchants so legacy webhook endpoints remain untouched.
 
 K5 second production execution on 2026-10-03 reached the scoped two-merchant smoke, persisted both acceptance payment/idempotency/event rows, then stopped safely on a non-JSON public Nginx HTTP 429. Scoped auth was rolled back to false; both temporary credentials were disabled and secret files removed; legacy credential and production health were preserved; no final H2/J1 recovery point was created. Main now paces heavy public API requests below the production 3r/s limit, retries bounded 429 responses without bypassing Nginx, supports `--allow-existing-scoped-data`, and can reuse the persisted acceptance pair with `--resume-existing`.
+
+K5 resumed production acceptance on 2026-10-03 passed using the already-persisted acceptance pair: no new payments were created, merchant reference/idempotency isolation passed, private listing/recovery and webhook namespaces remained isolated, public capability privacy passed, zero acceptance webhook recipients were observed, and no 429 retry occurred. Scoped auth remains enabled; temporary credentials are disabled and secret files removed. The final H2 backup passed with `phase_k_merchant_v1` and all ownership counters zero. Final J1 copy remains pending because VM-A rejected destination verification with `backup table counts do not match manifest`; verify/update the VM-A receiver/restore-helper checkout before retrying rather than weakening validation.
 
 
 ## 11. Testing policy

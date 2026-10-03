@@ -1,6 +1,6 @@
 # Phase K — Production Acceptance
 
-Status: **PARTIAL PRODUCTION PASS — migration/legacy acceptance complete; rate-limited two-merchant smoke safely rolled back; resume pending**
+Status: **FUNCTIONAL PRODUCTION PASS — multi-merchant smoke complete; final J1 recovery pending VM-A receiver update/verification**
 
 Last updated: 2026-10-03
 
@@ -373,3 +373,42 @@ The strict legacy-only verifier now correctly rejects the already persisted
 non-legacy acceptance rows. Resume with
 `--allow-existing-scoped-data`; this is expected state, not a reason to rerun
 or roll back the successful Phase K schema migration.
+
+
+## Production resumed acceptance record — functional PASS, J1 pending
+
+The next K5 resume run passed the multi-merchant acceptance while reusing the
+already-persisted acceptance pair:
+
+- current `main`: `4e00b8ea1aa3ce29d93ed47bf6d6ee58de7d1efa`;
+- 298 backend tests passed;
+- resume post-migration acceptance passed;
+- original acceptance credentials remained disabled and belonged to two distinct
+  non-legacy merchants;
+- scoped auth was enabled successfully and remains enabled;
+- legacy environment credential remains configured;
+- `--resume-existing` passed without creating new payments;
+- acceptance webhook recipient count was zero;
+- no HTTP 429 retry was observed during the resume window;
+- newly issued temporary credentials were disabled and secret files removed;
+- Payment Platform, ElectrumX tunnel, watcher, webhook worker, public health and
+  H2 timer remained healthy.
+
+The final H2 backup passed:
+
+```text
+payment-auto-20261003T032555Z.sqlite3
+SHA-256 525a7f408c504884d99d0e9680d2cbf39a6723b55a43b7c9037ccacfe5a11570
+schema_profile=phase_k_merchant_v1
+merchant ownership counters=all zero
+```
+
+The subsequent J1 destination verification failed on VM-A with:
+
+```text
+backup table counts do not match manifest
+```
+
+No retry, receiver modification, SSH trust-boundary change, or destructive
+recovery was attempted. Verify/update VM-A's local receiver and restore-helper
+checkout before another copy.
