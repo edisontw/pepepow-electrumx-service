@@ -75,3 +75,31 @@ def test_post_migration_database_acceptance_rejects_scoped_rows(tmp_path):
         match="unexpected non-legacy production ownership",
     ):
         acceptance.verify_database(path)
+
+
+
+def test_post_migration_database_acceptance_allows_scoped_rows_in_resume_mode(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    store = create_legacy_db(path)
+    merchants = MerchantStore(str(path))
+    merchant = merchants.create_merchant(
+        merchant_id="mrc_resume_ok",
+        display_name="Resume merchant",
+        now=1100,
+    )
+    store.create_payment(
+        payment_id="pay_resume",
+        merchant_id=merchant["merchant_id"],
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="22" * 32,
+        amount_sats=100,
+        confirmations_required=3,
+        created_at=1100,
+        created_height=500,
+        expires_at=2000,
+    )
+
+    acceptance.verify_database(
+        path,
+        require_legacy_only=False,
+    )
