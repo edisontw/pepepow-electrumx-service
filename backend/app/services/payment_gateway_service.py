@@ -20,6 +20,7 @@ from .payment_service import (
     parse_pepew_amount,
 )
 from .payment_store import (
+    PaymentAddressInUseError,
     PaymentIdempotencyConflictError,
     PaymentMerchantReferenceConflictError,
     PaymentNotFoundError,
@@ -264,6 +265,14 @@ async def create_persisted_payment(
             raise PaymentMerchantReferenceConflictError(normalized_merchant_reference)
 
     now = int(time.time())
+    address_existing = await asyncio.to_thread(
+        store.get_overlapping_address_payment,
+        normalized_address,
+        created_at=now,
+    )
+    if address_existing is not None:
+        raise PaymentAddressInUseError(normalized_address)
+
     height, tip_hash, baseline_txids = await _snapshot_creation_state(settings, scripthash)
     payment_id = f"pay_{secrets.token_urlsafe(18)}"
 
