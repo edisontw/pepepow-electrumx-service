@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 import time
 
 import pytest
@@ -874,3 +875,45 @@ def test_different_addresses_can_have_overlapping_payment_windows(tmp_path):
 
     assert first["payment_id"] == "pay_parallel_a"
     assert second["payment_id"] == "pay_parallel_b"
+
+
+def test_concurrent_same_address_create_is_race_safe(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    store = PaymentStore(str(path))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    barrier = threading.Barrier(2)
+    results = []
+    lock = threading.Lock()
+
+    def worker(payment_id: str):
+        local = PaymentStore(str(path))
+        barrier.wait()
+        try:
+            created = local.create_payment(
+                payment_id=payment_id,
+                address="P-race-address",
+                scripthash="33" * 32,
+                amount_sats=100,
+                confirmations_required=1,
+                created_at=1000,
+                created_height=500,
+                expires_at=1900,
+            )
+            outcome = ("created", created["payment_id"])
+        except PaymentAddressInUseError:
+            outcome = ("conflict", payment_id)
+        with lock:
+            results.append(outcome)
+
+    threads = [
+        threading.Thread(target=worker, args=("pay_race_a",)),
+        threading.Thread(target=worker, args=("pay_race_b",)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+        assert not thread.is_alive()
+
+    assert sorted(kind for kind, _payment_id in results) == ["conflict", "created"]
