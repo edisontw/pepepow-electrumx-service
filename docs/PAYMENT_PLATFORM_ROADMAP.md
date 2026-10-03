@@ -892,7 +892,7 @@ Key properties:
 - deterministic contract tests plus bounded transport/payment E2E harnesses;
 - dedicated Telegram transport and real payment/webhook acceptance completed in 2026-09-29/30.
 
-DevKit commit `33c29b9` changes the always-on runtime from a fixed receive address to a user-supplied address per command. `PEPEW_RECEIVE_ADDRESS` remains only as an explicit fixture in the bounded operator E2E harness.
+DevKit commit `33c29b9` changed the always-on runtime from a fixed receive address to a user-supplied address per command. The corrected production runtime was deployed on edison2 and a real Telegram payment passed on 2026-10-03. `PEPEW_RECEIVE_ADDRESS` remains only as an explicit fixture in the bounded operator E2E harness.
 
 ##### I5.6 — Discord merchant/payment adapter
 
@@ -917,7 +917,7 @@ Key properties:
 - deterministic contract tests plus bounded transport/payment E2E harnesses;
 - live transport/payment acceptance and temporary-infrastructure cleanup completed by 2026-10-01.
 
-DevKit commit `33c29b9` adds the required address option to the always-on slash command. The Discord command must be re-registered after deploying that change.
+DevKit commit `33c29b9` added the required address option to the always-on slash command. The corrected command was re-registered on edison2 and a real Discord payment passed on 2026-10-03.
 
 Phase I exit criteria:
 
@@ -1146,7 +1146,7 @@ Current boundaries:
 - Node listeners remain localhost-only and Apache exposes only exact callback paths;
 - no Redis, PostgreSQL, Kafka, RabbitMQ, address derivation service, dashboard, or self-service provisioning is required.
 
-The original edison2 rollout was production-accepted on 2026-10-03. DevKit commit `33c29b9` subsequently corrected the bot command contract to use a user-supplied receiving address. Production must pull/restart that runtime and re-register the Discord command before the corrected syntax is live.
+The edison2 rollout is production-accepted. DevKit commit `33c29b9` corrected the bot command contract to use a user-supplied receiving address; the runtime was then updated/restarted, the Discord command was re-registered, and real Telegram and Discord payments passed on 2026-10-03.
 
 Operational/deployment source of truth:
 
