@@ -15,18 +15,21 @@ Production:
 - Gateway: [light.pepepow.net](https://light.pepepow.net)
 - Wallet: [light.pepepow.net/wallet/](https://light.pepepow.net/wallet/)
 
-Current cross-repository operational priority:
+Current cross-repository operational status:
 
 ```text
-Deploy the existing Telegram + Discord payment adapters on edison2
-  -> minimal always-on bot runtimes
+Telegram + Discord payment adapters on edison2
+  -> production systemd runtimes ACTIVE/ENABLED
   -> separate scoped merchant credentials + receiving addresses
-  -> localhost listeners + narrow pepepow.net HTTPS callback routes
+  -> localhost-only listeners on 127.0.0.1:8790 / 127.0.0.1:8791
+  -> exact pepepow.net HTTPS callback routes
+  -> permanent scoped Payment Platform webhook endpoints
   -> one outstanding payment per bot for the first low-volume release
-  -> small real-payment acceptance
+  -> real 0.1 PEPEW Telegram acceptance PASS
+  -> real 0.1 PEPEW Discord acceptance PASS
 ```
 
-Phases 0/A-K are complete. Do not open a new feature phase merely to expand infrastructure or merchant UI. The immediate goal is to put the already-accepted adapters into real use while keeping Payment Platform authority on VM-B. DevKit production runtime/deployment source is `edisontw/pepepow-devkit` commit `b863d47`. Merchant dashboard/self-service account UI remains deferred.
+Phases 0/A-K are complete, and the post-Phase-K edison2 bot rollout was production-accepted on 2026-10-03. Do not open a new feature phase merely to expand infrastructure or merchant UI. The next priority is normal operation and observation of real usage while keeping Payment Platform authority on VM-B. DevKit production runtime/deployment source is `edisontw/pepepow-devkit` commit `b863d47`. Merchant dashboard/self-service account UI remains deferred.
 
 See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
 
