@@ -1,6 +1,6 @@
 # Phase K — Merchant Credential Operations
 
-Status: **K4 operator runbook complete; production scoped auth remains disabled until K5**
+Status: **COMPLETE — production scoped auth enabled after K5 acceptance**
 
 Last updated: 2026-10-03
 
@@ -14,15 +14,18 @@ Authorization: Bearer <merchant credential>
 
 ## 1. Production gate
 
-Repository default:
+Repository default remains fail-closed:
 
 ```text
 PAYMENT_SCOPED_MERCHANT_AUTH_ENABLED=false
 ```
 
-Keep it false through K4. The existing PAYMENT_CREATE_API_KEY remains the compatibility credential and maps to reserved merchant mrc_legacy_v1.
-
-K5 must first create a verified local + off-host recovery point, migrate production ownership, and complete two-merchant isolation acceptance before scoped DB credentials are enabled.
+VM-B production completed K5 acceptance on 2026-10-03 and explicitly enables
+scoped database-backed merchant authentication. New independent consumers
+should receive operator-issued scoped credentials. The existing
+`PAYMENT_CREATE_API_KEY` remains only as a bounded compatibility credential
+mapped to reserved merchant `mrc_legacy_v1`; do not distribute it to new
+independent consumers.
 
 ## 2. Operator helper
 
