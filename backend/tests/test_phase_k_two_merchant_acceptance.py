@@ -215,3 +215,66 @@ def test_payment_created_recipient_count_matches_runtime_filtering(tmp_path):
         path,
         merchant_ids={other["merchant_id"]},
     ) == 1
+
+
+
+def test_heavy_request_controller_retries_429_and_succeeds(monkeypatch):
+    calls = []
+
+    def fake_json_request(*args, **kwargs):
+        calls.append((args, kwargs))
+        if len(calls) < 3:
+            return 429, {}, {}
+        return 200, {"ok": True}, {}
+
+    monkeypatch.setattr(acceptance, "json_request", fake_json_request)
+    controller = acceptance.HeavyRequestController(
+        min_interval=0,
+        max_rate_limit_retries=3,
+        backoff_seconds=0,
+    )
+
+    status, payload, _headers = controller.request(
+        "GET",
+        "https://example.test/api/v1/payments",
+    )
+
+    assert status == 200
+    assert payload == {"ok": True}
+    assert len(calls) == 3
+
+
+def test_heavy_request_controller_returns_final_429(monkeypatch):
+    calls = []
+
+    def fake_json_request(*args, **kwargs):
+        calls.append((args, kwargs))
+        return 429, {}, {}
+
+    monkeypatch.setattr(acceptance, "json_request", fake_json_request)
+    controller = acceptance.HeavyRequestController(
+        min_interval=0,
+        max_rate_limit_retries=2,
+        backoff_seconds=0,
+    )
+
+    status, payload, _headers = controller.request(
+        "GET",
+        "https://example.test/api/v1/payments",
+    )
+
+    assert status == 429
+    assert payload == {}
+    assert len(calls) == 3
+
+
+def test_retry_after_parser_is_case_insensitive():
+    assert acceptance.HeavyRequestController._retry_after_seconds(
+        {"Retry-After": "2"}
+    ) == 2.0
+    assert acceptance.HeavyRequestController._retry_after_seconds(
+        {"retry-after": "0.5"}
+    ) == 0.5
+    assert acceptance.HeavyRequestController._retry_after_seconds(
+        {"Retry-After": "invalid"}
+    ) is None
