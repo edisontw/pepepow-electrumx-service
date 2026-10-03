@@ -667,3 +667,48 @@ def test_idempotency_key_conflicts_when_merchant_reference_changes(tmp_path, mon
         )
 
     assert calls["snapshot"] == 1
+
+
+def test_overlapping_address_window_conflict_fails_before_second_snapshot(tmp_path, monkeypatch):
+    settings = get_settings().model_copy(
+        update={
+            "payment_api_enabled": True,
+            "payment_db_path": str(tmp_path / "payments.sqlite3"),
+            "payment_default_expiry_seconds": 900,
+            "payment_max_expiry_seconds": 86400,
+        }
+    )
+    monkeypatch.setattr(payment_gateway_service, "get_settings", lambda: settings)
+    monkeypatch.setattr(payment_gateway_service.time, "time", lambda: 1000)
+    payment_gateway_service.clear_payment_store_cache()
+
+    calls = {"snapshot": 0}
+
+    async def fake_snapshot(_settings, _scripthash):
+        calls["snapshot"] += 1
+        return 500, "tip", ()
+
+    monkeypatch.setattr(payment_gateway_service, "_snapshot_creation_state", fake_snapshot)
+
+    asyncio.run(
+        payment_gateway_service.create_persisted_payment(
+            address=ADDRESS,
+            amount="1",
+            expires_in=900,
+        )
+    )
+
+    try:
+        asyncio.run(
+            payment_gateway_service.create_persisted_payment(
+                address=ADDRESS,
+                amount="2",
+                expires_in=900,
+            )
+        )
+    except payment_gateway_service.PaymentAddressInUseError:
+        pass
+    else:
+        raise AssertionError("Expected overlapping receive-address window to conflict.")
+
+    assert calls["snapshot"] == 1
