@@ -10,6 +10,7 @@ from ..services.payment_auth import (
     require_payment_merchant_auth,
 )
 from ..services.payment_gateway_service import (
+    PaymentAddressInUseError,
     PaymentGatewayDisabledError,
     PaymentIdempotencyConflictError,
     PaymentMerchantReferenceConflictError,
@@ -126,6 +127,12 @@ async def create_payment(
             status.HTTP_409_CONFLICT,
             "payment_merchant_reference_conflict",
             "merchant_reference is already assigned to another payment.",
+        )
+    except PaymentAddressInUseError:
+        return api_error_response(
+            status.HTTP_409_CONFLICT,
+            "payment_address_in_use",
+            "This receiving address already has an overlapping payment window.",
         )
     except PaymentStoreError:
         return api_error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "payment_store_error")
