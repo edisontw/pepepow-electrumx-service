@@ -25,7 +25,7 @@ Phase K multi-merchant credential isolation
   -> migration + production acceptance
 ```
 
-Phases 0/A-J and Phase K K0-K5 are complete. Multi-merchant scoped credentials, ownership isolation, production migration, and Phase K H2/J1 recovery are production-validated. K6 aligns DevKit/onboarding guidance; merchant dashboard/self-service account UI remains deferred.
+Phases 0/A-K are complete. Multi-merchant scoped credentials, ownership isolation, production migration/recovery, and DevKit/onboarding alignment are production-validated. Merchant dashboard/self-service account UI remains deferred.
 
 See [docs/PAYMENT_PLATFORM_ROADMAP.md](docs/PAYMENT_PLATFORM_ROADMAP.md) for the canonical Payment Platform architecture, phase order, progress, and deployment direction.
 

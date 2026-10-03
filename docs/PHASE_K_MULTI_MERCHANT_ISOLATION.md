@@ -1,8 +1,8 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K5 complete; K6 DevKit/onboarding alignment next**
+Status: **CLOSED — K0-K6 complete; multi-merchant scoped credentials, ownership isolation, production migration/recovery, and DevKit onboarding alignment verified 2026-10-03**
 
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
 ## 1. Why Phase K
 
@@ -293,7 +293,7 @@ Prepared tooling/runbook:
 
 VM-B production migration and post-migration legacy acceptance passed on 2026-10-03. The first two-merchant smoke stopped safely before test-payment creation because an enabled legacy webhook endpoint existed. After hardening to two temporary scoped merchants, the next attempt persisted the two acceptance payment/idempotency/event rows and then stopped safely on a public Nginx HTTP 429. Scoped auth was returned to false, both temporary credentials were disabled, secrets were removed, and final H2/J1 recovery was intentionally not created. The 429 root cause is now covered by bounded public-route pacing/backoff tests, non-JSON 429 handling, resume-mode verification, and `--resume-existing` so the next attempt reuses the existing pair instead of creating more payments.
 
-Latest K5 tooling CI: **298 passed, 1 warning**; production helper compilation PASS.
+Latest backend Phase K/J1 diagnostic baseline: **301 passed, 1 warning**; production helper compilation PASS.
 
 - [x] create pre-migration verified H2 + off-host recovery point
 - [x] migrate VM-B while preserving single-writer authority
@@ -308,11 +308,29 @@ Latest K5 tooling CI: **298 passed, 1 warning**; production helper compilation P
 
 ### K6 — DevKit / onboarding alignment
 
-- [ ] document operator-issued scoped merchant credentials
-- [ ] update Quick Start and testing strategy for multi-merchant production
-- [ ] keep `@pepepow/pepewpay-merchant` Authorization transport compatible
-- [ ] add integration contract fixtures for two merchant namespaces
-- [ ] explicitly keep merchant dashboard/self-service provisioning deferred
+Status: **COMPLETE — DevKit main `c6f9353369248b90ffa38374df3c8db35a952ed2`; full CI SUCCESS**
+
+- [x] document operator-issued scoped merchant credentials
+- [x] update Quick Start and testing strategy for multi-merchant production
+- [x] keep `@pepepow/pepewpay-merchant` Authorization transport compatible
+- [x] add integration contract fixtures for two merchant namespaces
+- [x] explicitly keep merchant dashboard/self-service provisioning deferred
+
+K6 notes:
+
+- `MerchantClient({ apiKey })` is unchanged; the operator-issued scoped
+  credential continues to use `Authorization: Bearer <credential>`;
+- no SDK protocol/version bump is required merely for Phase K merchant scoping;
+- `test-vectors/merchant-namespaces-v1.json` and
+  `packages/pepewpay-merchant/tests/multi-merchant.test.mjs` verify that two
+  credentials may reuse the same merchant reference and idempotency-key strings
+  while recovering distinct merchant-owned payments;
+- Quick Start, testing/sandbox strategy, package README, runnable sample docs,
+  and environment comments now describe the production scoped credential model;
+- public self-service signup/dashboard/sandbox credential provisioning remains
+  deferred;
+- DevKit CI passed the SDK/sample/PepewPay plus WooCommerce legacy, HPOS,
+  package, and adapter jobs.
 
 ## 9. Exit criteria
 
@@ -432,3 +450,46 @@ additional network transfer was required.
 consumers. This compatibility period is deliberate. Independent merchants must
 use scoped credentials; removal of the environment key should occur only after
 the legacy merchant integrations have been deliberately rotated.
+
+
+## 11. Phase K closure audit
+
+Phase K is **CLOSED** as of 2026-10-03.
+
+Exit criteria satisfied:
+
+- two independent merchants use distinct scoped credentials without sharing
+  private namespaces;
+- merchant reference and idempotency identity are merchant scoped;
+- payment listing/recovery is merchant isolated;
+- webhook endpoints/delivery logs are merchant isolated and cross-merchant
+  delivery creation is rejected by authoritative logic;
+- existing production state migrated losslessly to the reserved legacy merchant;
+- public high-entropy payment capability URLs remain compatible and do not
+  expose merchant-private metadata;
+- credential creation/rotation/revocation uses hash-only storage and
+  server-side one-time secret delivery;
+- scoped auth is production-enabled while the legacy environment credential is
+  retained only as a deliberate compatibility path for existing legacy
+  consumers;
+- Phase K H2 backup and VM-A J1 recovery were verified with
+  `phase_k_merchant_v1`, zero ownership mismatches, exact SHA-256, and a
+  current-code non-destructive restore drill;
+- no new continuously running database/queue/cache infrastructure was added;
+- DevKit onboarding/testing is aligned with the scoped production model and the
+  existing Bearer SDK transport remains compatible.
+
+Key closure revisions:
+
+```text
+pepepow-electrumx-service:
+  75140f61af6260c7a672c36cda53453a5fb7c6f0  K5 closure docs baseline
+
+pepepow-devkit:
+  c6f9353369248b90ffa38374df3c8db35a952ed2  K6 docs + multi-merchant fixture
+```
+
+The legacy `PAYMENT_CREATE_API_KEY` should be retired only after all real
+legacy merchant integrations have been deliberately rotated to scoped
+credentials. That consumer migration is operational follow-up, not a Phase K
+correctness blocker.

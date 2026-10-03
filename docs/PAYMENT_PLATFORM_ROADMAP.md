@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K5 complete; K6 DevKit/onboarding alignment next**
+Status: **CLOSED — K0-K6 complete 2026-10-03**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1098,12 +1098,12 @@ SDK contract alignment after the server ownership model is stable.
 
 Detailed plan: [PHASE_K_MULTI_MERCHANT_ISOLATION.md](PHASE_K_MULTI_MERCHANT_ISOLATION.md)
 
-Rationale: the production API currently uses one global merchant Bearer key,
+Rationale: the initial production API used one global merchant Bearer key,
 global idempotency/reference namespaces, and unowned webhook endpoints. Phase K
-adds explicit merchant ownership and scoped, revocable credentials before the
-platform is opened to multiple independent real merchants. It keeps SQLite,
-Bearer transport, transaction-level payment authority, public capability status,
-and the client-side wallet signing boundary unchanged.
+replaced that structural limit with explicit merchant ownership and scoped,
+revocable credentials while keeping SQLite, Bearer transport, transaction-level
+payment authority, public capability status, and the client-side wallet signing
+boundary unchanged.
 
 Development order:
 
@@ -1114,10 +1114,10 @@ K0 baseline/contract freeze (COMPLETE)
   -> K3 webhook ownership isolation (COMPLETE; 272 backend tests PASS)
   -> K4 migration/recovery/operator hardening (COMPLETE; 279 backend tests PASS)
   -> K5 production acceptance (COMPLETE 2026-10-03; multi-merchant functional acceptance + Phase K H2/J1 recovery PASS)
-  -> K6 DevKit/onboarding alignment
+  -> K6 DevKit/onboarding alignment (COMPLETE; DevKit c6f9353369248b90ffa38374df3c8db35a952ed2; full CI SUCCESS)
 ```
 
-K5 repository-side preparation is complete: explicit stopped-service migration, read-only post-migration legacy acceptance, safe scoped-auth gate enable/disable, and bounded two-merchant production isolation smoke are documented in `docs/PHASE_K_PRODUCTION_ACCEPTANCE.md`. Latest backend CI is 298 passed with production helper compilation PASS. No production feature gate has been changed yet.
+K5 repository-side tooling and production acceptance are complete. Scoped database-backed merchant auth is enabled in production; the legacy environment credential remains configured only as a compatibility path for existing legacy merchant integrations. The K5 migration/acceptance/recovery runbook is documented in `docs/PHASE_K_PRODUCTION_ACCEPTANCE.md`. Latest backend Phase K/J1 diagnostic baseline is 301 passed with production helper compilation PASS.
 
 K5 first production execution on 2026-10-03 passed fresh H2/J1 recovery, lossless Phase K migration, legacy credential compatibility, public capability privacy, and final health at the safety stop. The initial two-merchant smoke intentionally refused to create test payments because an enabled legacy webhook endpoint existed; scoped auth was returned to false and the temporary credential was cleaned up. Follow-up tooling now uses two temporary scoped merchants so legacy webhook endpoints remain untouched.
 
@@ -1196,3 +1196,19 @@ VM-A was revalidated locally with current code. Size, SHA-256, manifest,
 non-destructive restore all passed; no staging artifacts remained. VM-B scoped
 auth remains enabled and the legacy environment credential remains configured
 as a deliberate compatibility path. **K5 is complete; K6 is next.**
+
+
+Phase K closure audit (2026-10-03):
+
+- K0 contract/baseline freeze: COMPLETE
+- K1 merchant identity + hash-only scoped credential storage: COMPLETE
+- K2 merchant-scoped payment/idempotency/reference ownership: COMPLETE
+- K3 merchant-scoped webhook/event/delivery isolation: COMPLETE
+- K4 lossless migration + H2/J1 ownership verification + operator credential lifecycle: COMPLETE
+- K5 production migration, scoped-auth enablement, two-merchant isolation smoke, and Phase K H2/J1 recovery: COMPLETE
+- K6 DevKit scoped-credential onboarding/testing alignment: COMPLETE; DevKit `c6f9353369248b90ffa38374df3c8db35a952ed2` full CI SUCCESS
+- production scoped auth is enabled; legacy environment credential remains a bounded compatibility path pending deliberate consumer rotation
+- public payment capability and non-custodial wallet/signing boundaries remain unchanged
+- no Redis/PostgreSQL/Kafka/RabbitMQ/continuous backup daemon was introduced
+
+**Phase K is CLOSED.**
