@@ -20,6 +20,7 @@ AUTO_NAME_RE = re.compile(r"^payment-auto-\d{8}T\d{6}Z\.sqlite3$")
 MAX_MANIFEST_BYTES = 128 * 1024
 COPY_CHUNK_BYTES = 1024 * 1024
 REMOTE_COMMAND = "receive"
+EXPECTED_RECEIVER_RESTORE_CONTRACT = "phase_k_counts_v1"
 
 
 def complete_auto_pairs(directory: Path) -> list[tuple[Path, Path]]:
@@ -169,6 +170,15 @@ def send_pair(
     if process.returncode != 0:
         safe = err.strip() or out.strip() or f"receiver exited {process.returncode}"
         raise RuntimeError(safe)
+
+    expected_contract_line = (
+        "restore_contract=" + EXPECTED_RECEIVER_RESTORE_CONTRACT
+    )
+    if expected_contract_line not in out.splitlines():
+        raise RuntimeError(
+            "receiver restore contract mismatch or missing: "
+            + EXPECTED_RECEIVER_RESTORE_CONTRACT
+        )
     return out, err
 
 
@@ -222,7 +232,13 @@ def main() -> int:
         return 1
 
     for line in stdout.splitlines():
-        if line.startswith(("backup_file=", "size_bytes=", "sha256=", "OFFHOST RECEIVE:")):
+        if line.startswith((
+            "backup_file=",
+            "size_bytes=",
+            "sha256=",
+            "restore_contract=",
+            "OFFHOST RECEIVE:",
+        )):
             print(f"receiver_{line}")
     print(f"backup_file={database.name}")
     print(f"size_bytes={metadata['size_bytes']}")

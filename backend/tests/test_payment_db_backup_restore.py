@@ -313,3 +313,25 @@ def test_restore_accepts_historical_manifest_without_schema_profile(tmp_path):
 
     summary = restore.run_restore_drill(output, manifest)
     assert summary["schema_profile"] == "legacy_payment_v1"
+
+
+
+def test_table_count_diff_reports_only_table_names_and_counts():
+    diff = restore._table_count_diff(
+        {
+            "payments": 10,
+            "merchants": 3,
+            "merchant_credentials": 4,
+        },
+        {
+            "payments": 10,
+            "merchants": 2,
+        },
+    )
+
+    assert diff == (
+        "merchant_credentials:expected=4,actual=<missing>;"
+        "merchants:expected=3,actual=2"
+    )
+    assert "payment_id" not in diff
+    assert "address" not in diff

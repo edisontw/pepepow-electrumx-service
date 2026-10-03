@@ -11,8 +11,7 @@ import sys
 import tempfile
 from typing import BinaryIO
 
-from payment_db_restore_drill import load_manifest, run_restore_drill
-
+from payment_db_restore_drill import (\n    RESTORE_CONTRACT_VERSION,\n    load_manifest,\n    run_restore_drill,\n)\n
 
 PROTOCOL_VERSION = 1
 AUTO_NAME_RE = re.compile(r"^payment-auto-\d{8}T\d{6}Z\.sqlite3$")
@@ -219,12 +218,17 @@ def main() -> int:
         )
         return 2
     except Exception as exc:
-        print(f"OFFHOST RECEIVE: FAIL: {exc}", file=sys.stderr)
+        print(
+            "OFFHOST RECEIVE: FAIL: "
+            f"restore_contract={RESTORE_CONTRACT_VERSION}: {exc}",
+            file=sys.stderr,
+        )
         return 1
 
     print(f"backup_file={metadata['backup_file']}")
     print(f"size_bytes={metadata['size_bytes']}")
     print(f"sha256={metadata['sha256']}")
+    print(f"restore_contract={RESTORE_CONTRACT_VERSION}")
     print("destination_restore_drill=pass")
     print(f"retained_complete_backups={len(complete_received_pairs(Path(args.destination_dir)))}")
     print(f"pruned_complete_backups={len(removed)}")

@@ -26,6 +26,7 @@ OPTIONAL_TABLES = (
 MANIFEST_VERSION = 1
 PHASE_K_SCHEMA_PROFILE = "phase_k_merchant_v1"
 LEGACY_SCHEMA_PROFILE = "legacy_payment_v1"
+RESTORE_CONTRACT_VERSION = "phase_k_counts_v1"
 
 PHASE_K_TABLES = (
     "merchants",
@@ -271,6 +272,22 @@ def load_manifest(path: Path) -> dict[str, Any]:
     return data
 
 
+def _table_count_diff(
+    expected: dict[str, Any],
+    actual: dict[str, Any],
+) -> str:
+    names = sorted(set(expected) | set(actual))
+    differences: list[str] = []
+    for name in names:
+        expected_value = expected.get(name, "<missing>")
+        actual_value = actual.get(name, "<missing>")
+        if expected_value != actual_value:
+            differences.append(
+                f"{name}:expected={expected_value},actual={actual_value}"
+            )
+    return ";".join(differences)
+
+
 def verify_against_manifest(
     backup: Path,
     manifest: dict[str, Any],
@@ -298,7 +315,14 @@ def verify_against_manifest(
     ):
         raise RuntimeError("backup schema profile does not match manifest")
     if summary["table_counts"] != manifest["table_counts"]:
-        raise RuntimeError("backup table counts do not match manifest")
+        diff = _table_count_diff(
+            manifest["table_counts"],
+            summary["table_counts"],
+        )
+        raise RuntimeError(
+            "backup table counts do not match manifest"
+            + (f": {diff}" if diff else "")
+        )
     if (
         summary["enabled_webhook_endpoints"]
         != manifest.get("enabled_webhook_endpoints")

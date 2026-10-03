@@ -412,3 +412,54 @@ def test_phase_k_profile_survives_offhost_round_trip(tmp_path):
     summary = restore.run_restore_drill(copied_database, copied_manifest)
     assert summary["schema_profile"] == "phase_k_merchant_v1"
     assert set(summary["merchant_ownership_checks"].values()) == {0}
+
+
+
+def test_receiver_reports_restore_contract_on_success(tmp_path, capsys):
+    source = tmp_path / "source-contract"
+    destination = tmp_path / "destination-contract"
+    source.mkdir()
+    database, manifest = create_pair(source, "20261003T040000Z")
+
+    payload = io.BytesIO()
+    sender.write_transfer_stream(database, manifest, payload)
+    payload.seek(0)
+
+    metadata, _removed = receiver.receive_stream(payload, destination)
+    assert metadata["backup_file"] == database.name
+    assert receiver.RESTORE_CONTRACT_VERSION == "phase_k_counts_v1"
+    assert sender.EXPECTED_RECEIVER_RESTORE_CONTRACT == "phase_k_counts_v1"
+
+
+def test_sender_rejects_success_without_restore_contract(tmp_path, monkeypatch):
+    database, manifest = create_pair(tmp_path, "20261003T040001Z")
+
+    class FakeProcess:
+        def __init__(self):
+            self.stdin = io.BytesIO()
+            self.returncode = 0
+
+        def communicate(self, timeout):
+            return (
+                b"backup_file=x\nOFFHOST RECEIVE: PASS\n",
+                b"",
+            )
+
+        def kill(self):
+            pass
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(sender.subprocess, "Popen", lambda *a, **k: FakeProcess())
+
+    with pytest.raises(
+        RuntimeError,
+        match="receiver restore contract mismatch or missing",
+    ):
+        sender.send_pair(
+            database=database,
+            manifest_path=manifest,
+            command=["ssh"],
+            timeout=10,
+        )
