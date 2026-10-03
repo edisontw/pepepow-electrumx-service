@@ -1148,6 +1148,8 @@ Current boundaries:
 
 The edison2 rollout is production-accepted. DevKit commit `33c29b9` corrected the bot command contract to use a user-supplied receiving address; the runtime was then updated/restarted, the Discord command was re-registered, and real Telegram and Discord payments passed on 2026-10-03.
 
+Telegram group-capable follow-up: DevKit `368a350` accepts `private`, `group`, and `supergroup` updates. Plain `/pay <address> <amount>` is accepted in groups for convenience; explicit `/pay@BotName ...` is also accepted only when it targets this bot. The originating chat publicly shows the receiving address, exact amount, PepewPay button, and Payment Platform-driven status. The initial global one-outstanding-payment limit remains unchanged across all Telegram chats. This is source-complete but still requires edison2 deployment and a bounded live group acceptance before being called production-accepted.
+
 Operational/deployment source of truth:
 
 ~~~text
