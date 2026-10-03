@@ -35,11 +35,80 @@ from payment_db_backup import (  # noqa: E402
 ENV_PATH = BACKEND_DIR / ".env"
 DEFAULT_API_BASE = "https://pay.pepepow.net"
 TEST_AMOUNT = "0.00000001"
-REQUEST_DELAY_SECONDS = 0.4
+HEAVY_REQUEST_MIN_INTERVAL_SECONDS = 0.55
+MAX_RATE_LIMIT_RETRIES = 3
+RATE_LIMIT_BACKOFF_SECONDS = 1.0
 
 
 class AcceptanceError(RuntimeError):
     pass
+
+
+class HeavyRequestController:
+    def __init__(
+        self,
+        *,
+        min_interval: float = HEAVY_REQUEST_MIN_INTERVAL_SECONDS,
+        max_rate_limit_retries: int = MAX_RATE_LIMIT_RETRIES,
+        backoff_seconds: float = RATE_LIMIT_BACKOFF_SECONDS,
+    ) -> None:
+        self.min_interval = max(0.0, float(min_interval))
+        self.max_rate_limit_retries = max(0, int(max_rate_limit_retries))
+        self.backoff_seconds = max(0.0, float(backoff_seconds))
+        self._last_request_at: float | None = None
+
+    def _pace(self) -> None:
+        if self._last_request_at is None:
+            return
+        elapsed = time.monotonic() - self._last_request_at
+        remaining = self.min_interval - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
+
+    @staticmethod
+    def _retry_after_seconds(headers: dict[str, str]) -> float | None:
+        for key, value in headers.items():
+            if key.lower() != "retry-after":
+                continue
+            try:
+                parsed = float(value.strip())
+            except (TypeError, ValueError):
+                return None
+            return max(0.0, parsed)
+        return None
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: float = 15.0,
+    ) -> tuple[int, dict[str, Any], dict[str, str]]:
+        for attempt in range(self.max_rate_limit_retries + 1):
+            self._pace()
+            status, payload, response_headers = json_request(
+                method,
+                url,
+                headers=headers,
+                json_body=json_body,
+                timeout=timeout,
+            )
+            self._last_request_at = time.monotonic()
+            if status != 429:
+                return status, payload, response_headers
+            if attempt >= self.max_rate_limit_retries:
+                return status, payload, response_headers
+
+            retry_after = self._retry_after_seconds(response_headers)
+            backoff = self.backoff_seconds * (2 ** attempt)
+            time.sleep(max(self.min_interval, retry_after or 0.0, backoff))
+
+        raise AssertionError("unreachable")
+
+
+HEAVY_REQUESTS = HeavyRequestController()
 
 
 def truthy(value: str | None) -> bool:
@@ -88,9 +157,12 @@ def json_request(
     try:
         payload = json.loads(raw.decode("utf-8")) if raw else {}
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise AcceptanceError(
-            f"{method} request returned non-JSON HTTP {status}"
-        ) from exc
+        if status == 429:
+            payload = {}
+        else:
+            raise AcceptanceError(
+                f"{method} request returned non-JSON HTTP {status}"
+            ) from exc
     if not isinstance(payload, dict):
         raise AcceptanceError("HTTP JSON response was not an object")
     return status, payload, response_headers
@@ -270,7 +342,7 @@ def one_reference_payment(
         **auth,
         "Idempotency-Key": idempotency_key,
     }
-    status, created, _ = json_request(
+    status, created, _ = HEAVY_REQUESTS.request(
         "POST",
         f"{api_base}/api/v1/payments",
         headers=headers,
@@ -294,8 +366,7 @@ def one_reference_payment(
         "payment create response lost idempotency metadata",
     )
 
-    time.sleep(REQUEST_DELAY_SECONDS)
-    status, replay, _ = json_request(
+    status, replay, _ = HEAVY_REQUESTS.request(
         "POST",
         f"{api_base}/api/v1/payments",
         headers=headers,
@@ -320,7 +391,7 @@ def recover_exact(
             "limit": 10,
         }
     )
-    status, payload, _ = json_request(
+    status, payload, _ = HEAVY_REQUESTS.request(
         "GET",
         f"{api_base}/api/v1/payments?{query}",
         headers=auth,
@@ -342,7 +413,7 @@ def endpoint_ids(
     *,
     auth: dict[str, str],
 ) -> set[str]:
-    status, payload, _ = json_request(
+    status, payload, _ = HEAVY_REQUESTS.request(
         "GET",
         f"{api_base}/api/v1/webhook-endpoints",
         headers=auth,
@@ -364,7 +435,7 @@ def delivery_ids(
     *,
     auth: dict[str, str],
 ) -> set[str]:
-    status, payload, _ = json_request(
+    status, payload, _ = HEAVY_REQUESTS.request(
         "GET",
         f"{api_base}/api/v1/webhook-deliveries?limit=500",
         headers=auth,
@@ -515,7 +586,6 @@ def main() -> int:
             merchant_reference=merchant_reference,
             idempotency_key=idempotency_key,
         )
-        time.sleep(REQUEST_DELAY_SECONDS)
         payment_id_b = one_reference_payment(
             api_base,
             auth=auth_b,
@@ -549,7 +619,7 @@ def main() -> int:
 
         for payment_id in (payment_id_a, payment_id_b):
             quoted = urllib.parse.quote(payment_id, safe="")
-            status, public, _ = json_request(
+            status, public, _ = HEAVY_REQUESTS.request(
                 "GET",
                 f"{api_base}/api/v1/payments/{quoted}",
             )
