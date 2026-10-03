@@ -1216,7 +1216,7 @@ Phase K closure audit (2026-10-03):
 
 ## 14. Post-Phase K operational priority — production bots
 
-Status: **IMPLEMENTATION READY — edison2 deployment pending**
+Status: **PRODUCTION ACCEPTED — edison2 rollout complete 2026-10-03**
 
 Phase K is closed. The next priority is operational adoption, not another
 feature phase.
@@ -1250,14 +1250,26 @@ Initial production policy is deliberately small:
 
 Deployment acceptance:
 
-1. edison2 preflight passes without disturbing its wallet node or website;
-2. both bot services are systemd-managed and restart automatically;
-3. local health checks pass and ports remain localhost-only;
-4. one small Telegram payment reaches confirmed and updates its message;
-5. one small Discord payment reaches confirmed and updates the same message;
-6. service logs contain no bot token, scoped credential, webhook secret,
-   mnemonic, private key, or raw signing material.
+1. [x] edison2 preflight passed without disturbing its wallet node or website;
+2. [x] both bot services are systemd-managed, active, enabled, and restart automatically;
+3. [x] local health checks passed and ports 8790/8791 remain localhost-only;
+4. [x] Apache exposes only the three exact Telegram/Discord callback paths while the main pepepow.net site remains HTTP 200;
+5. [x] Telegram and Discord use separate scoped merchant credentials, separate receiving addresses, and permanent scoped webhook endpoints;
+6. [x] one real 0.1 PEPEW Telegram payment reached confirmed and updated its bot message;
+7. [x] one real 0.1 PEPEW Discord payment reached confirmed and updated the same ordinary channel message;
+8. [x] service-log secret checks passed for bot tokens, scoped credentials, and webhook signing secrets;
+9. [x] Discord Developer Portal Interactions Endpoint was saved successfully to the production HTTPS callback;
+10. [x] temporary credential-transfer files and one-time SSH transfer authorization/key material were removed after deployment.
 
-Only after real usage demonstrates a concrete limitation should bot
-concurrency, address allocation, merchant UI, or additional infrastructure be
-expanded.
+Production acceptance audit (2026-10-03):
+
+- edison2 runtime source: DevKit `b863d47dbf0b916a957c6ca66e93170d7d2e5e60`;
+- Payment Platform roadmap/source baseline: `d26c443b7547536ade170235e50bdff44f0569c5`;
+- Telegram systemd service: active/enabled, listener `127.0.0.1:8790`, local `/healthz` PASS;
+- Discord systemd service: active/enabled, listener `127.0.0.1:8791`, local `/healthz` PASS;
+- public callback GET checks reached the runtimes (404 backend response rather than proxy 503);
+- `https://pepepow.net/` remained HTTP 200 after Apache route installation/reload;
+- VM-B scoped merchant credentials remain enabled and Payment Platform health remained PASS;
+- no Payment Platform database, wallet signing, mnemonic/private key handling, Redis, PostgreSQL, Kafka, RabbitMQ, or additional always-on infrastructure was added to edison2.
+
+The operational rollout is complete. Only after real usage demonstrates a concrete limitation should bot concurrency, address allocation, merchant UI, or additional infrastructure be expanded.
