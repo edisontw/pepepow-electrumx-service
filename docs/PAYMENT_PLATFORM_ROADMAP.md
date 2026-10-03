@@ -1212,3 +1212,52 @@ Phase K closure audit (2026-10-03):
 - no Redis/PostgreSQL/Kafka/RabbitMQ/continuous backup daemon was introduced
 
 **Phase K is CLOSED.**
+
+
+## 14. Post-Phase K operational priority — production bots
+
+Status: **IMPLEMENTATION READY — edison2 deployment pending**
+
+Phase K is closed. The next priority is operational adoption, not another
+feature phase.
+
+Target:
+
+```text
+edison2 / 152.67.253.217 / pepepow.net
+  -> Telegram payment bot
+  -> Discord payment bot
+  -> HTTPS only to pay.pepepow.net
+```
+
+Implementation is in `edisontw/pepepow-devkit` main, starting with commit
+`b863d47`.
+
+Initial production policy is deliberately small:
+
+- Payment Platform on VM-B remains authoritative; no payment database moves to
+  edison2.
+- wallet mnemonic/private keys/signing remain client-side.
+- Telegram and Discord each receive a separate scoped merchant credential and
+  a separate receiving address.
+- each bot permits only one outstanding payment at a time for the initial
+  low-volume release; do not add address-pool/HD derivation infrastructure yet.
+- edison2 stores only bounded local message-routing/restart state.
+- Node listeners bind to localhost; the existing `pepepow.net` Apache site
+  exposes only the exact interaction/webhook callback paths.
+- no Redis, PostgreSQL, queue, new sandbox host, dashboard, or self-service
+  provisioning is required for this rollout.
+
+Deployment acceptance:
+
+1. edison2 preflight passes without disturbing its wallet node or website;
+2. both bot services are systemd-managed and restart automatically;
+3. local health checks pass and ports remain localhost-only;
+4. one small Telegram payment reaches confirmed and updates its message;
+5. one small Discord payment reaches confirmed and updates the same message;
+6. service logs contain no bot token, scoped credential, webhook secret,
+   mnemonic, private key, or raw signing material.
+
+Only after real usage demonstrates a concrete limitation should bot
+concurrency, address allocation, merchant UI, or additional infrastructure be
+expanded.
