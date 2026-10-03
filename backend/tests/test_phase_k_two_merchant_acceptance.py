@@ -278,3 +278,116 @@ def test_retry_after_parser_is_case_insensitive():
     assert acceptance.HeavyRequestController._retry_after_seconds(
         {"Retry-After": "invalid"}
     ) is None
+
+
+
+def test_find_existing_acceptance_pair_reuses_latest_common_pair(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    merchants = MerchantStore(str(path))
+    merchant_a = merchants.create_merchant(
+        merchant_id="mrc_resume_a",
+        display_name="Resume A",
+        now=100,
+    )
+    merchant_b = merchants.create_merchant(
+        merchant_id="mrc_resume_b",
+        display_name="Resume B",
+        now=100,
+    )
+    store = PaymentStore(str(path))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    common = {
+        "address": "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        "amount_sats": 1,
+        "confirmations_required": 1,
+        "created_height": 500,
+        "expires_at": 1900,
+        "merchant_reference": "phase-k-acceptance/shared",
+        "idempotency_key": "phase-k-acceptance:shared",
+        "request_hash": "same-request",
+    }
+
+    store.create_payment(
+        payment_id="pay_resume_a",
+        merchant_id=merchant_a["merchant_id"],
+        scripthash="11" * 32,
+        created_at=1000,
+        **common,
+    )
+    store.create_payment(
+        payment_id="pay_resume_b",
+        merchant_id=merchant_b["merchant_id"],
+        scripthash="22" * 32,
+        created_at=1001,
+        **common,
+    )
+
+    pair = acceptance.find_existing_acceptance_pair(
+        path,
+        merchant_id_a=merchant_a["merchant_id"],
+        merchant_id_b=merchant_b["merchant_id"],
+    )
+
+    assert pair == (
+        "pay_resume_a",
+        "pay_resume_b",
+        "phase-k-acceptance/shared",
+        "phase-k-acceptance:shared",
+    )
+
+
+def test_find_existing_acceptance_pair_requires_same_reference_and_key(tmp_path):
+    path = tmp_path / "payments.sqlite3"
+    merchants = MerchantStore(str(path))
+    merchant_a = merchants.create_merchant(
+        merchant_id="mrc_resume_miss_a",
+        display_name="Resume A",
+        now=100,
+    )
+    merchant_b = merchants.create_merchant(
+        merchant_id="mrc_resume_miss_b",
+        display_name="Resume B",
+        now=100,
+    )
+    store = PaymentStore(str(path))
+    store.set_chain_tip(500, tip_hash="tip", updated_at=1000)
+
+    store.create_payment(
+        payment_id="pay_resume_miss_a",
+        merchant_id=merchant_a["merchant_id"],
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="11" * 32,
+        amount_sats=1,
+        confirmations_required=1,
+        created_at=1000,
+        created_height=500,
+        expires_at=1900,
+        merchant_reference="phase-k-acceptance/a",
+        idempotency_key="phase-k-acceptance:a",
+        request_hash="a",
+    )
+    store.create_payment(
+        payment_id="pay_resume_miss_b",
+        merchant_id=merchant_b["merchant_id"],
+        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        scripthash="22" * 32,
+        amount_sats=1,
+        confirmations_required=1,
+        created_at=1001,
+        created_height=500,
+        expires_at=1901,
+        merchant_reference="phase-k-acceptance/b",
+        idempotency_key="phase-k-acceptance:b",
+        request_hash="b",
+    )
+
+    with pytest.raises(
+        acceptance.AcceptanceError,
+        match="no completed two-merchant acceptance payment pair",
+    ):
+        acceptance.find_existing_acceptance_pair(
+            path,
+            merchant_id_a=merchant_a["merchant_id"],
+            merchant_id_b=merchant_b["merchant_id"],
+        )
