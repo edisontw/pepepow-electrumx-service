@@ -840,3 +840,28 @@ K5 VM-A receiver verification on 2026-10-03 confirmed:
 
 The next K5 action is therefore the VM-B forced-command SSH probe followed by
 one real J1 retry. No PEPEPOWd configuration change is required.
+
+
+### Phase K K5 recovery closure
+
+The K5 Phase K recovery chain closed on 2026-10-03 without another overwrite or
+network transfer.
+
+The exact post-acceptance H2 pair already present on VM-A was revalidated with
+the current restore helper:
+
+```text
+payment-auto-20261003T032555Z.sqlite3
+970752 bytes
+SHA-256 525a7f408c504884d99d0e9680d2cbf39a6723b55a43b7c9037ccacfe5a11570
+schema_profile=phase_k_merchant_v1
+merchant ownership checks=all zero
+RESTORE DRILL: PASS
+```
+
+Both files are `ubuntu:ubuntu` mode `0600`, no incoming staging artifacts
+remain, and VM-A remains Light-only with ElectrumX and PEPEPOWd RPC private.
+
+The receiver's later no-overwrite refusal is therefore expected protection of a
+previously promoted valid recovery point, not an incomplete backup. No further
+J1 transfer is required for K5.

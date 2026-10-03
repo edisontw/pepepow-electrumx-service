@@ -1089,7 +1089,7 @@ Phase J closure audit (2026-10-02):
 
 ### Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 functional acceptance PASS; final J1 closure pending VM-A local revalidation of already-present recovery pair**
+Status: **IN PROGRESS — K0-K5 complete; K6 DevKit/onboarding alignment next**
 
 Primary repository: `edisontw/pepepow-electrumx-service`
 
@@ -1113,7 +1113,7 @@ K0 baseline/contract freeze (COMPLETE)
   -> K2 payment ownership isolation (COMPLETE; 270 backend tests PASS)
   -> K3 webhook ownership isolation (COMPLETE; 272 backend tests PASS)
   -> K4 migration/recovery/operator hardening (COMPLETE; 279 backend tests PASS)
-  -> K5 production acceptance (FUNCTIONAL PASS; existing Phase K off-host pair present on VM-A; final local restore revalidation pending)
+  -> K5 production acceptance (COMPLETE 2026-10-03; multi-merchant functional acceptance + Phase K H2/J1 recovery PASS)
   -> K6 DevKit/onboarding alignment
 ```
 
@@ -1188,3 +1188,11 @@ COPY PASS for the exact pair, but existence alone is not closure evidence.
 Perform one current-code non-destructive VM-A restore drill on the existing
 pair; if SHA/manifest/schema/ownership checks pass, K5 recovery is complete and
 no further transfer is needed.
+
+
+K5 final closure on 2026-10-03: the exact Phase K H2 pair already present on
+VM-A was revalidated locally with current code. Size, SHA-256, manifest,
+`phase_k_merchant_v1`, all ownership counters, SQLite integrity, and
+non-destructive restore all passed; no staging artifacts remained. VM-B scoped
+auth remains enabled and the legacy environment credential remains configured
+as a deliberate compatibility path. **K5 is complete; K6 is next.**

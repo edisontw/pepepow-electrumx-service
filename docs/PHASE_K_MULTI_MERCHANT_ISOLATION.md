@@ -1,6 +1,6 @@
 # Phase K — Multi-merchant Credential Isolation
 
-Status: **IN PROGRESS — K0-K4 complete; K5 migration + legacy acceptance PASS; 429 root cause fixed; resume-existing production isolation retry pending**
+Status: **IN PROGRESS — K0-K5 complete; K6 DevKit/onboarding alignment next**
 
 Last updated: 2026-10-02
 
@@ -279,7 +279,9 @@ K4 closure: full pre-K migration, H2/J1 Phase K schema-profile verification, fai
 
 ### K5 — Production acceptance
 
-K5 repository tooling: **READY — 298 backend tests PASS on Python 3.10**
+Status: **COMPLETE — functional multi-merchant acceptance + Phase K H2/J1 recovery verified in production 2026-10-03**
+
+K5 repository tooling baseline: **301 backend tests PASS on Python 3.10**
 
 Prepared tooling/runbook:
 
@@ -301,8 +303,8 @@ Latest K5 tooling CI: **298 passed, 1 warning**; production helper compilation P
 - [x] verify each merchant cannot list/recover/manage the other's private data
 - [x] verify webhook events cannot cross merchant boundaries
 - [x] verify public capability status remains compatible through post-migration legacy acceptance
-- [ ] verify final watcher/webhook/backup health after scoped smoke + complete post-migration J1 recovery
-- [ ] retire the legacy environment credential only after real legacy merchant consumers have scoped credentials
+- [x] verify final watcher/webhook/backup health after scoped smoke + complete post-migration J1 recovery
+- [x] preserve the legacy environment credential as an explicit compatibility path until real legacy merchant consumers receive scoped credentials; retirement is a later consumer-rotation action, not a K5 acceptance blocker
 
 ### K6 — DevKit / onboarding alignment
 
@@ -382,3 +384,51 @@ Final J1 retry found the exact destination pair already present and therefore
 correctly refused overwrite before running another destination drill. Closure
 now requires only a current-code, non-destructive VM-A restore drill of that
 existing pair; no additional network transfer should be attempted.
+
+
+### K5 closure evidence — 2026-10-03
+
+K5 is complete.
+
+Production evidence:
+
+- Phase K schema migration PASS with authoritative row counts, payment business
+  data, historical event payloads, webhook endpoint records, SQLite integrity,
+  and foreign-key integrity preserved;
+- legacy environment Bearer compatibility PASS;
+- scoped database-backed authentication enabled successfully;
+- two independent non-legacy merchants reused the same merchant reference and
+  idempotency key without namespace collision;
+- each merchant recovered only its own payment;
+- webhook endpoint/delivery namespaces remained isolated;
+- public payment capability responses remained compatible and did not expose
+  merchant-private metadata;
+- acceptance payment/event ownership checks PASS;
+- no acceptance webhook recipient crossed merchant boundaries;
+- rate-limited public acceptance path completed without bypassing Nginx;
+- temporary acceptance credentials were disabled and one-time secret files were
+  removed;
+- Payment Platform, watcher, webhook worker, ElectrumX tunnel, H2 timer, and
+  public health/status remained healthy;
+- post-acceptance H2 pair:
+  `payment-auto-20261003T032555Z.sqlite3`, 970752 bytes,
+  SHA-256
+  `525a7f408c504884d99d0e9680d2cbf39a6723b55a43b7c9037ccacfe5a11570`;
+- H2 schema profile `phase_k_merchant_v1` PASS with all merchant ownership
+  counters zero;
+- the same pair exists on VM-A as `ubuntu:ubuntu` mode `0600`;
+- VM-A current-code non-destructive restore drill PASS against that exact pair;
+- no J1 staging artifacts remain;
+- VM-A remains Light-only, ElectrumX remains loopback/private, PEPEPOWd RPC
+  `8834` remains loopback/private, and public `8833` is the expected P2P
+  listener.
+
+The final no-overwrite J1 response was not a recovery failure: the exact
+recovery pair already existed on VM-A. Current-code local revalidation of that
+existing pair completed the recovery evidence chain, so no overwrite or
+additional network transfer was required.
+
+`PAYMENT_CREATE_API_KEY` remains configured for existing legacy merchant
+consumers. This compatibility period is deliberate. Independent merchants must
+use scoped credentials; removal of the environment key should occur only after
+the legacy merchant integrations have been deliberately rotated.

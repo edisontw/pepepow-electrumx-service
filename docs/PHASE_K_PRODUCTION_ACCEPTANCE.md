@@ -1,6 +1,6 @@
 # Phase K — Production Acceptance
 
-Status: **FUNCTIONAL PRODUCTION PASS — multi-merchant smoke complete; final J1 closure pending local revalidation of an already-present VM-A recovery pair**
+Status: **CLOSED — Phase K5 multi-merchant production acceptance and final H2/J1 recovery verified 2026-10-03**
 
 Last updated: 2026-10-03
 
@@ -502,3 +502,39 @@ transfer, run the current non-destructive
 `payment_db_restore_drill.py` directly on VM-A against the existing pair and
 verify its size/SHA/profile/ownership counters. If that passes, K5 final J1
 recovery is complete and no further copy is required.
+
+
+## Final K5 closure — existing VM-A pair revalidated
+
+VM-A current-code revalidation completed on 2026-10-03 against the already
+present Phase K recovery pair.
+
+Verified:
+
+```text
+VM-A SHA: c1bda46f3a147e600a1712a98999383c7380b122
+backup: payment-auto-20261003T032555Z.sqlite3
+size: 970752 bytes
+SHA-256: 525a7f408c504884d99d0e9680d2cbf39a6723b55a43b7c9037ccacfe5a11570
+schema_profile: phase_k_merchant_v1
+ownership checks: 8 checks, all zero
+database/manifest mode: 0600
+database/manifest owner: ubuntu:ubuntu
+current-code restore drill: PASS
+staging artifacts: none
+```
+
+VM-A boundaries remained correct:
+
+- Light service active;
+- ElectrumX `50001` loopback/private;
+- PEPEPOWd RPC `8834` loopback/private;
+- PEPEPOWd P2P `8833` publicly bound as expected;
+- Payment API/watcher/webhook gates disabled.
+
+The no-overwrite receiver response on the last network retry is therefore
+resolved: the exact valid recovery pair had already been promoted by an earlier
+successful transfer. Existence alone was not accepted as closure evidence; the
+current-code local restore drill supplied the final proof.
+
+**K5 is CLOSED. No additional J1 transfer is required.**
