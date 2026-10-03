@@ -75,7 +75,7 @@ def test_initial_migration_helper_rejects_existing_nonlegacy_rows(tmp_path):
     store.create_payment(
         payment_id="pay_scoped",
         merchant_id=merchant["merchant_id"],
-        address="PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb",
+        address="P-scoped-migration",
         scripthash="22" * 32,
         amount_sats=100,
         confirmations_required=3,
