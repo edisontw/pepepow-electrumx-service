@@ -202,6 +202,9 @@ class PaymentStore:
                     CREATE INDEX IF NOT EXISTS idx_payments_expires_at
                     ON payments (expires_at);
 
+                    CREATE INDEX IF NOT EXISTS idx_payments_address_expires_at
+                    ON payments (address, expires_at DESC);
+
                     CREATE INDEX IF NOT EXISTS idx_payments_created_at
                     ON payments (created_at DESC, payment_id DESC);
 
