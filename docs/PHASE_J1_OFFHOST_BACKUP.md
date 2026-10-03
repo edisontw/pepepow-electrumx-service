@@ -750,3 +750,54 @@ verification with `phase_k_merchant_v1`, but VM-A returned
 `backup table counts do not match manifest`. The transfer was stopped without
 changing the VM-A trust boundary or retrying. VM-A local checkout/version
 verification is required before the next transfer.
+
+
+### J1 restore-contract diagnostic
+
+After a repeated Phase K destination failure, current main exposes a bounded
+restore-contract marker:
+
+```text
+phase_k_counts_v1
+```
+
+The receiver reports this marker on successful destination verification. On a
+restore failure it includes the same marker in the failure line.
+
+When manifest table counts differ, the error reports only non-sensitive
+table/count metadata, for example:
+
+```text
+merchants:expected=3,actual=2
+merchant_credentials:expected=4,actual=<missing>
+```
+
+No row contents, merchant IDs, payment IDs, addresses, txids, references,
+credentials, webhook URLs, or secrets are emitted.
+
+The sender requires the expected restore-contract marker on a successful
+receiver response. A receiver that returns success without
+`restore_contract=phase_k_counts_v1` is rejected.
+
+Before another production copy, probe the actual dedicated forced-command path
+without sending a backup payload:
+
+```bash
+printf '' | ssh -T \
+  -i /home/ubuntu/.ssh/pepew-pay-offhost-ed25519 \
+  -o BatchMode=yes \
+  -o IdentitiesOnly=yes \
+  ubuntu@<EXISTING_VM_A_J1_HOST> receive
+```
+
+This probe is expected to fail because the transfer header is empty. With the
+current receiver it must contain:
+
+```text
+restore_contract=phase_k_counts_v1
+transfer header is missing or truncated
+```
+
+It must not create or promote any recovery file. If the contract marker is
+absent, stop and fix the actual forced-command checkout/path before retrying a
+real transfer.

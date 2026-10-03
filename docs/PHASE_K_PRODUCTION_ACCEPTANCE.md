@@ -412,3 +412,37 @@ backup table counts do not match manifest
 No retry, receiver modification, SSH trust-boundary change, or destructive
 recovery was attempted. Verify/update VM-A's local receiver and restore-helper
 checkout before another copy.
+
+
+## Repeated J1 table-count failure diagnostic
+
+A second J1 attempt after a reported VM-A update still failed with:
+
+```text
+backup table counts do not match manifest
+```
+
+The source H2 pair remained valid:
+
+- `payment-auto-20261003T032555Z.sqlite3`
+- size 970752 bytes
+- SHA-256 `525a7f408c504884d99d0e9680d2cbf39a6723b55a43b7c9037ccacfe5a11570`
+- `phase_k_merchant_v1`
+- all ownership checks zero
+- source restore drill PASS
+
+Production remained healthy and scoped auth remained enabled.
+
+Current main adds:
+
+- restore contract marker `phase_k_counts_v1`;
+- safe exact table-count diff diagnostics;
+- sender enforcement that a successful receiver must advertise the current
+  restore contract;
+- regression tests for the contract requirement.
+
+Latest diagnostic tooling CI: **301 passed, 1 warning**.
+
+Do not weaken destination validation. Use the forced-command empty-payload probe
+first; then retry the real J1 pair only if the actual SSH-forced receiver reports
+the expected restore contract.
