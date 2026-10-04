@@ -55,12 +55,13 @@ async def _fetch_text(client: httpx.AsyncClient, url: str) -> str:
     return response.text.strip()
 
 
-def _cached_result(cached: dict[str, Any], *, status: str) -> dict[str, Any]:
+def _cached_result(cached: dict[str, Any], *, status: str | None = None) -> dict[str, Any]:
     result = dict(cached)
-    result["status"] = status
-    result["ok"] = status in {"ok", "stale"}
+    effective_status = status or str(result.get("status") or "ok")
+    result["status"] = effective_status
+    result["ok"] = effective_status in {"ok", "partial", "stale"}
     result["cached"] = True
-    if status == "stale":
+    if effective_status == "stale":
         result["message"] = (
             "Network aggregate is temporarily stale because an upstream source "
             "is unavailable."
@@ -74,7 +75,7 @@ async def get_network_info() -> dict[str, Any]:
     cached = _NETWORK_CACHE.get("value")
 
     if cached is not None and now < float(_NETWORK_CACHE.get("expires_at", 0.0)):
-        return _cached_result(cached, status="ok")
+        return _cached_result(cached)
 
     height = None
     hashrate = None
