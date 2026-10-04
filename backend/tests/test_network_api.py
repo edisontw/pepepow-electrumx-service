@@ -25,3 +25,14 @@ def test_network_endpoint(monkeypatch):
     assert data["status"] == "ok"
     assert data["height"] == 4980000
     assert data["network_hashrate_hps"] == "2500000000"
+
+
+def test_cached_partial_status_is_preserved():
+    from app.services.network_service import _cached_result
+
+    cached = {"ok": True, "status": "partial", "height": 123}
+    result = _cached_result(cached)
+
+    assert result["status"] == "partial"
+    assert result["ok"] is True
+    assert result["cached"] is True
