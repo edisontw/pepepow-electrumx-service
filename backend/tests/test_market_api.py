@@ -127,3 +127,16 @@ def test_market_service_preserves_legacy_aggregation(monkeypatch):
     assert result["market_cap_onchain_usd"] == "51946.42732503719418"
 
     market_service.clear_market_cache()
+
+
+
+def test_default_nestex_public_ticker_url(monkeypatch):
+    monkeypatch.delenv("NESTEX_TICKER_URL", raising=False)
+
+    from app.config import Settings
+
+    settings = Settings(_env_file=None)
+    assert (
+        settings.nestex_ticker_url
+        == "https://api.nestex.one/cg/tickers/PEPEW_USDT"
+    )
