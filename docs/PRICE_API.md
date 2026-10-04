@@ -16,6 +16,7 @@ Main fields:
 - `source`: `NonKYC`
 - `market`: `PEPEW/USDT`
 - `price_usdt`: latest price when available
+- `volume_24h_usd`: upstream estimated 24h USD volume when available
 - `cached`: true when served from local cache
 - `cache_ttl_seconds`: cache TTL
 
