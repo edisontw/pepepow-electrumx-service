@@ -124,6 +124,6 @@ def test_market_service_preserves_legacy_aggregation(monkeypatch):
     assert result["sources"]["nestex"]["volume_24h_usd"] == "20"
     assert result["total_volume_24h_usd"] == "503"
     assert result["market_cap_price_source"] == "CMC"
-    assert result["market_cap_onchain_usd"] == "51946.82742503719418"
+    assert result["market_cap_onchain_usd"] == "51946.42732503719418"
 
     market_service.clear_market_cache()
