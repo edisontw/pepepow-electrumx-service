@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     cache_price_seconds: int = Field(default=120, alias="CACHE_PRICE_SECONDS")
     cache_price_stale_seconds: int = Field(default=900, alias="CACHE_PRICE_STALE_SECONDS")
     price_fetch_timeout_seconds: float = Field(default=5.0, alias="PRICE_FETCH_TIMEOUT_SECONDS")
+    cache_network_seconds: int = Field(default=120, alias="CACHE_NETWORK_SECONDS")
+    cache_network_stale_seconds: int = Field(default=900, alias="CACHE_NETWORK_STALE_SECONDS")
+    network_fetch_timeout_seconds: float = Field(default=5.0, alias="NETWORK_FETCH_TIMEOUT_SECONDS")
     nonkyc_ticker_url: str = Field(
         default="https://api.nonkyc.io/api/v2/ticker/PEPEW_USDT",
         alias="NONKYC_TICKER_URL",
