@@ -5,10 +5,11 @@ from app.services.price_service import clear_price_cache, parse_price_defensivel
 
 
 def test_parse_price_defensively_uses_last_price():
-    parsed = parse_price_defensively({"ticker": {"last_price": "0.00001230", "volume": "123.45"}})
+    parsed = parse_price_defensively({"ticker": {"last_price": "0.00001230", "volume": "123.45", "usd_volume_est": "456.78"}})
     assert parsed is not None
     assert parsed["price"] == "0.0000123"
     assert parsed["volume_24h"] == "123.45"
+    assert parsed["volume_24h_usd"] == "456.78"
 
 
 def test_parse_price_defensively_uses_bid_ask_midpoint():
@@ -36,6 +37,7 @@ def test_price_endpoint(monkeypatch):
             "price_usdt": "0.0000123",
             "change_24h_percent": None,
             "volume_24h": None,
+            "volume_24h_usd": "456.78",
             "high_24h": None,
             "low_24h": None,
             "last_updated": "2026-07-07T00:00:00Z",
@@ -51,3 +53,4 @@ def test_price_endpoint(monkeypatch):
     assert data["status"] == "ok"
     assert data["source"] == "NonKYC"
     assert data["price_usdt"] == "0.0000123"
+    assert data["volume_24h_usd"] == "456.78"
