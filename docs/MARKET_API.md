@@ -9,7 +9,7 @@ Sources:
 - CMC price: existing cached `https://api.pepepow.net/v1/price` service
 - NonKYC price: PEPEW/USDT
 - NonKYC 24h USD volume: PEPEW/USDT + PEPEW/BNB
-- NestEx price and quote-volume: PEPEW/USDT
+- NestEx price and quote-volume: PEPEW/USDT via `https://api.nestex.one/cg/tickers/PEPEW_USDT`
 - on-chain supply: PEPEPOW network aggregate
 
 The Light host does not need its own CoinMarketCap API key.
@@ -42,7 +42,7 @@ CACHE_MARKET_STALE_SECONDS=900
 MARKET_FETCH_TIMEOUT_SECONDS=5.0
 CMC_PRICE_PROXY_URL=https://api.pepepow.net/v1/price
 NONKYC_BNB_TICKER_URL=https://api.nonkyc.io/api/v2/ticker/PEPEW_BNB
-NESTEX_TICKER_URL=https://trade.nestex.one/api/cg/tickers/PEPEW_USDT
+NESTEX_TICKER_URL=https://api.nestex.one/cg/tickers/PEPEW_USDT
 ```
 
 `/api/price` remains the lightweight canonical NonKYC endpoint for backward compatibility.

@@ -80,7 +80,7 @@ class Settings(BaseSettings):
         alias="NONKYC_BNB_TICKER_URL",
     )
     nestex_ticker_url: str = Field(
-        default="https://trade.nestex.one/api/cg/tickers/PEPEW_USDT",
+        default="https://api.nestex.one/cg/tickers/PEPEW_USDT",
         alias="NESTEX_TICKER_URL",
     )
     cmc_price_proxy_url: str = Field(
