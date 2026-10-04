@@ -16,6 +16,7 @@ from .api.webhook_v1 import router as webhook_v1_router
 from .api.wallet import router as wallet_router
 from .api.price import router as price_router
 from .api.network import router as network_router
+from .api.market import router as market_router
 from .config import get_settings
 from .logging_config import configure_logging
 from .services.payment_watcher import PaymentWatcher
@@ -106,6 +107,7 @@ app.include_router(webhook_v1_router, prefix="/api")
 app.include_router(wallet_router, prefix="/api")
 app.include_router(price_router, prefix="/api")
 app.include_router(network_router, prefix="/api")
+app.include_router(market_router, prefix="/api")
 
 
 @app.get("/", response_class=HTMLResponse)

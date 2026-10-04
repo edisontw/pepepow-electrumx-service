@@ -68,9 +68,24 @@ class Settings(BaseSettings):
     cache_network_seconds: int = Field(default=120, alias="CACHE_NETWORK_SECONDS")
     cache_network_stale_seconds: int = Field(default=900, alias="CACHE_NETWORK_STALE_SECONDS")
     network_fetch_timeout_seconds: float = Field(default=5.0, alias="NETWORK_FETCH_TIMEOUT_SECONDS")
+    cache_market_seconds: int = Field(default=120, alias="CACHE_MARKET_SECONDS")
+    cache_market_stale_seconds: int = Field(default=900, alias="CACHE_MARKET_STALE_SECONDS")
+    market_fetch_timeout_seconds: float = Field(default=5.0, alias="MARKET_FETCH_TIMEOUT_SECONDS")
     nonkyc_ticker_url: str = Field(
         default="https://api.nonkyc.io/api/v2/ticker/PEPEW_USDT",
         alias="NONKYC_TICKER_URL",
+    )
+    nonkyc_bnb_ticker_url: str = Field(
+        default="https://api.nonkyc.io/api/v2/ticker/PEPEW_BNB",
+        alias="NONKYC_BNB_TICKER_URL",
+    )
+    nestex_ticker_url: str = Field(
+        default="https://trade.nestex.one/api/cg/tickers/PEPEW_USDT",
+        alias="NESTEX_TICKER_URL",
+    )
+    cmc_price_proxy_url: str = Field(
+        default="https://api.pepepow.net/v1/price",
+        alias="CMC_PRICE_PROXY_URL",
     )
 
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
