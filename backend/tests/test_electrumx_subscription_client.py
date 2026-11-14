@@ -157,6 +157,8 @@ def test_subscription_client_correlates_out_of_order_responses():
             )
             await writer.drain()
             await asyncio.sleep(0.05)
+            writer.close()
+            await writer.wait_closed()
 
         server = await asyncio.start_server(handle, "127.0.0.1", 0)
         port = server.sockets[0].getsockname()[1]
