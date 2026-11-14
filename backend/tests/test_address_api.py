@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.api import address as address_api
 from app.main import app
+from app.services.address_service import AddressHistoryTooLargeError
 
 KNOWN_ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
 KNOWN_SCRIPTHASH = "3c5cab2c9f663ed292a0fdff3e681569c3f5d6741ca4b2ca4ea6281b9d4d4298"
@@ -71,6 +72,18 @@ def test_address_history_invalid_limit_returns_422():
     response = client.get(f"/api/address/{KNOWN_ADDRESS}/history?limit=501")
 
     assert response.status_code == 422
+
+
+def test_address_history_too_large_is_explicit_error(monkeypatch):
+    async def too_large(*_args, **_kwargs):
+        raise AddressHistoryTooLargeError()
+
+    monkeypatch.setattr(address_api, "get_address_history", too_large)
+    response = TestClient(app).get(f"/api/address/{KNOWN_ADDRESS}/history")
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "history_too_large"
+    assert "unavailable" in response.json()["error"]["message"]
 
 
 def test_address_lookup_invalid_address_returns_400():

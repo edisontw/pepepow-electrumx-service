@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.api import wallet as wallet_api
 from app.main import app
-from app.services.address_service import InvalidPepewAddressError, AddressUpstreamError
+from app.services.address_service import AddressHistoryTooLargeError, InvalidPepewAddressError, AddressUpstreamError
 from app.services.tx_service import InvalidTxidError, TxNotFoundError, TxLookupError
 
 KNOWN_ADDRESS = "PRfbEeHAKKbz6Voz85WJudrJwTA3ZbHunb"
@@ -52,6 +52,44 @@ def test_wallet_address_lookup_success(monkeypatch):
     for field in secret_indicators:
         assert field not in data
         assert field not in data["balance"]
+
+
+def test_wallet_address_lookup_keeps_balance_when_history_is_too_large(monkeypatch):
+    async def fake_get_address_summary(address):
+        return {
+            "ok": True,
+            "address": address,
+            "balance": {"confirmed": 42, "unconfirmed": 0},
+            "history_count": None,
+            "history_status": {
+                "available": False,
+                "code": "history_too_large",
+                "message": "history unavailable",
+            },
+        }
+
+    async def history_must_not_be_called(*_args, **_kwargs):
+        raise AssertionError("history was already marked unavailable by summary")
+
+    monkeypatch.setattr(wallet_api, "get_address_summary", fake_get_address_summary)
+    monkeypatch.setattr(wallet_api, "get_address_history", history_must_not_be_called)
+
+    response = TestClient(app).get(f"/api/wallet/address/{KNOWN_ADDRESS}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["balance"]["confirmed"] == 42
+    assert data["history"] is None
+    assert data["history_status"]["code"] == "history_too_large"
+
+
+def test_wallet_address_history_too_large_is_explicit_error(monkeypatch):
+    async def too_large(*_args, **_kwargs):
+        raise AddressHistoryTooLargeError()
+
+    monkeypatch.setattr(wallet_api, "get_address_history", too_large)
+    response = TestClient(app).get(f"/api/wallet/history/{KNOWN_ADDRESS}")
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "history_too_large"
 
 
 def test_wallet_address_lookup_invalid_address(monkeypatch):

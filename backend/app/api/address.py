@@ -2,6 +2,7 @@ from fastapi import APIRouter, Path, Query, status
 
 from .errors import api_error_response
 from ..services.address_service import (
+    AddressHistoryTooLargeError,
     AddressUpstreamError,
     InvalidPepewAddressError,
     get_address_history,
@@ -31,5 +32,7 @@ async def address_history(
         return await get_address_history(address, limit=limit, offset=offset)
     except InvalidPepewAddressError as exc:
         return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
+    except AddressHistoryTooLargeError as exc:
+        return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, exc.code)
     except AddressUpstreamError as exc:
         return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "electrumx_error")
