@@ -55,6 +55,18 @@ def test_address_page_renders_lookup_shell():
     assert "Next" in response.text
 
 
+def test_address_page_does_not_leave_stale_balance_after_failed_lookup():
+    client = TestClient(app)
+    response = client.get("/address")
+
+    assert response.status_code == 200
+    # Each lookup clears the old address before fetching the new one.
+    assert "const lookupId = ++latestLookupId;" in response.text
+    assert "summaryCard.hidden = true;\n        historyCard.hidden = true;" in response.text
+    # An older in-flight request cannot overwrite a newer address result.
+    assert response.text.count("if (lookupId !== latestLookupId) return;") == 3
+
+
 def test_address_page_contains_clean_invalid_address_messages():
     client = TestClient(app)
     response = client.get("/address?q=invalid")

@@ -3,7 +3,7 @@ from typing import Any
 
 from ..config import get_settings
 from ..electrumx.client import ElectrumXClient
-from ..electrumx.errors import ElectrumXError
+from ..electrumx.errors import ElectrumXError, ElectrumXMethodError
 from ..electrumx.methods import (
     scripthash_get_balance,
     scripthash_get_history,
@@ -24,6 +24,10 @@ from .cache_service import TTLCache
 _address_cache = TTLCache()
 _history_cache = TTLCache()
 _utxo_cache = TTLCache()
+
+HISTORY_TOO_LARGE_MESSAGE = (
+    "ElectrumX's per-address history limit was reached; history is unavailable."
+)
 
 
 def clear_address_caches() -> None:
@@ -53,6 +57,21 @@ class AddressUpstreamError(AddressLookupError):
         super().__init__(code)
         self.code = code
         self.detail = detail or {}
+
+
+class AddressHistoryTooLargeError(AddressUpstreamError):
+    code = "history_too_large"
+
+    def __init__(self) -> None:
+        super().__init__(self.code)
+
+
+def history_unavailable_status() -> dict[str, Any]:
+    return {
+        "available": False,
+        "code": AddressHistoryTooLargeError.code,
+        "message": HISTORY_TOO_LARGE_MESSAGE,
+    }
 
 
 def _normalize_balance(balance: Any) -> dict[str, int]:
@@ -177,6 +196,14 @@ def _electrumx_error_code(exc: ElectrumXError) -> str:
     return getattr(exc, "code", None) or str(exc) or "electrumx_error"
 
 
+def _is_history_too_large(exc: ElectrumXMethodError) -> bool:
+    data = getattr(exc, "data", None)
+    if not isinstance(data, dict):
+        return False
+    message = data.get("message")
+    return isinstance(message, str) and message.strip().casefold() == "history too large"
+
+
 def _safe_electrumx_error_detail(exc: ElectrumXError) -> dict[str, Any]:
     data = getattr(exc, "data", None)
     if not isinstance(data, dict):
@@ -212,10 +239,19 @@ async def get_address_summary(address: str, *, fresh: bool = False) -> dict[str,
 
     client = ElectrumXClient(settings)
     started = time.perf_counter()
+    history_unavailable = False
     try:
         await _identify_client(client)
         balance_result = await scripthash_get_balance(client, scripthash)
-        history_result = await scripthash_get_history(client, scripthash)
+        try:
+            history_result = await scripthash_get_history(client, scripthash)
+        except ElectrumXMethodError as exc:
+            if not _is_history_too_large(exc):
+                raise
+            # The balance is independently available. Keep the history state
+            # explicit so clients cannot mistake this for an empty history.
+            history_result = None
+            history_unavailable = True
         mempool_result = await scripthash_get_mempool(client, scripthash)
     except ElectrumXError as exc:
         raise AddressUpstreamError(_electrumx_error_code(exc), _safe_electrumx_error_detail(exc)) from exc
@@ -223,7 +259,6 @@ async def get_address_summary(address: str, *, fresh: bool = False) -> dict[str,
         await client.close()
 
     balance = _normalize_balance(balance_result)
-    history = _normalize_history(history_result)
     mempool = _normalize_mempool(mempool_result)
     result = {
         "ok": True,
@@ -231,7 +266,7 @@ async def get_address_summary(address: str, *, fresh: bool = False) -> dict[str,
         "hash160": hash160,
         "scripthash": scripthash,
         "balance": balance,
-        "history_count": len(history),
+        "history_count": None if history_unavailable else len(_normalize_history(history_result)),
         "mempool_count": len(mempool),
         "response_time_ms": round((time.perf_counter() - started) * 1000, 2),
         "checked_at": int(time.time()),
@@ -242,6 +277,9 @@ async def get_address_summary(address: str, *, fresh: bool = False) -> dict[str,
             "bypass": fresh,
         },
     }
+
+    if history_unavailable:
+        result["history_status"] = history_unavailable_status()
 
     if settings.cache_balance_seconds > 0 and not fresh:
         _address_cache.set(cache_key, result, settings.cache_balance_seconds)
@@ -322,6 +360,10 @@ async def get_address_history(address: str, limit: int = 50, offset: int = 0, *,
         await _identify_client(client)
         history_result = await scripthash_get_history(client, scripthash)
         mempool_result = await scripthash_get_mempool(client, scripthash)
+    except ElectrumXMethodError as exc:
+        if _is_history_too_large(exc):
+            raise AddressHistoryTooLargeError() from exc
+        raise AddressUpstreamError(_electrumx_error_code(exc), _safe_electrumx_error_detail(exc)) from exc
     except ElectrumXError as exc:
         raise AddressUpstreamError(_electrumx_error_code(exc), _safe_electrumx_error_detail(exc)) from exc
     finally:

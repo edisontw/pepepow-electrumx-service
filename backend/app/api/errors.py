@@ -7,6 +7,7 @@ ERROR_MESSAGES = {
     "invalid_address_checksum": "Address checksum is invalid.",
     "unsupported_address_prefix": "Address prefix is not supported.",
     "electrumx_error": "ElectrumX is temporarily unavailable.",
+    "history_too_large": "ElectrumX's per-address history limit was reached; history is unavailable.",
     "invalid_amount": "Please enter a positive PEPEW amount.",
     "invalid_confirmations": "Confirmations must be zero or greater.",
     "invalid_expiry": "Expiry must be a valid ISO8601 timestamp or positive seconds value.",

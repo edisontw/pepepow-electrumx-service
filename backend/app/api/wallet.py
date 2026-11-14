@@ -7,11 +7,13 @@ from fastapi.responses import JSONResponse
 from .errors import api_error_response
 from ..config import get_settings
 from ..services.address_service import (
+    AddressHistoryTooLargeError,
     AddressUpstreamError,
     InvalidPepewAddressError,
     get_address_history,
     get_address_summary,
     get_address_utxos,
+    history_unavailable_status,
 )
 from ..services.tx_service import (
     broadcast_signed_raw_tx,
@@ -279,7 +281,28 @@ async def wallet_address_lookup(
 ) -> JSONResponse:
     try:
         summary = await _call_with_optional_fresh(get_address_summary, address, fresh=fresh)
-        history_data = await _call_with_optional_fresh(get_address_history, address, limit=50, offset=0, fresh=fresh)
+        history_status = summary.get("history_status")
+        history_unavailable = (
+            isinstance(history_status, dict)
+            and history_status.get("available") is False
+        )
+        if history_unavailable:
+            mapped_history = None
+        else:
+            try:
+                history_data = await _call_with_optional_fresh(
+                    get_address_history, address, limit=50, offset=0, fresh=fresh
+                )
+            except AddressHistoryTooLargeError:
+                history_status = history_unavailable_status()
+                mapped_history = None
+            else:
+                mapped_history = await _map_history_rows(
+                    history_data.get("history", []),
+                    summary["address"],
+                    verbose=verbose_history,
+                    detail_limit=detail_limit,
+                )
 
         confirmed_sats = summary["balance"]["confirmed"]
         unconfirmed_sats = summary["balance"]["unconfirmed"]
@@ -288,31 +311,29 @@ async def wallet_address_lookup(
         confirmed_pepew = format_pepew_amount_from_sats(confirmed_sats, settings.pepew_decimals)
         unconfirmed_pepew = format_pepew_amount_from_sats(unconfirmed_sats, settings.pepew_decimals)
 
-        mapped_history = await _map_history_rows(
-            history_data.get("history", []),
-            summary["address"],
-            verbose=verbose_history,
-            detail_limit=detail_limit,
-        )
-
+        content = {
+            "address": summary["address"],
+            "balance": {
+                "confirmed": confirmed_sats,
+                "unconfirmed": unconfirmed_sats,
+                "confirmed_pepew": confirmed_pepew,
+                "unconfirmed_pepew": unconfirmed_pepew,
+            },
+            "history": mapped_history,
+            "source": "electrumx",
+            "read_only": True,
+            "cache": summary.get("cache", {}),
+        }
+        if history_status is not None:
+            content["history_status"] = history_status
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={
-                "address": summary["address"],
-                "balance": {
-                    "confirmed": confirmed_sats,
-                    "unconfirmed": unconfirmed_sats,
-                    "confirmed_pepew": confirmed_pepew,
-                    "unconfirmed_pepew": unconfirmed_pepew,
-                },
-                "history": mapped_history,
-                "source": "electrumx",
-                "read_only": True,
-                "cache": summary.get("cache", {}),
-            }
+            content=content,
         )
     except InvalidPepewAddressError as exc:
         return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
+    except AddressHistoryTooLargeError as exc:
+        return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, exc.code)
     except AddressUpstreamError:
         return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "electrumx_error")
     except Exception:
@@ -360,6 +381,8 @@ async def wallet_address_history(
         )
     except InvalidPepewAddressError as exc:
         return api_error_response(status.HTTP_400_BAD_REQUEST, exc.code, exc.message)
+    except AddressHistoryTooLargeError as exc:
+        return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, exc.code)
     except AddressUpstreamError:
         return api_error_response(status.HTTP_503_SERVICE_UNAVAILABLE, "electrumx_error")
     except Exception:

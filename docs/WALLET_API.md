@@ -30,6 +30,8 @@ GET /api/wallet/address/{address}?verbose_history=1&detail_limit=10
 
 Returns balance and a compact recent history list. `verbose_history=1` enriches recent history rows with wallet-oriented amount and direction fields. Keep `detail_limit` small for UI previews.
 
+If ElectrumX rejects this address history with `history too large`, the balance response remains available and contains `"history": null` plus `history_status` (`available: false`, `code: "history_too_large"`). A null history and null summary `history_count` mean unavailable, not empty. Clients should display the status and must not treat it as zero history. If the balance or another required upstream request fails, the endpoint still returns an upstream error.
+
 Example:
 
 ```bash
@@ -63,6 +65,8 @@ GET /api/wallet/history/{address}?limit=50&offset=0&verbose=1&detail_limit=10
 ```
 
 Returns confirmed history and mempool entries when available.
+
+ElectrumX applies its own per-address history limit before this API receives a result. `limit` and `offset` are applied to that returned history in the service; they are not server-side pagination and cannot bypass ElectrumX's limit. If ElectrumX reports `history too large`, this endpoint responds HTTP 503 with error code `history_too_large`; no partial or empty history is implied. Balance/address summary endpoints remain usable where their independent upstream requests succeed.
 
 Current wallet API behavior:
 

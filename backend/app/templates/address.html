@@ -84,6 +84,7 @@
       const initialAddress = {{ query_address | tojson }};
       let currentAddress = initialAddress || "";
       let currentOffset = 0;
+      let latestLookupId = 0;
 
       const form = document.getElementById("lookup-form");
       const input = document.getElementById("address-input");
@@ -148,7 +149,7 @@
           <tr><th>Address</th><td><code>${escapeHtml(data.address)}</code></td></tr>
           <tr><th>Confirmed balance</th><td>${escapeHtml(formatAtoms(confirmed))} PEPEW <span class="muted">(${escapeHtml(confirmed)} atoms)</span></td></tr>
           <tr><th>Unconfirmed balance</th><td>${escapeHtml(formatAtoms(unconfirmed))} PEPEW <span class="muted">(${escapeHtml(unconfirmed)} atoms)</span></td></tr>
-          <tr><th>History count</th><td>${escapeHtml(data.history_count || 0)}</td></tr>
+          <tr><th>History count</th><td>${escapeHtml(data.history_status?.available === false ? "Unavailable" : (data.history_count ?? 0))}</td></tr>
           <tr><th>Mempool count</th><td>${escapeHtml(data.mempool_count || 0)}</td></tr>
           <tr><th>Scripthash</th><td><code>${escapeHtml(data.scripthash)}</code></td></tr>
           <tr><th>Cache</th><td>hit: ${escapeHtml(Boolean(cache.hit))} · ttl: ${escapeHtml(cache.ttl_seconds ?? "n/a")}s</td></tr>
@@ -191,6 +192,9 @@
       }
 
       async function lookup(address, offset = 0) {
+        const lookupId = ++latestLookupId;
+        summaryCard.hidden = true;
+        historyCard.hidden = true;
         const trimmed = address.trim();
         if (!trimmed) {
           setMessage("Please enter a PEPEPOW address.", "bad");
@@ -205,14 +209,27 @@
         try {
           setMessage("Loading address summary...", "muted");
           const summary = await getJson(`/api/address/${encodeURIComponent(trimmed)}`);
+          if (lookupId !== latestLookupId) return;
           renderSummary(summary);
+
+          if (summary.history_status?.available === false) {
+            historyBody.innerHTML = `<tr><td colspan="2" class="muted">${escapeHtml(summary.history_status.message || "History is unavailable.")}</td></tr>`;
+            historyPage.textContent = "History unavailable; no empty history is implied.";
+            prevButton.disabled = true;
+            nextButton.disabled = true;
+            historyCard.hidden = false;
+            setMessage(`Balance loaded for ${summary.address}; history is unavailable.`, "bad");
+            return;
+          }
 
           setMessage("Loading transaction history...", "muted");
           const historyData = await getJson(`/api/address/${encodeURIComponent(trimmed)}/history?limit=${PAGE_LIMIT}&offset=${currentOffset}`);
+          if (lookupId !== latestLookupId) return;
           renderHistory(historyData);
           setMessage(`Loaded ${summary.address}.`, "ok");
         } catch (error) {
-          summaryCard.hidden = true;
+          if (lookupId !== latestLookupId) return;
+          // Keep this lookup\'s fetched balance visible when only history fails.
           historyCard.hidden = true;
           setMessage(error.message, "bad");
         }
