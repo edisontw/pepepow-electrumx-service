@@ -84,6 +84,7 @@
       const initialAddress = {{ query_address | tojson }};
       let currentAddress = initialAddress || "";
       let currentOffset = 0;
+      let latestLookupId = 0;
 
       const form = document.getElementById("lookup-form");
       const input = document.getElementById("address-input");
@@ -191,6 +192,9 @@
       }
 
       async function lookup(address, offset = 0) {
+        const lookupId = ++latestLookupId;
+        summaryCard.hidden = true;
+        historyCard.hidden = true;
         const trimmed = address.trim();
         if (!trimmed) {
           setMessage("Please enter a PEPEPOW address.", "bad");
@@ -205,6 +209,7 @@
         try {
           setMessage("Loading address summary...", "muted");
           const summary = await getJson(`/api/address/${encodeURIComponent(trimmed)}`);
+          if (lookupId !== latestLookupId) return;
           renderSummary(summary);
 
           if (summary.history_status?.available === false) {
@@ -219,10 +224,12 @@
 
           setMessage("Loading transaction history...", "muted");
           const historyData = await getJson(`/api/address/${encodeURIComponent(trimmed)}/history?limit=${PAGE_LIMIT}&offset=${currentOffset}`);
+          if (lookupId !== latestLookupId) return;
           renderHistory(historyData);
           setMessage(`Loaded ${summary.address}.`, "ok");
         } catch (error) {
-          // Keep a successfully fetched balance visible when history alone fails.
+          if (lookupId !== latestLookupId) return;
+          // Keep this lookup\'s fetched balance visible when only history fails.
           historyCard.hidden = true;
           setMessage(error.message, "bad");
         }
